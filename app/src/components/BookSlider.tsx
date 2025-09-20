@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import booksData from '../data/books.json';
 
 interface Book {
-  id: number;
+  id: number | string; // Allow string for user comic titles
   title: string;
   author: string;
   color: string;
   gradient: string;
+  image?: string; // Optional for user comics
   isUserComic?: boolean;
   panels?: any[];
 }
@@ -61,12 +63,13 @@ export default function BookSlider() {
         
         if (comics.length > 0) {
           // Convert all user comics to Book objects
-          const userComics: Book[] = comics.map((comic, index) => ({
+          const userComics: Book[] = comics.map((comic: any, index: number) => ({
             id: comic.title,
             title: comic.title,
             author: 'You',
             color: '#8B5CF6',
             gradient: 'from-purple-500 to-indigo-600',
+            image: '/api/placeholder/400/600', // Placeholder for user comics
             isUserComic: true,
             panels: [] // We'll load panels when clicked
           }));
@@ -90,7 +93,7 @@ export default function BookSlider() {
           comicsToShow.forEach((userComic, index) => {
             const bookIndex = startIndex + index;
             if (bookIndex < updatedBooks.length) {
-              updatedBooks[bookIndex] = userComic;
+              updatedBooks[bookIndex] = userComic as any; // Type assertion for mixed ID types
             }
           });
           
@@ -170,7 +173,7 @@ export default function BookSlider() {
         window.location.href = `/create?comic=${encodedTitle}`;
       } catch (error) {
         console.error('Error loading comic:', error);
-        alert(`Failed to load comic: ${error.message}`);
+        alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else {
       setSelectedBook(book);
@@ -257,9 +260,27 @@ export default function BookSlider() {
                   opacity: opacity,
                 }}
                 onClick={() => openBookPopup(book)}
+                onMouseEnter={() => goToBook(index)}
               >
-                {/* Background Gradient */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
+                {/* Book Image or Gradient Background */}
+                <div className="absolute inset-0">
+                  {book.isUserComic ? (
+                    // User comic with gradient background
+                    <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
+                  ) : (
+                    // Regular book with image
+                    <>
+                      <Image 
+                        src={book.image || '/api/placeholder/400/600'} 
+                        alt={book.title}
+                        fill
+                        className="object-cover"
+                      />
+                      {/* Overlay for better text readability */}
+                      <div className="absolute inset-0 bg-black/20" />
+                    </>
+                  )}
+                </div>
                 
                 {/* Top Right Arrow */}
                 <div className="absolute top-4 right-4 opacity-70 group-hover:opacity-100 transition-opacity duration-300">
@@ -269,12 +290,12 @@ export default function BookSlider() {
                 </div>
 
                 {/* Content */}
-                <div className="relative h-full p-6 flex flex-col justify-center text-white">
+                <div className="relative h-full p-6 flex flex-col justify-end text-white">
                   <div className="text-center transform transition-transform duration-300 group-hover:scale-105">
-                    <h3 className="text-xl font-bold mb-2 leading-tight transition-all duration-300 group-hover:text-shadow-lg">
+                    <h3 className="text-xl font-bold mb-2 leading-tight transition-all duration-300 group-hover:text-shadow-lg drop-shadow-lg">
                       {book.title}
                     </h3>
-                    <p className="text-sm opacity-90 transition-opacity duration-300 group-hover:opacity-100">
+                    <p className="text-sm opacity-90 transition-opacity duration-300 group-hover:opacity-100 drop-shadow-md">
                       by {book.author}
                     </p>
                   </div>
@@ -327,15 +348,44 @@ export default function BookSlider() {
             {/* Book Content */}
             <div className="flex flex-col md:flex-row h-full">
               {/* Book Cover */}
-              <div className={`md:w-2/3 h-80 md:h-auto bg-gradient-to-br ${selectedBook.gradient} relative flex items-center justify-center`}>
-                <div className="text-center text-white p-8">
-                  <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                    {selectedBook.title}
-                  </h2>
-                  <p className="text-lg opacity-90 drop-shadow-md">
-                    by {selectedBook.author}
-                  </p>
-                </div>
+              <div className={`md:w-2/3 h-80 md:h-auto relative flex items-center justify-center ${
+                selectedBook.isUserComic ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
+              }`}>
+                {selectedBook.isUserComic ? (
+                  // User comic with gradient background
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center text-white p-8">
+                      <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                        {selectedBook.title}
+                      </h2>
+                      <p className="text-lg opacity-90 drop-shadow-md">
+                        by {selectedBook.author}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  // Regular book with image
+                  <>
+                    <Image 
+                      src={selectedBook.image || '/api/placeholder/400/600'} 
+                      alt={selectedBook.title}
+                      fill
+                      className="object-cover"
+                    />
+                    {/* Overlay for better text readability */}
+                    <div className="absolute inset-0 bg-black/40" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center text-white p-8">
+                        <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                          {selectedBook.title}
+                        </h2>
+                        <p className="text-lg opacity-90 drop-shadow-md">
+                          by {selectedBook.author}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
                 
                 {/* Decorative Elements */}
               </div>
