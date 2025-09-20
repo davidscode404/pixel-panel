@@ -40,7 +40,8 @@ class ComicArtGenerator:
             "You are a comic art generator. You generate art for panels based on a reference sketch from the user. "
             "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
             "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
-            "and scene composition as shown in the reference sketch."
+            "and scene composition as shown in the reference sketch. "
+            "IMPORTANT: Fill the entire panel with no borders, margins, or white space. The artwork should extend to all edges of the image."
         )
         
         if reference_image_path:
