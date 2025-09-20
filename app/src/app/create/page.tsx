@@ -606,21 +606,21 @@ export default function CreatePage() {
               {panels.map((panel) => (
                 <div
                   key={panel.id}
-                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-2xl cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu"
+                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu"
                   onClick={() => handlePanelClick(panel.id)}
                 >
                   <canvas
                     ref={panel.canvasRef}
                     width={400}
                     height={300}
-                    className="w-full h-full rounded-2xl pointer-events-none bg-white"
+                    className="w-full h-full rounded-lg pointer-events-none bg-white"
                   />
                   {/* Panel Number Overlay */}
                   <div className="absolute top-2 left-2 w-6 h-6 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-stone-900 shadow-lg group-hover:bg-amber-400/90 transition-colors duration-300">
                     {panel.id}
                   </div>
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               ))}
             </div>
@@ -659,7 +659,7 @@ export default function CreatePage() {
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="rounded-3xl bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
+                className="rounded-xl bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
@@ -668,7 +668,7 @@ export default function CreatePage() {
             </div>
             
             {/* Combined Tools and Generate Section - Right Side */}
-            <div className="w-80 bg-stone-800/40 backdrop-blur-sm rounded-l-3xl p-4 flex flex-col overflow-y-auto border border-amber-100/20">
+            <div className="w-80 bg-stone-800/40 backdrop-blur-sm rounded-l-xl p-4 flex flex-col overflow-y-auto border border-amber-100/20">
               {/* Generate Scene Section */}
               <div className="mb-6">
                 <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
