@@ -135,13 +135,9 @@ async def initial_draw(
         latest_img = image
         # Convert the PIL Image to base64
         base64_image = image_to_base64(image)
+
+        # Call gemini api to generate an initial image prompt based on the drawing and the description.
         
-        dedalus_runner.run(
-            input="Your task is to refine an image based on the user's feedback. The user's feedback is: {description_text}. The ",
-            model="openai/gpt-4o-mini",
-            tools=[iterate_prompt_tool],
-            stream=False
-        )
         
         return {"description": generated_text}
             

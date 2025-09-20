@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 
 interface Panel {
   id: number;
@@ -24,6 +25,8 @@ export default function CreatePage() {
   const [currentTool, setCurrentTool] = useState('pen');
   const [brushSize, setBrushSize] = useState(3);
   const [currentColor, setCurrentColor] = useState('#000000');
+  const [textPrompt, setTextPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const saveCanvasState = (panelId: number, isLargeCanvas: boolean = false) => {
     const panel = panels.find(p => p.id === panelId);
@@ -235,6 +238,85 @@ export default function CreatePage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
+  const generateComicArt = async (panelId: number) => {
+    if (!textPrompt.trim()) {
+      alert('Please enter a text prompt');
+      return;
+    }
+
+    const panel = panels.find(p => p.id === panelId);
+    if (!panel || !panel.canvasRef.current) return;
+
+    setIsGenerating(true);
+    
+    try {
+      // Get canvas data as base64
+      const canvas = panel.canvasRef.current;
+      const canvasData = canvas.toDataURL('image/png');
+      const base64Data = canvasData.split(',')[1]; // Remove data:image/png;base64, prefix
+
+      // Call backend API
+      const response = await fetch('http://localhost:3004/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text_prompt: textPrompt,
+          reference_image: base64Data
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Load the generated image onto the canvas
+        const img = new Image();
+        img.onload = () => {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate scaling to fit the canvas while maintaining aspect ratio
+            const canvasAspect = canvas.width / canvas.height;
+            const imgAspect = img.width / img.height;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (imgAspect > canvasAspect) {
+              // Image is wider than canvas - fit to width
+              drawWidth = canvas.width;
+              drawHeight = canvas.width / imgAspect;
+              offsetX = 0;
+              offsetY = (canvas.height - drawHeight) / 2;
+            } else {
+              // Image is taller than canvas - fit to height
+              drawHeight = canvas.height;
+              drawWidth = canvas.height * imgAspect;
+              offsetX = (canvas.width - drawWidth) / 2;
+              offsetY = 0;
+            }
+            
+            // Draw the image centered and scaled to fit
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+            
+            // Save the new state
+            saveCanvasState(panelId, true);
+            updateSmallCanvasPreview(panelId);
+          }
+        };
+        img.src = `data:image/png;base64,${result.image_data}`;
+      } else {
+        alert(`Error generating comic art: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating comic art:', error);
+      alert('Failed to generate comic art. Make sure the backend server is running.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
   return (
@@ -242,10 +324,16 @@ export default function CreatePage() {
       {!zoomedPanel ? (
         // Comic Canvas View
         <div className="h-screen flex flex-col">
-          <div className="flex-shrink-0 p-1">
-            <h1 className="text-xs text-center text-gray-500 dark:text-gray-500">
+          <div className="flex-shrink-0 p-2 flex justify-between items-center">
+            <Link href="/">
+              <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors">
+                ← Back to Home
+              </button>
+            </Link>
+            <h1 className="text-xs text-gray-500 dark:text-gray-500">
               Click any panel to draw
             </h1>
+            <div className="w-20"></div> {/* Spacer for centering */}
           </div>
           
           <div className="flex-1 p-2">
@@ -282,17 +370,43 @@ export default function CreatePage() {
             </button>
           </div>
           
-          <div className="flex-1 flex items-center justify-center p-4">
-            <canvas
-              ref={zoomedPanel.canvasRef}
-              width={800}
-              height={600}
-              className="border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 shadow-2xl"
-              onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
-              onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
-              onMouseUp={() => handleMouseUp(zoomedPanel.id)}
-              onMouseLeave={() => handleMouseUp(zoomedPanel.id)}
-            />
+          <div className="flex-1 flex">
+            {/* Canvas Area */}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <canvas
+                ref={zoomedPanel.canvasRef}
+                width={800}
+                height={600}
+                className="border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 shadow-2xl"
+                onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
+                onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
+                onMouseUp={() => handleMouseUp(zoomedPanel.id)}
+                onMouseLeave={() => handleMouseUp(zoomedPanel.id)}
+              />
+            </div>
+            
+            {/* Text Input and Generate Button - Right Side */}
+            <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-600 p-4 flex flex-col">
+              <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4">
+                Generate Scene
+              </h3>
+              <div className="flex flex-col gap-4">
+                <textarea
+                  value={textPrompt}
+                  onChange={(e) => setTextPrompt(e.target.value)}
+                  placeholder="Describe the scene you want to generate..."
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                />
+                <button
+                  onClick={() => generateComicArt(zoomedPanel.id)}
+                  disabled={isGenerating || !textPrompt.trim()}
+                  className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
+                >
+                  {isGenerating ? 'Generating...' : 'Generate Scene'}
+                </button>
+              </div>
+            </div>
           </div>
           
           {/* Drawing Toolbar */}
