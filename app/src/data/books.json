@@ -1,0 +1,74 @@
+{
+  "books": [
+    {
+      "id": 1,
+      "title": "The Midnight Library",
+      "author": "Matt Haig",
+      "color": "#4F46E5",
+      "gradient": "from-indigo-500 to-purple-600"
+    },
+    {
+      "id": 2,
+      "title": "Atomic Habits",
+      "author": "James Clear",
+      "color": "#059669",
+      "gradient": "from-emerald-500 to-teal-600"
+    },
+    {
+      "id": 3,
+      "title": "The Seven Husbands of Evelyn Hugo",
+      "author": "Taylor Jenkins Reid",
+      "color": "#DC2626",
+      "gradient": "from-red-500 to-pink-600"
+    },
+    {
+      "id": 4,
+      "title": "Dune",
+      "author": "Frank Herbert",
+      "color": "#D97706",
+      "gradient": "from-amber-500 to-orange-600"
+    },
+    {
+      "id": 5,
+      "title": "The Silent Patient",
+      "author": "Alex Michaelides",
+      "color": "#7C3AED",
+      "gradient": "from-violet-500 to-purple-600"
+    },
+    {
+      "id": 6,
+      "title": "Where the Crawdads Sing",
+      "author": "Delia Owens",
+      "color": "#0891B2",
+      "gradient": "from-cyan-500 to-blue-600"
+    },
+    {
+      "id": 7,
+      "title": "The Psychology of Money",
+      "author": "Morgan Housel",
+      "color": "#65A30D",
+      "gradient": "from-lime-500 to-green-600"
+    },
+    {
+      "id": 8,
+      "title": "Klara and the Sun",
+      "author": "Kazuo Ishiguro",
+      "color": "#E11D48",
+      "gradient": "from-rose-500 to-red-600"
+    },
+    {
+      "id": 9,
+      "title": "The Invisible Life of Addie LaRue",
+      "author": "V.E. Schwab",
+      "color": "#8B5CF6",
+      "gradient": "from-purple-500 to-indigo-600"
+    },
+    {
+      "id": 10,
+      "title": "Educated",
+      "author": "Tara Westover",
+      "color": "#0D9488",
+      "gradient": "from-teal-500 to-cyan-600"
+    }
+  ]
+}
