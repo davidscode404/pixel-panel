@@ -147,10 +147,28 @@ def list_comics():
             # Check if it has panel files
             panel_files = glob.glob(os.path.join(saved_comics_dir, comic_dir, "panel_*.png"))
             if panel_files:
-                comics.append({
+                # Check for panel 1 as cover image
+                panel_1_path = os.path.join(saved_comics_dir, comic_dir, "panel_1.png")
+                has_cover = os.path.exists(panel_1_path)
+                
+                comic_data = {
                     'title': comic_dir,
-                    'panel_count': len(panel_files)
-                })
+                    'panel_count': len(panel_files),
+                    'has_cover': has_cover
+                }
+                
+                # If panel 1 exists, include it as cover image
+                if has_cover:
+                    try:
+                        import base64
+                        with open(panel_1_path, 'rb') as f:
+                            cover_bytes = f.read()
+                            cover_base64 = base64.b64encode(cover_bytes).decode('utf-8')
+                            comic_data['cover_image'] = f"data:image/png;base64,{cover_base64}"
+                    except Exception as e:
+                        print(f"⚠️ Error reading panel 1 as cover for {comic_dir}: {e}")
+                
+                comics.append(comic_data)
         
         return jsonify({'comics': comics})
 

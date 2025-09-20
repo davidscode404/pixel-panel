@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import booksData from '../data/books.json';
+import { buildApiUrl, API_CONFIG } from '../config/api';
 
 interface Book {
   id: number | string; // Allow string for user comic titles
@@ -21,6 +22,15 @@ interface SavedComic {
   date: string;
   panels: any[];
 }
+
+// Helper function to format comic titles nicely
+const formatComicTitle = (title: string): string => {
+  return title
+    .replace(/_/g, ' ') // Replace underscores with spaces
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Capitalize each word
+    .join(' ');
+};
 
 export default function BookSlider() {
   const [books, setBooks] = useState<Book[]>(booksData.books);
@@ -55,21 +65,30 @@ export default function BookSlider() {
   const loadComicsFromDB = async () => {
     try {
       // Get list of saved comics from project directory
-      const response = await fetch('http://localhost:3004/list-comics');
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
       if (response.ok) {
         const data = await response.json();
         const comics = data.comics;
         console.log('Loaded comics from project directory:', comics);
         
+        // Debug cover images
+        comics.forEach((comic: any) => {
+          if (comic.cover_image) {
+            console.log(`Cover image found for ${comic.title}: ${comic.cover_image.substring(0, 50)}...`);
+          } else {
+            console.log(`No cover image for ${comic.title}`);
+          }
+        });
+        
         if (comics.length > 0) {
           // Convert all user comics to Book objects
           const userComics: Book[] = comics.map((comic: any, index: number) => ({
             id: comic.title,
-            title: comic.title,
+            title: formatComicTitle(comic.title),
             author: 'You',
             color: '#8B5CF6',
             gradient: 'from-purple-500 to-indigo-600',
-            image: '/api/placeholder/400/600', // Placeholder for user comics
+            image: comic.cover_image || '/api/placeholder/400/600', // Use cover image if available
             isUserComic: true,
             panels: [] // We'll load panels when clicked
           }));
@@ -165,9 +184,10 @@ export default function BookSlider() {
     if (book.isUserComic) {
       // For user comics, redirect to create page with comic title as URL parameter
       try {
-        // Properly encode the comic title for the URL
-        const encodedTitle = encodeURIComponent(book.title);
-        console.log(`Loading comic: '${book.title}' -> encoded: '${encodedTitle}'`);
+        // Use the original title (with underscores) for the backend
+        const originalTitle = book.id as string; // The ID contains the original title
+        const encodedTitle = encodeURIComponent(originalTitle);
+        console.log(`Loading comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
         
         // Redirect to create page with comic title as URL parameter
         window.location.href = `/create?comic=${encodedTitle}`;
@@ -214,7 +234,7 @@ export default function BookSlider() {
   };
 
   return (
-    <div className="w-full max-w-full mx-auto px-8">
+    <div className="w-full max-w-7xl mx-auto px-12">
       <div className="relative">
         {/* Navigation Arrows */}
         <button
@@ -238,14 +258,14 @@ export default function BookSlider() {
         </button>
 
         {/* Overlapping Cards Container */}
-        <div className="relative h-96 flex justify-center items-center px-4">
+        <div className="relative h-96 flex justify-center items-center px-8">
           {books.map((book, index) => {
             const offset = index - currentIndex;
             const absOffset = Math.abs(offset);
             const isActive = index === currentIndex;
             
             // Calculate position and scale
-            const translateX = offset * 80; // Increased overlap spacing
+            const translateX = offset * 100; // Increased spacing for wider books
             const scale = Math.max(isActive ? 1 : 0.9 - (absOffset * 0.05), 0.7);
             const zIndex = books.length - absOffset;
             const opacity = absOffset > 3 ? 0 : 1 - (absOffset * 0.2);
@@ -253,7 +273,7 @@ export default function BookSlider() {
             return (
               <div
                 key={book.id}
-                className="absolute w-64 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer hover:shadow-2xl hover:scale-110 hover:brightness-110 group"
+                className="absolute w-80 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer hover:shadow-2xl hover:scale-110 hover:brightness-110 group"
                 style={{
                   transform: `translateX(${translateX}px) scale(${scale})`,
                   zIndex: zIndex,
@@ -264,8 +284,20 @@ export default function BookSlider() {
               >
                 {/* Book Image or Gradient Background */}
                 <div className="absolute inset-0">
-                  {book.isUserComic ? (
-                    // User comic with gradient background
+                  {book.isUserComic && book.image && book.image !== '/api/placeholder/400/600' ? (
+                    // User comic with cover image
+                    <>
+                      <Image 
+                        src={book.image} 
+                        alt={book.title}
+                        fill
+                        className="object-cover"
+                      />
+                      {/* Overlay for better text readability */}
+                      <div className="absolute inset-0 bg-black/30" />
+                    </>
+                  ) : book.isUserComic ? (
+                    // User comic with gradient background (fallback)
                     <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
                   ) : (
                     // Regular book with image
@@ -349,10 +381,32 @@ export default function BookSlider() {
             <div className="flex flex-col md:flex-row h-full">
               {/* Book Cover */}
               <div className={`md:w-2/3 h-80 md:h-auto relative flex items-center justify-center ${
-                selectedBook.isUserComic ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
+                selectedBook.isUserComic && (!selectedBook.image || selectedBook.image === '/api/placeholder/400/600') ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
               }`}>
-                {selectedBook.isUserComic ? (
-                  // User comic with gradient background
+                {selectedBook.isUserComic && selectedBook.image && selectedBook.image !== '/api/placeholder/400/600' ? (
+                  // User comic with cover image
+                  <>
+                    <Image 
+                      src={selectedBook.image} 
+                      alt={selectedBook.title}
+                      fill
+                      className="object-cover"
+                    />
+                    {/* Overlay for better text readability */}
+                    <div className="absolute inset-0 bg-black/40" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center text-white p-8">
+                        <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                          {selectedBook.title}
+                        </h2>
+                        <p className="text-lg opacity-90 drop-shadow-md">
+                          by {selectedBook.author}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                ) : selectedBook.isUserComic ? (
+                  // User comic with gradient background (fallback)
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center text-white p-8">
                       <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">

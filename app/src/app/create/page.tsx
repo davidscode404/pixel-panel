@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { buildApiUrl, API_CONFIG } from '../../config/api';
 
 interface Panel {
   id: number;
@@ -42,10 +43,16 @@ export default function CreatePage() {
           console.log(`Loading comic from URL parameter: ${comicTitle}`);
           
           // Load comic data from backend
-          const response = await fetch(`http://localhost:3004/load-comic/${comicTitle}`);
+          const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.LOAD_COMIC}/${comicTitle}`));
           if (response.ok) {
             const comic = await response.json();
-            setComicTitle(comic.comic_title);
+            // Format the comic title for display
+            const formattedTitle = comic.comic_title
+              .replace(/_/g, ' ')
+              .split(' ')
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+            setComicTitle(formattedTitle);
             setIsEditing(true);
             
             // Load the comic panels from project directory
@@ -105,7 +112,7 @@ export default function CreatePage() {
           }
         } catch (error) {
           console.error('Error loading comic:', error);
-          alert(`Failed to load comic: ${error.message}`);
+          alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
     };
@@ -350,6 +357,65 @@ export default function CreatePage() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Update panel data to reflect cleared state
+    setPanels(prev => prev.map(p => 
+      p.id === panelId 
+        ? { ...p, smallCanvasData: null, largeCanvasData: null }
+        : p
+    ));
+    
+    // Check if all panels are now empty and reset context if so
+    checkAndResetContext();
+  };
+
+  const checkAndResetContext = async () => {
+    // Check if all panels are empty
+    const allPanelsEmpty = panels.every(panel => 
+      !panel.smallCanvasData && !panel.largeCanvasData
+    );
+    
+    if (allPanelsEmpty) {
+      try {
+        console.log('All panels cleared, resetting context...');
+        const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.RESET_CONTEXT), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (response.ok) {
+          console.log('Context reset successfully');
+        } else {
+          console.error('Failed to reset context');
+        }
+      } catch (error) {
+        console.error('Error resetting context:', error);
+      }
+    }
+  };
+
+  const clearAllPanels = () => {
+    panels.forEach(panel => {
+      if (panel.canvasRef.current) {
+        const canvas = panel.canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+    });
+    
+    // Reset all panel data
+    setPanels(prev => prev.map(panel => ({
+      ...panel,
+      smallCanvasData: null,
+      largeCanvasData: null
+    })));
+    
+    // Reset context
+    checkAndResetContext();
   };
 
   const saveComic = async () => {
@@ -385,8 +451,8 @@ export default function CreatePage() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving comic:', error);
-      console.error('Error details:', error.message);
-      alert(`Failed to save comic: ${error.message}`);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      alert(`Failed to save comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -403,7 +469,7 @@ export default function CreatePage() {
           const base64Data = panel.largeCanvasData.split(',')[1];
           
           // Send to backend to save in project directory
-          const response = await fetch('http://localhost:3004/save-panel', {
+          const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -426,7 +492,7 @@ export default function CreatePage() {
       }
     } catch (error) {
       console.error('Error saving PNG files:', error);
-      throw new Error(`Failed to save PNG files: ${error.message}`);
+      throw new Error(`Failed to save PNG files: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -490,14 +556,16 @@ export default function CreatePage() {
       const base64Data = canvasData.split(',')[1]; // Remove data:image/png;base64, prefix
 
       // Call backend API
-      const response = await fetch('http://localhost:3004/generate', {
+      console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           text_prompt: textPrompt,
-          reference_image: base64Data
+          reference_image: base64Data,
+          panel_id: panelId
         })
       });
 
@@ -554,52 +622,72 @@ export default function CreatePage() {
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen animated-gradient">
       {!zoomedPanel ? (
         // Comic Canvas View
-        <div className="h-screen flex flex-col">
-          <div className="flex-shrink-0 p-2 flex justify-between items-center">
+        <div className="h-screen flex flex-col p-4">
+          <div className="flex-shrink-0 p-4 flex justify-between items-center">
             <Link href="/">
-              <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm transition-colors">
-                ← Back to Home
+              <button className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105">
+                <svg 
+                  className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                </svg>
+                Back
               </button>
             </Link>
-            <h1 className="text-xs text-gray-500 dark:text-gray-500">
+            <h1 className="text-sm text-amber-50/80 drop-shadow-lg font-medium">
               Click any panel to draw
             </h1>
             {/* Save Comic Button - Top Right */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={clearAllPanels}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
+              >
+                Clear All
+              </button>
               <input
                 type="text"
                 value={comicTitle}
                 onChange={(e) => setComicTitle(e.target.value)}
                 placeholder="Comic title..."
-                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-4 py-2 text-sm border border-amber-100/30 rounded-lg bg-stone-800/40 backdrop-blur-sm text-amber-50 placeholder-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-100/50 shadow-lg"
               />
               <button
                 onClick={saveComic}
                 disabled={!comicTitle.trim()}
-                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm transition-colors"
+                className="group rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
               >
                 {isEditing ? 'Update' : 'Save'}
               </button>
             </div>
           </div>
           
-          <div className="flex-1 p-2">
-            <div className="w-full grid grid-cols-3 gap-2" style={{ height: '300px' }}>
+          <div className="flex-1 p-6">
+            <div className="w-full grid grid-cols-3 gap-6" style={{ height: '320px' }}>
               {panels.map((panel) => (
                 <div
                   key={panel.id}
-                  className="relative bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 transition-colors duration-200 shadow-lg"
+                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu"
                   onClick={() => handlePanelClick(panel.id)}
                 >
                   <canvas
                     ref={panel.canvasRef}
                     width={400}
                     height={300}
-                    className="w-full h-full rounded-lg pointer-events-none"
+                    className="w-full h-full rounded-lg pointer-events-none bg-white"
                   />
+                  {/* Panel Number Overlay */}
+                  <div className="absolute top-2 left-2 w-6 h-6 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-stone-900 shadow-lg group-hover:bg-amber-400/90 transition-colors duration-300">
+                    {panel.id}
+                  </div>
+                  {/* Hover Effect Overlay */}
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               ))}
             </div>
@@ -607,27 +695,38 @@ export default function CreatePage() {
         </div>
       ) : (
         // Zoomed Panel View with Drawing Toolbar
-        <div className="h-screen flex flex-col">
-          <div className="flex-shrink-0 p-4 flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-800 dark:text-white">
-              Panel {zoomedPanel.id}
-            </h2>
+        <div className="h-screen flex flex-col p-4">
+          <div className="flex-shrink-0 p-6 flex justify-between items-center">
             <button
               onClick={() => handlePanelClick(zoomedPanel.id)}
-              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
             >
+              <svg 
+                className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+              </svg>
               Back to Canvas
             </button>
+            <h2 className="text-xl font-bold text-amber-50 drop-shadow-lg flex items-center gap-3">
+              <div className="w-8 h-8 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-stone-900 shadow-lg">
+                {zoomedPanel.id}
+              </div>
+              Panel {zoomedPanel.id}
+            </h2>
           </div>
           
-          <div className="flex-1 flex">
+          <div className="flex-1 flex overflow-hidden">
             {/* Canvas Area */}
-            <div className="flex-1 flex items-center justify-center p-4">
+            <div className="flex-1 flex items-center justify-center p-4 min-w-0">
               <canvas
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 shadow-2xl"
+                className="rounded-xl bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
@@ -635,91 +734,125 @@ export default function CreatePage() {
               />
             </div>
             
-            {/* Text Input and Generate Button - Right Side */}
-            <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-300 dark:border-gray-600 p-4 flex flex-col">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4">
-                Generate Scene
-              </h3>
-              <div className="flex flex-col gap-4">
-                <textarea
-                  value={textPrompt}
-                  onChange={(e) => setTextPrompt(e.target.value)}
-                  placeholder="Describe the scene you want to generate..."
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  rows={4}
-                />
-                <button
-                  onClick={() => generateComicArt(zoomedPanel.id)}
-                  disabled={isGenerating || !textPrompt.trim()}
-                  className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white rounded-lg transition-colors font-medium"
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Scene'}
-                </button>
+            {/* Combined Tools and Generate Section - Right Side */}
+            <div className="w-80 bg-stone-800/40 backdrop-blur-sm rounded-l-xl p-4 flex flex-col overflow-y-auto border border-amber-100/20">
+              {/* Generate Scene Section */}
+              <div className="mb-6">
+                <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
+                  Generate Scene
+                </h3>
+                <div className="flex flex-col gap-3">
+                  <textarea
+                    value={textPrompt}
+                    onChange={(e) => setTextPrompt(e.target.value)}
+                    placeholder="Describe the scene you want to generate..."
+                    className="w-full px-3 py-2 border border-amber-100/30 rounded-lg bg-stone-800/40 backdrop-blur-sm text-amber-50 placeholder-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-100/50 resize-none shadow-lg text-sm"
+                    rows={3}
+                  />
+                  <button
+                    onClick={() => generateComicArt(zoomedPanel.id)}
+                    disabled={isGenerating || !textPrompt.trim()}
+                    className="group w-full rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Generate Scene
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-          
-          {/* Drawing Toolbar */}
-          <div className="bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-600 p-4">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                {/* Tool Selection */}
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleToolChange('pen')}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      currentTool === 'pen' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    Pen
-                  </button>
-                  <button
-                    onClick={() => handleToolChange('eraser')}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      currentTool === 'eraser' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    Eraser
-                  </button>
+
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
+                  Drawing Tools
+                </h3>
+                
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Tools</label>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleToolChange('pen')}
+                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
+                        currentTool === 'pen' 
+                          ? 'bg-amber-500/80 text-stone-900 shadow-lg border border-amber-300/50' 
+                          : 'bg-stone-800/40 text-amber-50 border border-amber-100/20 hover:bg-stone-700/50 hover:border-amber-100/40'
+                      }`}
+                    >
+                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                      Pen
+                    </button>
+                    <button
+                      onClick={() => handleToolChange('eraser')}
+                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
+                        currentTool === 'eraser' 
+                          ? 'bg-amber-500/80 text-stone-900 shadow-lg border border-amber-300/50' 
+                          : 'bg-stone-800/40 text-amber-50 border border-amber-100/20 hover:bg-stone-700/50 hover:border-amber-100/40'
+                      }`}
+                    >
+                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Eraser
+                    </button>
+                  </div>
                 </div>
                 
                 {/* Brush Size */}
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm text-gray-600 dark:text-gray-400">Size:</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="20"
-                    value={brushSize}
-                    onChange={(e) => setBrushSize(Number(e.target.value))}
-                    className="w-20"
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-400 w-6">{brushSize}</span>
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Brush Size</label>
+                  <div className="flex items-center space-x-2 bg-stone-800/40 rounded-lg px-3 py-2 border border-amber-100/20">
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      value={brushSize}
+                      onChange={(e) => setBrushSize(Number(e.target.value))}
+                      className="flex-1 accent-amber-500"
+                    />
+                    <span className="text-xs font-bold text-amber-50 w-6 text-center">{brushSize}</span>
+                  </div>
                 </div>
                 
                 {/* Color Picker */}
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm text-gray-600 dark:text-gray-400">Color:</label>
-                  <input
-                    type="color"
-                    value={currentColor}
-                    onChange={(e) => setCurrentColor(e.target.value)}
-                    className="w-10 h-10 rounded border border-gray-300 dark:border-gray-600"
-                  />
+                <div className="mb-4">
+                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Color</label>
+                  <div className="flex items-center space-x-2 bg-stone-800/40 rounded-lg px-3 py-2 border border-amber-100/20">
+                    <input
+                      type="color"
+                      value={currentColor}
+                      onChange={(e) => setCurrentColor(e.target.value)}
+                      className="w-8 h-8 rounded border border-amber-100/30 bg-stone-800/60 cursor-pointer"
+                    />
+                    <span className="text-xs text-amber-50/80">Current color</span>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => clearPanel(zoomedPanel.id)}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                >
-                  Clear Panel
-                </button>
+
+                {/* Clear Panel Button */}
+                <div>
+                  <button
+                    onClick={() => clearPanel(zoomedPanel.id)}
+                    className="group w-full rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-700/80 backdrop-blur-sm text-amber-50 hover:bg-stone-600/90 hover:border-amber-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Clear Panel
+                  </button>
+                </div>
               </div>
             </div>
           </div>
