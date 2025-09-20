@@ -22,6 +22,15 @@ interface SavedComic {
   panels: any[];
 }
 
+// Helper function to format comic titles nicely
+const formatComicTitle = (title: string): string => {
+  return title
+    .replace(/_/g, ' ') // Replace underscores with spaces
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Capitalize each word
+    .join(' ');
+};
+
 export default function BookSlider() {
   const [books, setBooks] = useState<Book[]>(booksData.books);
   const [currentIndex, setCurrentIndex] = useState(Math.floor(booksData.books.length / 2));
@@ -65,7 +74,7 @@ export default function BookSlider() {
           // Convert all user comics to Book objects
           const userComics: Book[] = comics.map((comic: any, index: number) => ({
             id: comic.title,
-            title: comic.title,
+            title: formatComicTitle(comic.title),
             author: 'You',
             color: '#8B5CF6',
             gradient: 'from-purple-500 to-indigo-600',
@@ -165,9 +174,10 @@ export default function BookSlider() {
     if (book.isUserComic) {
       // For user comics, redirect to create page with comic title as URL parameter
       try {
-        // Properly encode the comic title for the URL
-        const encodedTitle = encodeURIComponent(book.title);
-        console.log(`Loading comic: '${book.title}' -> encoded: '${encodedTitle}'`);
+        // Use the original title (with underscores) for the backend
+        const originalTitle = book.id as string; // The ID contains the original title
+        const encodedTitle = encodeURIComponent(originalTitle);
+        console.log(`Loading comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
         
         // Redirect to create page with comic title as URL parameter
         window.location.href = `/create?comic=${encodedTitle}`;

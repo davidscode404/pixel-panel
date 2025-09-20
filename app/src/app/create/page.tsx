@@ -45,7 +45,13 @@ export default function CreatePage() {
           const response = await fetch(`http://localhost:3004/load-comic/${comicTitle}`);
           if (response.ok) {
             const comic = await response.json();
-            setComicTitle(comic.comic_title);
+            // Format the comic title for display
+            const formattedTitle = comic.comic_title
+              .replace(/_/g, ' ')
+              .split(' ')
+              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+            setComicTitle(formattedTitle);
             setIsEditing(true);
             
             // Load the comic panels from project directory
@@ -105,7 +111,7 @@ export default function CreatePage() {
           }
         } catch (error) {
           console.error('Error loading comic:', error);
-          alert(`Failed to load comic: ${error.message}`);
+          alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
     };
@@ -385,8 +391,8 @@ export default function CreatePage() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving comic:', error);
-      console.error('Error details:', error.message);
-      alert(`Failed to save comic: ${error.message}`);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      alert(`Failed to save comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -426,7 +432,7 @@ export default function CreatePage() {
       }
     } catch (error) {
       console.error('Error saving PNG files:', error);
-      throw new Error(`Failed to save PNG files: ${error.message}`);
+      throw new Error(`Failed to save PNG files: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
