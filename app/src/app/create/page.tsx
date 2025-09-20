@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { buildApiUrl, API_CONFIG } from '../../config/api';
 
 interface Panel {
   id: number;
@@ -42,7 +43,7 @@ export default function CreatePage() {
           console.log(`Loading comic from URL parameter: ${comicTitle}`);
           
           // Load comic data from backend
-          const response = await fetch(`http://localhost:3004/load-comic/${comicTitle}`);
+          const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.LOAD_COMIC}/${comicTitle}`));
           if (response.ok) {
             const comic = await response.json();
             // Format the comic title for display
@@ -409,7 +410,7 @@ export default function CreatePage() {
           const base64Data = panel.largeCanvasData.split(',')[1];
           
           // Send to backend to save in project directory
-          const response = await fetch('http://localhost:3004/save-panel', {
+          const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -496,7 +497,7 @@ export default function CreatePage() {
       const base64Data = canvasData.split(',')[1]; // Remove data:image/png;base64, prefix
 
       // Call backend API
-      const response = await fetch('http://localhost:3004/generate', {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

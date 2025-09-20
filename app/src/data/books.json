@@ -2,32 +2,32 @@
   "books": [
     {
       "id": 1,
-      "title": "Comic Adventure Book 1",
-      "author": "PixelPanel Creator",
+      "title": "Claude the Dragon Slayer 2",
+      "author": "Dario Amodei",
       "color": "#4F46E5",
       "gradient": "from-indigo-500 to-purple-600",
       "image": "/book1.png"
     },
     {
       "id": 2,
-      "title": "Comic Adventure Book 2", 
-      "author": "PixelPanel Creator",
+      "title": "Adventure Labs", 
+      "author": "Mati Staniszewski",
       "color": "#059669",
       "gradient": "from-emerald-500 to-teal-600",
       "image": "/book2.png"
     },
     {
       "id": 3,
-      "title": "Comic Adventure Book 3",
-      "author": "PixelPanel Creator",
+      "title": "Vibe Hackers",
+      "author": "Louis Knight-Webb",
       "color": "#DC2626",
       "gradient": "from-red-500 to-pink-600",
       "image": "/book3.png"
     },
     {
       "id": 4,
-      "title": "Comic Adventure Book 4",
-      "author": "PixelPanel Creator",
+      "title": "ElevenBarks",
+      "author": "Louis Jordan",
       "color": "#D97706",
       "gradient": "from-amber-500 to-orange-600",
       "image": "/book4.png"
@@ -42,15 +42,15 @@
     },
     {
       "id": 6,
-      "title": "Comic Adventure Book 6",
-      "author": "PixelPanel Creator",
+      "title": "Dedalus Lifts",
+      "author": "Cathy Di",
       "color": "#0891B2",
       "gradient": "from-cyan-500 to-blue-600",
       "image": "/book6.png"
     },
     {
       "id": 7,
-      "title": "Comic Adventure Book 7",
+      "title": "Green Rampage",
       "author": "PixelPanel Creator",
       "color": "#65A30D",
       "gradient": "from-lime-500 to-green-600",
