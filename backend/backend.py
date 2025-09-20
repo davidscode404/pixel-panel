@@ -18,6 +18,9 @@ import sys
 from google import genai
 from google.genai import types
 import json
+import asyncio
+from dedalus_labs import AsyncDedalus, DedalusRunner
+from dedalus_labs.utils.streaming import stream_async
 
 load_dotenv()
 
@@ -211,6 +214,59 @@ async def generate_comic_art(request: ComicArtRequest):
             detail=str(e)
         )
 
+@app.post("/auto-complete")
+async def auto_complete(
+    image_c1: UploadFile = File(...),
+    image_c2: UploadFile = None,
+    image_c3: UploadFile = None,
+    image_c4: UploadFile = None,
+    image_c5: UploadFile = None):
+    """
+    Auto-complete a comic panel based on the images provided
+    """
+    images = []
+    for image in [image_c1, image_c2, image_c3, image_c4, image_c5]:
+        if image is None:
+            continue
+        images.append(image)
+
+    # Generate a story summary from the images
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not google_api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_API_KEY environment variable not set"
+        )
+    client = genai.Client(api_key=google_api_key)
+
+    contents_for_gemini = []
+    for image in images:
+        contents_for_gemini.append(types.Part.from_bytes(
+            data=image.file.read(),
+            mime_type='image/png'
+        ))
+
+    contents_for_gemini.append(types.Part(text="Generate a story summary from the images"))
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=contents_for_gemini
+    )
+    print(response.text)
+    return {'story_summary': response.text}
+    
+    # Use dedalus to extend the the story and generate the prompts for the next panels
+    client = AsyncDedalus()
+    runner = DedalusRunner(client)
+
+    result = await runner.run(
+        input=f"Please extend the story summary with {6 - len(images)} story points.", 
+        model="openai/gpt-4.0-mini", 
+    )
+
+    result = result.content
+    # Feed the story summary, panel prompts, and previous images to gemini for generation of the next comic panels.
+
 
 @app.post("/reset-context")
 async def reset_context():
@@ -378,11 +434,11 @@ async def save_panel(request: Request):
         with open(panel_path, 'wb') as f:
             f.write(image_bytes)
 
-        print(f"💾 Saved {panel_filename} to: {panel_path}")
-        return {'success': True, 'message': f'{panel_filename} saved successfully'}
+        print(f"Saved panel {panel_id} to: {panel_path}")
+        return {'success': True, 'message': f'Panel {panel_id} saved successfully'}
 
     except Exception as e:
-        print(f"❌ Error saving panel: {e}")
+        print(f"Error saving panel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -456,6 +512,25 @@ async def generate_voiceover(
                 "Content-Disposition": "inline; filename=voiceover.mp3"
             }
         )
+
+
+@app.post("/video-gen")
+def on_queue_update(prompt: str, image_path: str):
+    if isinstance(update, fal_client.InProgress):
+        for log in update.logs:
+           print(log["message"])
+
+    result = fal_client.subscribe(
+        "fal-ai/kling-video/v2.1/master/image-to-video",
+        arguments={
+            "prompt": "A fluffy brown teddy bear, clinging precariously to a miniature surfboard, rides a playful wave toward the shore, the sun glinting off the wet fur.  The simple, bright animation style emphasizes the joy of the moment as the bear triumphantly reaches the sand, shaking the water from its ears.",
+            "image_url": "https://fal.media/files/panda/S_2Wdnsn0FGay6VhUgomf_9316cf185253481a9f794ebe995dbc07.jpg",
+            "aspect_ratio": "16:9"
+        },
+        with_logs=True,
+        on_queue_update=on_queue_update,
+    )
+    return result
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
