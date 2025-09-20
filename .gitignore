@@ -5,7 +5,7 @@
 .env.test.local
 .env.production.local
 
-# Image files
+# Image files (except saved comics)
 *.png
 *.jpg
 *.jpeg
@@ -13,6 +13,9 @@
 *.bmp
 *.tiff
 *.webp
+
+# Allow saved comics
+!saved-comics/**/*.png
 
 # Python
 __pycache__/
