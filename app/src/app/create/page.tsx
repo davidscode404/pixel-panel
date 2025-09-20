@@ -31,6 +31,18 @@ export default function CreatePage() {
   const [comicTitle, setComicTitle] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+    };
+  }, [currentAudio]);
 
   // Load comic for editing if one is selected via URL parameter
   useEffect(() => {
@@ -629,11 +641,25 @@ export default function CreatePage() {
         // Simulate loading time
         await new Promise(resolve => setTimeout(resolve, 2000));
         
+        // Stop any currently playing audio
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+        }
+        
         // Create audio element and play the kanban_audio.mp3
         const audio = new Audio('/saved-comics/kan_vibe/kanban_audio.mp3');
+        setCurrentAudio(audio);
+        
+        // Set up event listeners
+        audio.addEventListener('play', () => setIsAudioPlaying(true));
+        audio.addEventListener('pause', () => setIsAudioPlaying(false));
+        audio.addEventListener('ended', () => setIsAudioPlaying(false));
+        
         audio.play().catch(error => {
           console.error('Error playing audio:', error);
           alert('Error playing audio. Make sure the audio file exists.');
+          setIsAudioPlaying(false);
         });
         
       } catch (error) {
@@ -644,6 +670,14 @@ export default function CreatePage() {
       }
     } else {
       alert('Audio generation is only available for Kan Vibe comics');
+    }
+  };
+
+  const stopAudio = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+      setIsAudioPlaying(false);
     }
   };
 
@@ -705,6 +739,18 @@ export default function CreatePage() {
                   </>
                 )}
               </button>
+              {isAudioPlaying && (
+                <button
+                  onClick={stopAudio}
+                  className="group rounded-lg border border-solid border-red-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-red-600/80 backdrop-blur-sm text-white hover:bg-red-500/90 hover:border-red-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  Stop Audio
+                </button>
+              )}
               <button
                 onClick={saveComic}
                 disabled={!comicTitle.trim()}
