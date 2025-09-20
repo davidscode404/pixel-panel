@@ -313,9 +313,9 @@ async def list_comics():
             # Check if it has panel files
             panel_files = glob.glob(os.path.join(saved_comics_dir, comic_dir, "panel_*.png"))
             if panel_files:
-                # Check for cover image
-                cover_path = os.path.join(saved_comics_dir, comic_dir, "cover.png")
-                has_cover = os.path.exists(cover_path)
+                # Check for panel 1 as cover image
+                panel_1_path = os.path.join(saved_comics_dir, comic_dir, "panel_1.png")
+                has_cover = os.path.exists(panel_1_path)
                 
                 comic_data = {
                     'title': comic_dir,
@@ -323,15 +323,15 @@ async def list_comics():
                     'has_cover': has_cover
                 }
                 
-                # If cover exists, include it as base64
+                # If panel 1 exists, include it as cover image
                 if has_cover:
                     try:
-                        with open(cover_path, 'rb') as f:
+                        with open(panel_1_path, 'rb') as f:
                             cover_bytes = f.read()
                             cover_base64 = base64.b64encode(cover_bytes).decode('utf-8')
                             comic_data['cover_image'] = f"data:image/png;base64,{cover_base64}"
                     except Exception as e:
-                        print(f"⚠️ Error reading cover image for {comic_dir}: {e}")
+                        print(f"⚠️ Error reading panel 1 as cover for {comic_dir}: {e}")
                 
                 comics.append(comic_data)
         
@@ -421,20 +421,13 @@ async def save_panel(request: Request):
         # Save the panel image
         import base64
         image_bytes = base64.b64decode(image_data)
-        
-        # Handle cover image vs regular panel
-        if panel_id == 'cover':
-            panel_filename = "cover.png"
-            print(f"🖼️ Saving cover image for comic: {comic_title}")
-        else:
-            panel_filename = f"panel_{panel_id}.png"
-            
+        panel_filename = f"panel_{panel_id}.png"
         panel_path = os.path.join(comic_dir, panel_filename)
 
         with open(panel_path, 'wb') as f:
             f.write(image_bytes)
 
-        print(f"Saved panel {panel_id} to: {panel_path}")
+        print(f"💾 Saved panel {panel_id} to: {panel_path}")
         return {'success': True, 'message': f'Panel {panel_id} saved successfully'}
 
     except Exception as e:
