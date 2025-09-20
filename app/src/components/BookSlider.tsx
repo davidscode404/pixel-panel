@@ -14,6 +14,8 @@ interface Book {
 export default function BookSlider() {
   const books: Book[] = booksData.books;
   const [currentIndex, setCurrentIndex] = useState(Math.floor(books.length / 2));
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   const nextBook = () => {
     setCurrentIndex((prev) => (prev < books.length - 1 ? prev + 1 : 0));
@@ -27,46 +29,49 @@ export default function BookSlider() {
     setCurrentIndex(index);
   };
 
-  return (
-    <div className="w-full max-w-7xl mx-auto px-4">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold mb-2">Featured Books</h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Discover your next great read
-        </p>
-      </div>
+  const openBookPopup = (book: Book) => {
+    setSelectedBook(book);
+    setIsPopupOpen(true);
+  };
 
+  const closePopup = () => {
+    setIsPopupOpen(false);
+    setSelectedBook(null);
+  };
+
+  return (
+    <div className="w-full max-w-full mx-auto px-8">
       <div className="relative">
-        {/* Navigation Buttons */}
+        {/* Navigation Arrows */}
         <button
           onClick={prevBook}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 shadow-lg rounded-full p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white hover:text-amber-200 transition-colors"
           aria-label="Previous book"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
           </svg>
         </button>
 
         <button
           onClick={nextBook}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 shadow-lg rounded-full p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white hover:text-amber-200 transition-colors"
           aria-label="Next book"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"/>
           </svg>
         </button>
 
         {/* Overlapping Cards Container */}
-        <div className="relative h-96 flex justify-center items-center px-12">
+        <div className="relative h-96 flex justify-center items-center px-4">
           {books.map((book, index) => {
             const offset = index - currentIndex;
             const absOffset = Math.abs(offset);
             const isActive = index === currentIndex;
             
             // Calculate position and scale
-            const translateX = offset * 60; // Overlap amount
+            const translateX = offset * 80; // Increased overlap spacing
             const scale = Math.max(isActive ? 1 : 0.9 - (absOffset * 0.05), 0.7);
             const zIndex = books.length - absOffset;
             const opacity = absOffset > 3 ? 0 : 1 - (absOffset * 0.2);
@@ -74,75 +79,133 @@ export default function BookSlider() {
             return (
               <div
                 key={book.id}
-                className="absolute w-64 h-80 rounded-2xl overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer"
+                className="absolute w-64 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer hover:shadow-2xl hover:scale-110 hover:brightness-110 group"
                 style={{
                   transform: `translateX(${translateX}px) scale(${scale})`,
                   zIndex: zIndex,
                   opacity: opacity,
                 }}
-                onClick={() => goToBook(index)}
+                onClick={() => openBookPopup(book)}
               >
                 {/* Background Gradient */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
                 
-                {/* Close Button */}
-                <button
-                  className="absolute top-4 right-4 w-8 h-8 bg-black bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Handle close/remove functionality here
-                  }}
-                >
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                {/* Top Right Arrow */}
+                <div className="absolute top-4 right-4 opacity-70 group-hover:opacity-100 transition-opacity duration-300">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7H7M17 7V17" />
                   </svg>
-                </button>
+                </div>
 
                 {/* Content */}
-                <div className="relative h-full p-6 flex flex-col justify-between text-white">
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center">
-                      <h3 className="text-xl font-bold mb-2 leading-tight">
-                        {book.title}
-                      </h3>
-                      <p className="text-sm opacity-90">
-                        by {book.author}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Tag/Category */}
-                  <div className="flex justify-center">
-                    <span className="text-xs bg-white bg-opacity-20 px-3 py-1 rounded-full">
-                      Featured
-                    </span>
+                <div className="relative h-full p-6 flex flex-col justify-center text-white">
+                  <div className="text-center transform transition-transform duration-300 group-hover:scale-105">
+                    <h3 className="text-xl font-bold mb-2 leading-tight transition-all duration-300 group-hover:text-shadow-lg">
+                      {book.title}
+                    </h3>
+                    <p className="text-sm opacity-90 transition-opacity duration-300 group-hover:opacity-100">
+                      by {book.author}
+                    </p>
                   </div>
                 </div>
 
                 {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 w-20 h-20 bg-white bg-opacity-10 rounded-full -translate-y-10 translate-x-10" />
-                <div className="absolute bottom-0 left-0 w-16 h-16 bg-black bg-opacity-10 rounded-full translate-y-8 -translate-x-8" />
               </div>
             );
           })}
         </div>
 
-        {/* Dots Indicator */}
-        <div className="flex justify-center mt-8 gap-2">
+        {/* Bar Indicator */}
+        <div className="flex justify-center mt-8 gap-1">
           {books.map((_, index) => (
             <button
               key={index}
               onClick={() => goToBook(index)}
-              className={`w-3 h-3 rounded-full transition-all ${
+              className={`h-1 transition-all duration-300 ${
                 index === currentIndex
-                  ? 'bg-blue-500 scale-125'
-                  : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'
+                  ? 'w-8 bg-amber-200'
+                  : 'w-4 bg-white/40 hover:bg-white/60'
               }`}
               aria-label={`Go to book ${index + 1}`}
             />
           ))}
         </div>
       </div>
+
+      {/* Book Popup Modal */}
+      {isPopupOpen && selectedBook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300"
+            onClick={closePopup}
+          />
+          
+          {/* Modal Content */}
+          <div className="relative bg-gray-600 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
+            {/* Close Button */}
+            <button
+              onClick={closePopup}
+              className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/20 hover:bg-black/30 rounded-full flex items-center justify-center transition-colors"
+            >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Book Content */}
+            <div className="flex flex-col md:flex-row h-full">
+              {/* Book Cover */}
+              <div className={`md:w-2/3 h-80 md:h-auto bg-gradient-to-br ${selectedBook.gradient} relative flex items-center justify-center`}>
+                <div className="text-center text-white p-8">
+                  <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                    {selectedBook.title}
+                  </h2>
+                  <p className="text-lg opacity-90 drop-shadow-md">
+                    by {selectedBook.author}
+                  </p>
+                </div>
+                
+                {/* Decorative Elements */}
+              </div>
+
+              {/* Book Details */}
+              <div className="md:w-1/3 p-8 flex flex-col justify-center">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2 text-white">
+                      Book Details
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <span className="font-semibold text-gray-200">Title:</span>
+                        <p className="text-white">{selectedBook.title}</p>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-200">Author:</span>
+                        <p className="text-white">{selectedBook.author}</p>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-gray-200">Genre:</span>
+                        <p className="text-white">Featured Comic</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-200 mb-2">Description:</h4>
+                    <p className="text-gray-300 leading-relaxed">
+                      Discover this amazing comic story filled with adventure, mystery, and unforgettable characters. 
+                      Perfect for readers who love engaging narratives and beautiful artwork.
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
