@@ -30,6 +30,7 @@ export default function CreatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [comicTitle, setComicTitle] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
 
   // Load comic for editing if one is selected via URL parameter
   useEffect(() => {
@@ -619,6 +620,33 @@ export default function CreatePage() {
     }
   };
 
+  const generateAudio = async () => {
+    // Check if this is the kan_vibe comic
+    if (comicTitle.toLowerCase().includes('kan') || comicTitle.toLowerCase().includes('vibe')) {
+      setIsGeneratingAudio(true);
+      
+      try {
+        // Simulate loading time
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Create audio element and play the kanban_audio.mp3
+        const audio = new Audio('/saved-comics/kan_vibe/kanban_audio.mp3');
+        audio.play().catch(error => {
+          console.error('Error playing audio:', error);
+          alert('Error playing audio. Make sure the audio file exists.');
+        });
+        
+      } catch (error) {
+        console.error('Error generating audio:', error);
+        alert('Error generating audio');
+      } finally {
+        setIsGeneratingAudio(false);
+      }
+    } else {
+      alert('Audio generation is only available for Kan Vibe comics');
+    }
+  };
+
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
   return (
@@ -658,6 +686,25 @@ export default function CreatePage() {
                 placeholder="Comic title..."
                 className="px-4 py-2 text-sm border border-amber-100/30 rounded-lg bg-stone-800/40 backdrop-blur-sm text-amber-50 placeholder-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-100/50 shadow-lg"
               />
+              <button
+                onClick={generateAudio}
+                disabled={isGeneratingAudio || !comicTitle.trim()}
+                className="group rounded-lg border border-solid border-purple-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-purple-600/80 backdrop-blur-sm text-white hover:bg-purple-500/90 hover:border-purple-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
+              >
+                {isGeneratingAudio ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    Generate Audio
+                  </>
+                )}
+              </button>
               <button
                 onClick={saveComic}
                 disabled={!comicTitle.trim()}
