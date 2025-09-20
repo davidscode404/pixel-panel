@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import booksData from '../data/books.json';
 
 interface Book {
@@ -9,6 +10,7 @@ interface Book {
   author: string;
   color: string;
   gradient: string;
+  image: string;
 }
 
 export default function BookSlider() {
@@ -86,9 +88,19 @@ export default function BookSlider() {
                   opacity: opacity,
                 }}
                 onClick={() => openBookPopup(book)}
+                onMouseEnter={() => goToBook(index)}
               >
-                {/* Background Gradient */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
+                {/* Book Image */}
+                <div className="absolute inset-0">
+                  <Image 
+                    src={book.image} 
+                    alt={book.title}
+                    fill
+                    className="object-cover"
+                  />
+                  {/* Overlay for better text readability */}
+                  <div className="absolute inset-0 bg-black/20" />
+                </div>
                 
                 {/* Top Right Arrow */}
                 <div className="absolute top-4 right-4 opacity-70 group-hover:opacity-100 transition-opacity duration-300">
@@ -98,12 +110,12 @@ export default function BookSlider() {
                 </div>
 
                 {/* Content */}
-                <div className="relative h-full p-6 flex flex-col justify-center text-white">
+                <div className="relative h-full p-6 flex flex-col justify-end text-white">
                   <div className="text-center transform transition-transform duration-300 group-hover:scale-105">
-                    <h3 className="text-xl font-bold mb-2 leading-tight transition-all duration-300 group-hover:text-shadow-lg">
+                    <h3 className="text-xl font-bold mb-2 leading-tight transition-all duration-300 group-hover:text-shadow-lg drop-shadow-lg">
                       {book.title}
                     </h3>
-                    <p className="text-sm opacity-90 transition-opacity duration-300 group-hover:opacity-100">
+                    <p className="text-sm opacity-90 transition-opacity duration-300 group-hover:opacity-100 drop-shadow-md">
                       by {book.author}
                     </p>
                   </div>
@@ -156,14 +168,24 @@ export default function BookSlider() {
             {/* Book Content */}
             <div className="flex flex-col md:flex-row h-full">
               {/* Book Cover */}
-              <div className={`md:w-2/3 h-80 md:h-auto bg-gradient-to-br ${selectedBook.gradient} relative flex items-center justify-center`}>
-                <div className="text-center text-white p-8">
-                  <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                    {selectedBook.title}
-                  </h2>
-                  <p className="text-lg opacity-90 drop-shadow-md">
-                    by {selectedBook.author}
-                  </p>
+              <div className="md:w-2/3 h-80 md:h-auto relative flex items-center justify-center">
+                <Image 
+                  src={selectedBook.image} 
+                  alt={selectedBook.title}
+                  fill
+                  className="object-cover"
+                />
+                {/* Overlay for better text readability */}
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center text-white p-8">
+                    <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                      {selectedBook.title}
+                    </h2>
+                    <p className="text-lg opacity-90 drop-shadow-md">
+                      by {selectedBook.author}
+                    </p>
+                  </div>
                 </div>
                 
                 {/* Decorative Elements */}
