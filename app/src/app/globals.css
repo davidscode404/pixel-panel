@@ -22,7 +22,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Comic Sans MS", "Chalkboard SE", "Bradley Hand", cursive, sans-serif;
 }
 
 /* Hide scrollbar for webkit browsers */
@@ -38,4 +38,31 @@ body {
 /* Smooth scroll behavior */
 html {
   scroll-behavior: smooth;
+}
+
+/* Animated gradient background */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-gradient {
+  background: linear-gradient(
+    -45deg,
+    #000000,
+    #1a1a1a,
+    #2d2d2d,
+    #404040,
+    #525252,
+    #374151
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
 }
