@@ -1,0 +1,7 @@
+dedalus-labs
+fastapi
+elevenlabs
+dotenv
+python-multipart
+uvicorn
+pillow
