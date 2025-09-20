@@ -6,7 +6,8 @@ export const API_CONFIG = {
     LOAD_COMIC: '/load-comic',
     SAVE_PANEL: '/save-panel',
     GENERATE: '/generate',
-    LIST_COMICS: '/list-comics'
+    LIST_COMICS: '/list-comics',
+    RESET_CONTEXT: '/reset-context'
   }
 };
 

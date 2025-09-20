@@ -1,5 +1,5 @@
 import fastapi
-from fastapi import UploadFile, File, HTTPException, Request
+from fastapi import UploadFile, File, HTTPException, Request, Response
 import asyncio
 from dedalus_labs import AsyncDedalus, DedalusRunner
 from dotenv import load_dotenv
@@ -38,10 +38,17 @@ dedalus_runner = DedalusRunner(dedalus_client)
 
 latest_img: Image.Image = None
 
+# Context tracking for comic generation
+comic_context = {
+    "panels": {},  # Store all generated panels: {panel_id: {"prompt": str, "image": str}}
+    "is_reset": True
+}
+
 # Pydantic models
 class ComicArtRequest(BaseModel):
     text_prompt: str
     reference_image: str = None  # Base64 encoded image data (optional)
+    panel_id: int = None  # Panel ID to track generation order
 
 # Initialize the comic art generator
 from comic_art_generator import ComicArtGenerator
@@ -81,6 +88,27 @@ def image_to_base64(image: Image.Image) -> str:
     base64_img = base64.b64encode(img_bytes.getvalue()).decode("utf-8")
     return base64_img
 
+def reset_comic_context():
+    """Reset the comic context when all panels are cleared"""
+    global comic_context
+    comic_context = {
+        "panels": {},
+        "is_reset": True
+    }
+    print("🔄 Comic context reset")
+
+def is_first_panel_generation(panel_id: int) -> bool:
+    """Check if this is the first panel being generated (panel 1)"""
+    return panel_id == 1
+
+def get_previous_panel_context(panel_id: int):
+    """Get the context from the previous panel"""
+    global comic_context
+    previous_panel_id = panel_id - 1
+    if previous_panel_id in comic_context["panels"]:
+        return comic_context["panels"][previous_panel_id]
+    return None
+
 
 @app.post("/generate")
 async def generate_comic_art(request: ComicArtRequest):
@@ -90,13 +118,38 @@ async def generate_comic_art(request: ComicArtRequest):
     Expected JSON payload:
     {
         "text_prompt": "string",
-        "reference_image": "base64_encoded_image_data" (optional)
+        "reference_image": "base64_encoded_image_data" (optional),
+        "panel_id": int (optional)
     }
     """
     try:
         # FastAPI automatically parses the JSON body into the Pydantic model
         text_prompt = request.text_prompt
         reference_image_data = request.reference_image
+        panel_id = request.panel_id
+        
+        # Handle context tracking
+        global comic_context
+        
+        print(f"🔍 DEBUG: panel_id={panel_id}, is_reset={comic_context['is_reset']}, panels_count={len(comic_context['panels'])}")
+        
+        # For panels after the first, use previous panel as context
+        context_prompt = None
+        context_image_data = None
+        
+        if panel_id and not is_first_panel_generation(panel_id) and not comic_context["is_reset"]:
+            previous_context = get_previous_panel_context(panel_id)
+            if previous_context:
+                # Use the previous panel's prompt and image as context
+                context_prompt = f"Create the next scene using this context: {previous_context['prompt']}. {text_prompt}"
+                context_image_data = previous_context['image']
+                text_prompt = context_prompt
+                print(f"🎯 Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
+                print(f"🖼️ Context image size: {len(context_image_data) if context_image_data else 0} characters")
+            else:
+                print(f"⚠️ No previous panel context available for panel {panel_id}")
+        else:
+            print(f"📝 Panel {panel_id} - no context used (first panel or reset)")
         
         # Process reference image in memory if provided
         reference_image_path = None
@@ -122,8 +175,9 @@ async def generate_comic_art(request: ComicArtRequest):
                 status_code=500,
                 detail="Comic art generator not initialized"
             )
-            
-        image = comic_generator.generate_comic_art(text_prompt, reference_image_path)
+        
+        # Generate the comic art with context
+        image = comic_generator.generate_comic_art(text_prompt, reference_image_path, context_image_data)
         
         # Clean up temporary reference image file
         if reference_image_path and os.path.exists(reference_image_path):
@@ -136,12 +190,39 @@ async def generate_comic_art(request: ComicArtRequest):
         img_bytes = img_buffer.getvalue()
         img_base64 = base64.b64encode(img_bytes).decode('utf-8')
         
+        # Store the generated panel data for future context
+        if panel_id:
+            comic_context["panels"][panel_id] = {
+                "prompt": text_prompt,
+                "image": img_base64
+            }
+            comic_context["is_reset"] = False
+            print(f"💾 Stored panel {panel_id} data for context (prompt: {text_prompt[:30]}...)")
+        
         return {
             'success': True,
             'image_data': img_base64,
             'message': 'Comic art generated successfully'
         }
         
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+@app.post("/reset-context")
+async def reset_context():
+    """
+    Reset the comic context when all panels are cleared
+    """
+    try:
+        reset_comic_context()
+        return {
+            'success': True,
+            'message': 'Comic context reset successfully'
+        }
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -176,10 +257,27 @@ async def list_comics():
             # Check if it has panel files
             panel_files = glob.glob(os.path.join(saved_comics_dir, comic_dir, "panel_*.png"))
             if panel_files:
-                comics.append({
+                # Check for cover image
+                cover_path = os.path.join(saved_comics_dir, comic_dir, "cover.png")
+                has_cover = os.path.exists(cover_path)
+                
+                comic_data = {
                     'title': comic_dir,
-                    'panel_count': len(panel_files)
-                })
+                    'panel_count': len(panel_files),
+                    'has_cover': has_cover
+                }
+                
+                # If cover exists, include it as base64
+                if has_cover:
+                    try:
+                        with open(cover_path, 'rb') as f:
+                            cover_bytes = f.read()
+                            cover_base64 = base64.b64encode(cover_bytes).decode('utf-8')
+                            comic_data['cover_image'] = f"data:image/png;base64,{cover_base64}"
+                    except Exception as e:
+                        print(f"⚠️ Error reading cover image for {comic_dir}: {e}")
+                
+                comics.append(comic_data)
         
         return {'comics': comics}
 
@@ -267,14 +365,21 @@ async def save_panel(request: Request):
         # Save the panel image
         import base64
         image_bytes = base64.b64decode(image_data)
-        panel_filename = f"panel_{panel_id}.png"
+        
+        # Handle cover image vs regular panel
+        if panel_id == 'cover':
+            panel_filename = "cover.png"
+            print(f"🖼️ Saving cover image for comic: {comic_title}")
+        else:
+            panel_filename = f"panel_{panel_id}.png"
+            
         panel_path = os.path.join(comic_dir, panel_filename)
 
         with open(panel_path, 'wb') as f:
             f.write(image_bytes)
 
-        print(f"💾 Saved panel {panel_id} to: {panel_path}")
-        return {'success': True, 'message': f'Panel {panel_id} saved successfully'}
+        print(f"💾 Saved {panel_filename} to: {panel_path}")
+        return {'success': True, 'message': f'{panel_filename} saved successfully'}
 
     except Exception as e:
         print(f"❌ Error saving panel: {e}")

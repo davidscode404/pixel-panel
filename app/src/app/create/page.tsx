@@ -357,6 +357,65 @@ export default function CreatePage() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Update panel data to reflect cleared state
+    setPanels(prev => prev.map(p => 
+      p.id === panelId 
+        ? { ...p, smallCanvasData: null, largeCanvasData: null }
+        : p
+    ));
+    
+    // Check if all panels are now empty and reset context if so
+    checkAndResetContext();
+  };
+
+  const checkAndResetContext = async () => {
+    // Check if all panels are empty
+    const allPanelsEmpty = panels.every(panel => 
+      !panel.smallCanvasData && !panel.largeCanvasData
+    );
+    
+    if (allPanelsEmpty) {
+      try {
+        console.log('All panels cleared, resetting context...');
+        const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.RESET_CONTEXT), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (response.ok) {
+          console.log('Context reset successfully');
+        } else {
+          console.error('Failed to reset context');
+        }
+      } catch (error) {
+        console.error('Error resetting context:', error);
+      }
+    }
+  };
+
+  const clearAllPanels = () => {
+    panels.forEach(panel => {
+      if (panel.canvasRef.current) {
+        const canvas = panel.canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+    });
+    
+    // Reset all panel data
+    setPanels(prev => prev.map(panel => ({
+      ...panel,
+      smallCanvasData: null,
+      largeCanvasData: null
+    })));
+    
+    // Reset context
+    checkAndResetContext();
   };
 
   const saveComic = async () => {
@@ -497,6 +556,7 @@ export default function CreatePage() {
       const base64Data = canvasData.split(',')[1]; // Remove data:image/png;base64, prefix
 
       // Call backend API
+      console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
@@ -504,7 +564,8 @@ export default function CreatePage() {
         },
         body: JSON.stringify({
           text_prompt: textPrompt,
-          reference_image: base64Data
+          reference_image: base64Data,
+          panel_id: panelId
         })
       });
 
@@ -576,6 +637,12 @@ export default function CreatePage() {
             </h1>
             {/* Save Comic Button - Top Right */}
             <div className="flex items-center gap-2">
+              <button
+                onClick={clearAllPanels}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
+              >
+                Clear All
+              </button>
               <input
                 type="text"
                 value={comicTitle}

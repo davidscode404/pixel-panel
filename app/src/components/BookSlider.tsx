@@ -71,6 +71,15 @@ export default function BookSlider() {
         const comics = data.comics;
         console.log('Loaded comics from project directory:', comics);
         
+        // Debug cover images
+        comics.forEach((comic: any) => {
+          if (comic.cover_image) {
+            console.log(`Cover image found for ${comic.title}: ${comic.cover_image.substring(0, 50)}...`);
+          } else {
+            console.log(`No cover image for ${comic.title}`);
+          }
+        });
+        
         if (comics.length > 0) {
           // Convert all user comics to Book objects
           const userComics: Book[] = comics.map((comic: any, index: number) => ({
@@ -79,7 +88,7 @@ export default function BookSlider() {
             author: 'You',
             color: '#8B5CF6',
             gradient: 'from-purple-500 to-indigo-600',
-            image: '/api/placeholder/400/600', // Placeholder for user comics
+            image: comic.cover_image || '/api/placeholder/400/600', // Use cover image if available
             isUserComic: true,
             panels: [] // We'll load panels when clicked
           }));
@@ -275,8 +284,20 @@ export default function BookSlider() {
               >
                 {/* Book Image or Gradient Background */}
                 <div className="absolute inset-0">
-                  {book.isUserComic ? (
-                    // User comic with gradient background
+                  {book.isUserComic && book.image && book.image !== '/api/placeholder/400/600' ? (
+                    // User comic with cover image
+                    <>
+                      <Image 
+                        src={book.image} 
+                        alt={book.title}
+                        fill
+                        className="object-cover"
+                      />
+                      {/* Overlay for better text readability */}
+                      <div className="absolute inset-0 bg-black/30" />
+                    </>
+                  ) : book.isUserComic ? (
+                    // User comic with gradient background (fallback)
                     <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
                   ) : (
                     // Regular book with image
@@ -360,10 +381,32 @@ export default function BookSlider() {
             <div className="flex flex-col md:flex-row h-full">
               {/* Book Cover */}
               <div className={`md:w-2/3 h-80 md:h-auto relative flex items-center justify-center ${
-                selectedBook.isUserComic ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
+                selectedBook.isUserComic && (!selectedBook.image || selectedBook.image === '/api/placeholder/400/600') ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
               }`}>
-                {selectedBook.isUserComic ? (
-                  // User comic with gradient background
+                {selectedBook.isUserComic && selectedBook.image && selectedBook.image !== '/api/placeholder/400/600' ? (
+                  // User comic with cover image
+                  <>
+                    <Image 
+                      src={selectedBook.image} 
+                      alt={selectedBook.title}
+                      fill
+                      className="object-cover"
+                    />
+                    {/* Overlay for better text readability */}
+                    <div className="absolute inset-0 bg-black/40" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center text-white p-8">
+                        <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                          {selectedBook.title}
+                        </h2>
+                        <p className="text-lg opacity-90 drop-shadow-md">
+                          by {selectedBook.author}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                ) : selectedBook.isUserComic ? (
+                  // User comic with gradient background (fallback)
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center text-white p-8">
                       <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">

@@ -25,23 +25,42 @@ class ComicArtGenerator:
         
         self.client = genai.Client(api_key=self.api_key)
     
-    def generate_comic_art(self, text_prompt, reference_image_path=None):
+    def generate_comic_art(self, text_prompt, reference_image_path=None, context_image_data=None):
         """
         Generate comic art based on text prompt and optional reference sketch
         
         Args:
             text_prompt (str): Text description for the comic panel
             reference_image_path (str): Path to reference sketch image file (optional)
+            context_image_data (str): Base64 encoded context image data (optional)
             
         Returns:
             PIL.Image: Generated comic art image
         """
-        system_prompt = (
-            "You are a comic art generator. You generate art for panels based on a reference sketch from the user. "
-            "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
-            "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
-            "and scene composition as shown in the reference sketch."
-        )
+        # Determine if we have context (subsequent panel generation)
+        has_context = context_image_data is not None
+        print(f"🔍 ComicArtGenerator: has_context={has_context}, context_size={len(context_image_data) if context_image_data else 0}")
+        
+        if has_context:
+            print(f"🎨 Using context-aware generation with previous panel image")
+        else:
+            print(f"🎨 Using standard generation without context")
+        
+        if has_context:
+            system_prompt = (
+                "You are a comic art generator creating the next scene in a comic sequence. "
+                "You have been provided with the previous panel as context. Create a new scene that follows naturally from the context, "
+                "maintaining visual consistency in style, characters, and setting. Use the reference sketch as a guide for composition. "
+                "Create clean, professional comic book style artwork with bold lines, clear forms, and comic book aesthetics. "
+                "The new scene should feel like a natural continuation of the story."
+            )
+        else:
+            system_prompt = (
+                "You are a comic art generator. You generate art for panels based on a reference sketch from the user. "
+                "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
+                "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
+                "and scene composition as shown in the reference sketch."
+            )
         
         if reference_image_path:
             # Load image from file
@@ -68,14 +87,50 @@ class ComicArtGenerator:
                     )
                 ]
                 
+                # Add context image if available
+                if has_context:
+                    try:
+                        context_img_bytes = base64.b64decode(context_image_data)
+                        contents.insert(0, types.Part(
+                            inline_data=types.Blob(
+                                mime_type="image/png",
+                                data=context_img_bytes
+                            )
+                        ))
+                        print(f"🖼️ Added context image to generation (size: {len(context_img_bytes)} bytes)")
+                    except Exception as e:
+                        print(f"⚠️ Error processing context image: {e}")
+                
                 print("🔄 Generating comic art with reference sketch...")
                 
             except Exception as e:
                 raise Exception(f"Error processing reference image: {e}")
         else:
-            # Text-only generation
-            contents = f"{system_prompt}\n\nText prompt: {text_prompt}"
-            print("🔄 Generating comic art from text prompt...")
+            # Text-only generation or context-only generation
+            if has_context:
+                # Context-only generation (no reference sketch)
+                try:
+                    context_img_bytes = base64.b64decode(context_image_data)
+                    contents = [
+                        types.Part(
+                            inline_data=types.Blob(
+                                mime_type="image/png",
+                                data=context_img_bytes
+                            )
+                        ),
+                        types.Part(
+                            text=f"{system_prompt}\n\nText prompt: {text_prompt}"
+                        )
+                    ]
+                    print(f"🔄 Generating comic art with context image only (size: {len(context_img_bytes)} bytes)...")
+                except Exception as e:
+                    print(f"⚠️ Error processing context image: {e}")
+                    contents = f"{system_prompt}\n\nText prompt: {text_prompt}"
+                    print("🔄 Generating comic art from text prompt (context failed)...")
+            else:
+                # Text-only generation
+                contents = f"{system_prompt}\n\nText prompt: {text_prompt}"
+                print("🔄 Generating comic art from text prompt...")
         
         print("⏳ This may take 30-60 seconds...")
         
