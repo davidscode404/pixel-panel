@@ -14,6 +14,11 @@ load_dotenv()
 
 app = fastapi.FastAPI()
 
+dedalus_client = AsyncDedalus()
+dedalus_runner = DedalusRunner(dedalus_client)
+
+latest_img: Image.Image = None
+
 async def upload_file_to_image_obj(img_file: UploadFile) -> Image.Image:
     """
     Converts a FastAPI UploadFile object to a PIL.Image.Image object.
@@ -43,7 +48,7 @@ def image_to_base64(image: Image.Image) -> str:
     return base64_img
 
 
-async def iterate_prompt_tool(user_feedback: str, base64_image: str) -> str:
+async def iterate_prompt_tool(user_feedback: str) -> str:
      # Prepare the payload for the Gemini API
         payload = {
             "contents": [
@@ -55,7 +60,7 @@ async def iterate_prompt_tool(user_feedback: str, base64_image: str) -> str:
                         {
                             "inline_data": {
                                 "mime_type": "image/png",
-                                "data": base64_image
+                                "data": image_to_base64
                             }
                         }
                     ]
@@ -102,6 +107,10 @@ async def iterate_prompt_tool(user_feedback: str, base64_image: str) -> str:
             
             return generated_text
 
+#TODO: Image gen tool
+
+#TODO: Dedalus runner with provided tools and a system prompt to be able to generate and iterate on images.
+
 #landing page
 @app.post("/initial-draw")
 async def initial_draw(
@@ -122,16 +131,41 @@ async def initial_draw(
     try:
         # Convert the uploaded file to a PIL Image
         image = await upload_file_to_image_obj(drawing_file)
-        
+        global latest_img
+        latest_img = image
         # Convert the PIL Image to base64
         base64_image = image_to_base64(image)
         
-        generated_text = await iterate_prompt_tool(description_text, base64_image)
+        dedalus_runner.run(
+            input="Your task is to refine an image based on the user's feedback. The user's feedback is: {description_text}. The ",
+            model="openai/gpt-4o-mini",
+            tools=[iterate_prompt_tool],
+            stream=False
+        )
         
         return {"description": generated_text}
             
     except Exception as e:
         raise fastapi.HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/iterate-draw")
+async def iterate_draw(
+    user_feedback: str,
+    drawing_file: UploadFile = File(...),
+):
+    """
+    Accepts an uploaded drawing and a text description, then uses the dedalus agent
+    to generate a textual understanding of the drawing in the context of the description.
+    
+    Args:
+        drawing_file (UploadFile): The uploaded image file.
+        description_text (str): The text description of the drawing.
+    """
+    global latest_img
+    latest_img = await upload_file_to_image_obj(drawing_file)
+    
+    return {"description": generated_text}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
