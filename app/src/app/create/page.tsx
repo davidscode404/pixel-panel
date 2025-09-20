@@ -385,7 +385,7 @@ export default function CreatePage() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving comic:', error);
-      console.error('Error details:', error.message);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
       alert(`Failed to save comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
