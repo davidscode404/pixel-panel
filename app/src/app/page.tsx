@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center p-8 sm:p-12">
@@ -9,9 +11,11 @@ export default function Home() {
           Build, orchestrate, and launch AI agents in minutes. This is a
           placeholder subtitle for your landing page.
         </p>
-        <button className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-base h-12 px-8">
-          Start
-        </button>
+        <Link href="/create">
+          <button className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-base h-12 px-8">
+            Start
+          </button>
+        </Link>
       </main>
     </div>
   );
