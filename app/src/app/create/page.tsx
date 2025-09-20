@@ -27,6 +27,91 @@ export default function CreatePage() {
   const [currentColor, setCurrentColor] = useState('#000000');
   const [textPrompt, setTextPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [comicTitle, setComicTitle] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Load comic for editing if one is selected via URL parameter
+  useEffect(() => {
+    const loadComicFromURL = async () => {
+      // Check for comic parameter in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const comicTitle = urlParams.get('comic');
+      
+      if (comicTitle) {
+        try {
+          console.log(`Loading comic from URL parameter: ${comicTitle}`);
+          
+          // Load comic data from backend
+          const response = await fetch(`http://localhost:3004/load-comic/${comicTitle}`);
+          if (response.ok) {
+            const comic = await response.json();
+            setComicTitle(comic.comic_title);
+            setIsEditing(true);
+            
+            // Load the comic panels from project directory
+            if (comic.panels) {
+              const updatedPanels = panels.map(panel => {
+                const savedPanel = comic.panels.find((p: any) => p.id === panel.id);
+                if (savedPanel && savedPanel.image_data) {
+                  return {
+                    ...panel,
+                    smallCanvasData: savedPanel.image_data,
+                    largeCanvasData: savedPanel.image_data
+                  };
+                }
+                return panel;
+              });
+              
+              setPanels(updatedPanels);
+              
+              // After setting the panel data, draw the images onto the canvases
+              setTimeout(() => {
+                console.log('Loading panels onto canvases...');
+                comic.panels.forEach((savedPanel: any) => {
+                  if (savedPanel.image_data) {
+                    const panel = updatedPanels.find(p => p.id === savedPanel.id);
+                    if (panel && panel.canvasRef.current) {
+                      const canvas = panel.canvasRef.current;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        console.log(`Loading panel ${savedPanel.id} onto canvas`);
+                        const img = new Image();
+                        img.onload = () => {
+                          console.log(`Drawing panel ${savedPanel.id} onto canvas`);
+                          ctx.clearRect(0, 0, canvas.width, canvas.height);
+                          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        };
+                        img.onerror = (error) => {
+                          console.error(`Error loading image for panel ${savedPanel.id}:`, error);
+                        };
+                        img.src = savedPanel.image_data;
+                      } else {
+                        console.error(`Could not get context for panel ${savedPanel.id}`);
+                      }
+                    } else {
+                      console.error(`Canvas not found for panel ${savedPanel.id}`);
+                    }
+                  }
+                });
+              }, 200);
+            }
+            
+            // Clean up URL parameter
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else {
+            const errorData = await response.json();
+            console.error('Server error:', errorData);
+            alert(`Failed to load comic: ${errorData.error || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error('Error loading comic:', error);
+          alert(`Failed to load comic: ${error.message}`);
+        }
+      }
+    };
+    
+    loadComicFromURL();
+  }, []);
 
   const saveCanvasState = (panelId: number, isLargeCanvas: boolean = false) => {
     const panel = panels.find(p => p.id === panelId);
@@ -115,6 +200,35 @@ export default function CreatePage() {
       });
     }
   }, [panels.map(p => p.isZoomed).join(',')]);
+
+  // Restore canvas data when panels are loaded from saved comic
+  useEffect(() => {
+    // Check if we have panels with data but no canvas content
+    const panelsWithData = panels.filter(panel => panel.smallCanvasData && panel.canvasRef.current);
+    if (panelsWithData.length > 0) {
+      panelsWithData.forEach(panel => {
+        const canvas = panel.canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Check if canvas is empty
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const isEmpty = imageData.data.every(pixel => pixel === 0);
+            
+            if (isEmpty && panel.smallCanvasData) {
+              console.log(`Restoring canvas for panel ${panel.id}`);
+              const img = new Image();
+              img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              };
+              img.src = panel.smallCanvasData;
+            }
+          }
+        }
+      });
+    }
+  }, [panels]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>, panelId: number) => {
     const panel = panels.find(p => p.id === panelId);
@@ -238,6 +352,126 @@ export default function CreatePage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
+  const saveComic = async () => {
+    if (!comicTitle.trim()) {
+      alert('Please enter a comic title');
+      return;
+    }
+
+    console.log('Starting to save comic:', comicTitle);
+
+    // Collect all panel data
+    const comicData = {
+      id: isEditing ? comicTitle : Date.now(),
+      title: comicTitle,
+      date: new Date().toISOString(),
+      panels: panels.map(panel => ({
+        id: panel.id,
+        smallCanvasData: panel.smallCanvasData,
+        largeCanvasData: panel.largeCanvasData
+      }))
+    };
+
+    console.log('Comic data prepared:', comicData);
+
+    try {
+      // Save each panel as PNG to project directory
+      console.log('Saving panels to project directory...');
+      await savePanelsAsPNG(comicTitle);
+      console.log('PNG save successful');
+
+      alert(`Comic "${comicTitle}" saved successfully!`);
+      setComicTitle('');
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving comic:', error);
+      console.error('Error details:', error.message);
+      alert(`Failed to save comic: ${error.message}`);
+    }
+  };
+
+  const savePanelsAsPNG = async (title: string) => {
+    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    
+    try {
+      // Send each panel to backend to save in project directory
+      for (const panel of panels) {
+        if (panel.largeCanvasData) {
+          console.log(`Saving panel ${panel.id} to project directory...`);
+          
+          // Extract base64 data
+          const base64Data = panel.largeCanvasData.split(',')[1];
+          
+          // Send to backend to save in project directory
+          const response = await fetch('http://localhost:3004/save-panel', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              comic_title: safeTitle,
+              panel_id: panel.id,
+              image_data: base64Data
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to save panel ${panel.id}`);
+          }
+          
+          console.log(`Panel ${panel.id} saved to project directory successfully`);
+        } else {
+          console.log(`Panel ${panel.id} has no data to save`);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving PNG files:', error);
+      throw new Error(`Failed to save PNG files: ${error.message}`);
+    }
+  };
+
+  // IndexedDB functions
+  const saveComicToDB = async (comicData: any) => {
+    return new Promise((resolve, reject) => {
+      console.log('Opening IndexedDB...');
+      const request = indexedDB.open('ComicDatabase', 1);
+      
+      request.onerror = () => {
+        console.error('IndexedDB open error:', request.error);
+        reject(new Error(`Failed to open database: ${request.error?.message}`));
+      };
+      
+      request.onsuccess = () => {
+        console.log('IndexedDB opened successfully');
+        const db = request.result;
+        const transaction = db.transaction(['comics'], 'readwrite');
+        const store = transaction.objectStore('comics');
+        
+        console.log('Putting data into store...');
+        const putRequest = store.put(comicData);
+        putRequest.onsuccess = () => {
+          console.log('Data saved to IndexedDB successfully');
+          resolve(putRequest.result);
+        };
+        putRequest.onerror = () => {
+          console.error('IndexedDB put error:', putRequest.error);
+          reject(new Error(`Failed to save data: ${putRequest.error?.message}`));
+        };
+      };
+      
+      request.onupgradeneeded = () => {
+        console.log('IndexedDB upgrade needed, creating store...');
+        const db = request.result;
+        if (!db.objectStoreNames.contains('comics')) {
+          const store = db.createObjectStore('comics', { keyPath: 'id' });
+          store.createIndex('title', 'title', { unique: false });
+          store.createIndex('date', 'date', { unique: false });
+          console.log('Object store created successfully');
+        }
+      };
+    });
+  };
+
   const generateComicArt = async (panelId: number) => {
     if (!textPrompt.trim()) {
       alert('Please enter a text prompt');
@@ -333,7 +567,23 @@ export default function CreatePage() {
             <h1 className="text-xs text-gray-500 dark:text-gray-500">
               Click any panel to draw
             </h1>
-            <div className="w-20"></div> {/* Spacer for centering */}
+            {/* Save Comic Button - Top Right */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={comicTitle}
+                onChange={(e) => setComicTitle(e.target.value)}
+                placeholder="Comic title..."
+                className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <button
+                onClick={saveComic}
+                disabled={!comicTitle.trim()}
+                className="bg-green-500 hover:bg-green-600 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm transition-colors"
+              >
+                {isEditing ? 'Update' : 'Save'}
+              </button>
+            </div>
           </div>
           
           <div className="flex-1 p-2">

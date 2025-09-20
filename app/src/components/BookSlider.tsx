@@ -1,23 +1,153 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import booksData from '../data/books.json';
 
 interface Book {
-  id: number;
+  id: number | string; // Allow string for user comic titles
   title: string;
   author: string;
   color: string;
   gradient: string;
-  image: string;
+  image?: string; // Optional for user comics
+  isUserComic?: boolean;
+  panels?: any[];
+}
+
+interface SavedComic {
+  title: string;
+  date: string;
+  panels: any[];
 }
 
 export default function BookSlider() {
-  const books: Book[] = booksData.books;
-  const [currentIndex, setCurrentIndex] = useState(Math.floor(books.length / 2));
+  const [books, setBooks] = useState<Book[]>(booksData.books);
+  const [currentIndex, setCurrentIndex] = useState(Math.floor(booksData.books.length / 2));
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+
+  // Load user's saved comic and replace "Where the Crawdads Sing"
+  useEffect(() => {
+    console.log('BookSlider: Loading comics from project directory...');
+    loadComicsFromDB();
+    
+    // Listen for storage events to refresh when new comics are saved
+    const handleStorageChange = () => {
+      console.log('BookSlider: Storage changed, refreshing comics...');
+      loadComicsFromDB();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also refresh every 2 seconds to catch new saves
+    const interval = setInterval(() => {
+      loadComicsFromDB();
+    }, 2000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const loadComicsFromDB = async () => {
+    try {
+      // Get list of saved comics from project directory
+      const response = await fetch('http://localhost:3004/list-comics');
+      if (response.ok) {
+        const data = await response.json();
+        const comics = data.comics;
+        console.log('Loaded comics from project directory:', comics);
+        
+        if (comics.length > 0) {
+          // Convert all user comics to Book objects
+          const userComics: Book[] = comics.map((comic: any, index: number) => ({
+            id: comic.title,
+            title: comic.title,
+            author: 'You',
+            color: '#8B5CF6',
+            gradient: 'from-purple-500 to-indigo-600',
+            image: '/api/placeholder/400/600', // Placeholder for user comics
+            isUserComic: true,
+            panels: [] // We'll load panels when clicked
+          }));
+          
+          // Create a new books array with user comics
+          // Put the most recent comic in the center (index 4)
+          const updatedBooks = [...booksData.books];
+          
+          // If we have more user comics than available slots, just use the first few
+          const maxUserComics = Math.min(userComics.length, 6); // Limit to 6 user comics max
+          const comicsToShow = userComics.slice(0, maxUserComics);
+          
+          // Replace books with user comics, starting from the center
+          const centerIndex = 4;
+          const halfUserComics = Math.floor(comicsToShow.length / 2);
+          
+          // Calculate starting position to center the comics
+          const startIndex = Math.max(0, centerIndex - halfUserComics);
+          
+          // Replace books with user comics
+          comicsToShow.forEach((userComic, index) => {
+            const bookIndex = startIndex + index;
+            if (bookIndex < updatedBooks.length) {
+              updatedBooks[bookIndex] = userComic as any; // Type assertion for mixed ID types
+            }
+          });
+          
+          setBooks(updatedBooks);
+          
+          // Set the current index to the center (where the most recent comic is)
+          setCurrentIndex(centerIndex);
+          console.log(`Added ${comicsToShow.length} user comics to books, centered at index ${centerIndex}`);
+        } else {
+          console.log('No saved comics found, using default books');
+          setBooks(booksData.books);
+        }
+      } else {
+        console.error('Failed to fetch comics list');
+        setBooks(booksData.books);
+      }
+    } catch (error) {
+      console.error('Error loading comics from project directory:', error);
+      // If there's an error, just use the default books
+      setBooks(booksData.books);
+    }
+  };
+
+  const getAllComicsFromDB = async () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('ComicDatabase', 1);
+      
+      request.onerror = () => reject(request.error);
+      
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(['comics'], 'readonly');
+        const store = transaction.objectStore('comics');
+        const index = store.index('date');
+        
+        const getAllRequest = index.getAll();
+        getAllRequest.onsuccess = () => {
+          // Sort by date descending (newest first)
+          const comics = getAllRequest.result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          resolve(comics);
+        };
+        getAllRequest.onerror = () => reject(getAllRequest.error);
+      };
+      
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('comics')) {
+          const store = db.createObjectStore('comics', { keyPath: 'id' });
+          store.createIndex('title', 'title', { unique: false });
+          store.createIndex('date', 'date', { unique: false });
+        }
+      };
+    });
+  };
 
   const nextBook = () => {
     setCurrentIndex((prev) => (prev < books.length - 1 ? prev + 1 : 0));
@@ -31,9 +161,51 @@ export default function BookSlider() {
     setCurrentIndex(index);
   };
 
-  const openBookPopup = (book: Book) => {
-    setSelectedBook(book);
-    setIsPopupOpen(true);
+  const openBookPopup = async (book: Book) => {
+    if (book.isUserComic) {
+      // For user comics, redirect to create page with comic title as URL parameter
+      try {
+        // Properly encode the comic title for the URL
+        const encodedTitle = encodeURIComponent(book.title);
+        console.log(`Loading comic: '${book.title}' -> encoded: '${encodedTitle}'`);
+        
+        // Redirect to create page with comic title as URL parameter
+        window.location.href = `/create?comic=${encodedTitle}`;
+      } catch (error) {
+        console.error('Error loading comic:', error);
+        alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      setSelectedBook(book);
+      setIsPopupOpen(true);
+    }
+  };
+
+  const getComicFromDB = async (id: number) => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open('ComicDatabase', 1);
+      
+      request.onerror = () => reject(request.error);
+      
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction(['comics'], 'readonly');
+        const store = transaction.objectStore('comics');
+        
+        const getRequest = store.get(id);
+        getRequest.onsuccess = () => resolve(getRequest.result);
+        getRequest.onerror = () => reject(getRequest.error);
+      };
+      
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('comics')) {
+          const store = db.createObjectStore('comics', { keyPath: 'id' });
+          store.createIndex('title', 'title', { unique: false });
+          store.createIndex('date', 'date', { unique: false });
+        }
+      };
+    });
   };
 
   const closePopup = () => {
@@ -90,16 +262,24 @@ export default function BookSlider() {
                 onClick={() => openBookPopup(book)}
                 onMouseEnter={() => goToBook(index)}
               >
-                {/* Book Image */}
+                {/* Book Image or Gradient Background */}
                 <div className="absolute inset-0">
-                  <Image 
-                    src={book.image} 
-                    alt={book.title}
-                    fill
-                    className="object-cover"
-                  />
-                  {/* Overlay for better text readability */}
-                  <div className="absolute inset-0 bg-black/20" />
+                  {book.isUserComic ? (
+                    // User comic with gradient background
+                    <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
+                  ) : (
+                    // Regular book with image
+                    <>
+                      <Image 
+                        src={book.image || '/api/placeholder/400/600'} 
+                        alt={book.title}
+                        fill
+                        className="object-cover"
+                      />
+                      {/* Overlay for better text readability */}
+                      <div className="absolute inset-0 bg-black/20" />
+                    </>
+                  )}
                 </div>
                 
                 {/* Top Right Arrow */}
@@ -168,25 +348,44 @@ export default function BookSlider() {
             {/* Book Content */}
             <div className="flex flex-col md:flex-row h-full">
               {/* Book Cover */}
-              <div className="md:w-2/3 h-80 md:h-auto relative flex items-center justify-center">
-                <Image 
-                  src={selectedBook.image} 
-                  alt={selectedBook.title}
-                  fill
-                  className="object-cover"
-                />
-                {/* Overlay for better text readability */}
-                <div className="absolute inset-0 bg-black/40" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center text-white p-8">
-                    <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                      {selectedBook.title}
-                    </h2>
-                    <p className="text-lg opacity-90 drop-shadow-md">
-                      by {selectedBook.author}
-                    </p>
+              <div className={`md:w-2/3 h-80 md:h-auto relative flex items-center justify-center ${
+                selectedBook.isUserComic ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
+              }`}>
+                {selectedBook.isUserComic ? (
+                  // User comic with gradient background
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center text-white p-8">
+                      <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                        {selectedBook.title}
+                      </h2>
+                      <p className="text-lg opacity-90 drop-shadow-md">
+                        by {selectedBook.author}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  // Regular book with image
+                  <>
+                    <Image 
+                      src={selectedBook.image || '/api/placeholder/400/600'} 
+                      alt={selectedBook.title}
+                      fill
+                      className="object-cover"
+                    />
+                    {/* Overlay for better text readability */}
+                    <div className="absolute inset-0 bg-black/40" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="text-center text-white p-8">
+                        <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                          {selectedBook.title}
+                        </h2>
+                        <p className="text-lg opacity-90 drop-shadow-md">
+                          by {selectedBook.author}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
                 
                 {/* Decorative Elements */}
               </div>

@@ -81,6 +81,136 @@ def generate_comic_art():
             'error': str(e)
         }), 500
 
+@app.route('/save-panel', methods=['POST'])
+def save_panel():
+    """
+    Save a comic panel image to the project directory
+    """
+    try:
+        data = request.get_json()
+        comic_title = data.get('comic_title')
+        panel_id = data.get('panel_id')
+        image_data = data.get('image_data')
+
+        if not all([comic_title, panel_id, image_data]):
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        # Create saved-comics directory if it doesn't exist
+        import os
+        saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
+        os.makedirs(saved_comics_dir, exist_ok=True)
+
+        # Create comic-specific directory
+        comic_dir = os.path.join(saved_comics_dir, comic_title)
+        os.makedirs(comic_dir, exist_ok=True)
+
+        # Save the panel image
+        import base64
+        image_bytes = base64.b64decode(image_data)
+        panel_filename = f"panel_{panel_id}.png"
+        panel_path = os.path.join(comic_dir, panel_filename)
+
+        with open(panel_path, 'wb') as f:
+            f.write(image_bytes)
+
+        print(f"💾 Saved panel {panel_id} to: {panel_path}")
+        return jsonify({'success': True, 'message': f'Panel {panel_id} saved successfully'})
+
+    except Exception as e:
+        print(f"❌ Error saving panel: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/list-comics', methods=['GET'])
+def list_comics():
+    """
+    List all saved comics in the project directory
+    """
+    try:
+        import os
+        import glob
+        
+        # Look for saved comics directory
+        saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
+        
+        if not os.path.exists(saved_comics_dir):
+            return jsonify({'comics': []})
+        
+        # Get all comic directories
+        comic_dirs = [d for d in os.listdir(saved_comics_dir) 
+                     if os.path.isdir(os.path.join(saved_comics_dir, d))]
+        
+        # Sort by modification time (newest first)
+        comic_dirs.sort(key=lambda x: os.path.getmtime(os.path.join(saved_comics_dir, x)), reverse=True)
+        
+        comics = []
+        for comic_dir in comic_dirs:
+            # Check if it has panel files
+            panel_files = glob.glob(os.path.join(saved_comics_dir, comic_dir, "panel_*.png"))
+            if panel_files:
+                comics.append({
+                    'title': comic_dir,
+                    'panel_count': len(panel_files)
+                })
+        
+        return jsonify({'comics': comics})
+
+    except Exception as e:
+        print(f"❌ Error listing comics: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/load-comic/<path:comic_title>', methods=['GET'])
+def load_comic(comic_title):
+    """
+    Load a saved comic from the project directory
+    """
+    try:
+        import os
+        import base64
+        import glob
+        from urllib.parse import unquote
+        
+        # Decode URL-encoded comic title
+        decoded_title = unquote(comic_title)
+        print(f"Loading comic: '{comic_title}' -> decoded: '{decoded_title}'")
+        
+        # Look for the comic directory
+        saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
+        comic_dir = os.path.join(saved_comics_dir, decoded_title)
+        
+        print(f"Looking for comic directory: {comic_dir}")
+        
+        if not os.path.exists(comic_dir):
+            # List available comics for debugging
+            available_comics = []
+            if os.path.exists(saved_comics_dir):
+                available_comics = [d for d in os.listdir(saved_comics_dir) 
+                                  if os.path.isdir(os.path.join(saved_comics_dir, d))]
+            print(f"Available comics: {available_comics}")
+            return jsonify({'error': f'Comic not found. Available: {available_comics}'}), 404
+        
+        # Load all panel images
+        panels = []
+        for panel_id in range(1, 7):  # 6 panels
+            panel_path = os.path.join(comic_dir, f"panel_{panel_id}.png")
+            if os.path.exists(panel_path):
+                with open(panel_path, 'rb') as f:
+                    image_bytes = f.read()
+                    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                    panels.append({
+                        'id': panel_id,
+                        'image_data': f"data:image/png;base64,{image_base64}"
+                    })
+        
+        return jsonify({
+            'success': True,
+            'comic_title': comic_title,
+            'panels': panels
+        })
+
+    except Exception as e:
+        print(f"❌ Error loading comic: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
