@@ -5,3 +5,7 @@ dotenv
 python-multipart
 uvicorn
 pillow
+google-generativeai
+httpx
+pydantic
+asyncio
