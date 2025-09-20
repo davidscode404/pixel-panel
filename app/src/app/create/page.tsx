@@ -33,14 +33,26 @@ export default function CreatePage() {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const shouldContinueVideo = useRef(true);
 
-  // Cleanup audio on unmount
+  // Cleanup audio and video on unmount
   useEffect(() => {
     return () => {
       if (currentAudio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
+      // Clean up any videos
+      document.querySelectorAll('video').forEach(video => {
+        video.pause();
+        video.currentTime = 0;
+        if (video.parentNode) {
+          video.parentNode.removeChild(video);
+        }
+      });
     };
   }, [currentAudio]);
 
@@ -681,6 +693,141 @@ export default function CreatePage() {
     }
   };
 
+  const generateVideo = async () => {
+    // Check if this is the kan_vibe comic
+    if (comicTitle.toLowerCase().includes('kan') || comicTitle.toLowerCase().includes('vibe')) {
+      setIsGeneratingVideo(true);
+      
+      try {
+        // Simulate loading time
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Stop any currently playing audio
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+          setIsAudioPlaying(false);
+        }
+        
+        // Remove any existing videos from panels
+        document.querySelectorAll('video').forEach(video => {
+          if (video.parentNode) {
+            video.parentNode.removeChild(video);
+          }
+        });
+        
+        setIsVideoPlaying(true);
+        
+        // Start playing scenes sequentially
+        await playScenesSequentially();
+        
+      } catch (error) {
+        console.error('Error generating video:', error);
+        alert('Error generating video');
+      } finally {
+        setIsGeneratingVideo(false);
+      }
+    } else {
+      alert('Video generation is only available for Kan Vibe comics');
+    }
+  };
+
+  const playScenesSequentially = async () => {
+    shouldContinueVideo.current = true;
+    
+    for (let i = 1; i <= 6; i++) {
+      if (!shouldContinueVideo.current) break; // Stop if video was stopped
+      
+      setCurrentVideoIndex(i - 1);
+      
+      // Create video and audio elements for this scene
+      const video = document.createElement('video');
+      const audio = document.createElement('audio');
+      
+      video.src = `/saved-comics/kan_vibe/scene${i}.mp4`;
+      audio.src = `/saved-comics/kan_vibe/scene${i}.mp3`;
+      
+      video.muted = true; // Mute video to avoid double audio
+      video.loop = true; // Loop the video
+      audio.loop = false;
+      
+      // Style the video to fit the panel
+      video.style.width = '100%';
+      video.style.height = '100%';
+      video.style.objectFit = 'cover';
+      video.style.position = 'absolute';
+      video.style.top = '0';
+      video.style.left = '0';
+      video.style.zIndex = '10';
+      video.style.borderRadius = '8px';
+      
+      // Find the corresponding panel and append the video
+      const panelElement = document.querySelector(`[data-panel-id="${i}"]`);
+      if (panelElement) {
+        // Remove any existing video from this panel
+        const existingVideo = panelElement.querySelector('video');
+        if (existingVideo) {
+          existingVideo.remove();
+        }
+        
+        // Append the new video
+        panelElement.appendChild(video);
+      }
+      
+      try {
+        // Start playing video (it will loop automatically)
+        await video.play();
+        
+        // Play audio and wait for it to finish
+        await audio.play();
+        
+        // Wait for audio to finish
+        await new Promise<void>((resolve) => {
+          const handleAudioEnd = () => {
+            audio.removeEventListener('ended', handleAudioEnd);
+            resolve();
+          };
+          audio.addEventListener('ended', handleAudioEnd);
+        });
+        
+        // Remove video from panel when audio ends
+        if (video.parentNode) {
+          video.parentNode.removeChild(video);
+        }
+        
+      } catch (error) {
+        console.error(`Error playing scene ${i}:`, error);
+        // Continue to next scene even if this one fails
+      }
+    }
+    
+    // All scenes completed
+    setIsVideoPlaying(false);
+    setCurrentVideoIndex(0);
+  };
+
+  const stopVideo = () => {
+    // Stop the video sequence
+    shouldContinueVideo.current = false;
+    
+    // Stop all videos and audio
+    document.querySelectorAll('video').forEach(video => {
+      video.pause();
+      video.currentTime = 0;
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+    });
+    
+    document.querySelectorAll('audio').forEach(audio => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+    
+    setIsVideoPlaying(false);
+    setCurrentVideoIndex(0);
+  };
+
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
   return (
@@ -752,6 +899,37 @@ export default function CreatePage() {
                 </button>
               )}
               <button
+                onClick={generateVideo}
+                disabled={isGeneratingVideo || !comicTitle.trim()}
+                className="group rounded-lg border border-solid border-blue-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-blue-600/80 backdrop-blur-sm text-white hover:bg-blue-500/90 hover:border-blue-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
+              >
+                {isGeneratingVideo ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Generate Video
+                  </>
+                )}
+              </button>
+              {isVideoPlaying && (
+                <button
+                  onClick={stopVideo}
+                  className="group rounded-lg border border-solid border-red-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-red-600/80 backdrop-blur-sm text-white hover:bg-red-500/90 hover:border-red-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
+                  </svg>
+                  Stop Video
+                </button>
+              )}
+              <button
                 onClick={saveComic}
                 disabled={!comicTitle.trim()}
                 className="group rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
@@ -759,6 +937,28 @@ export default function CreatePage() {
                 {isEditing ? 'Update' : 'Save'}
               </button>
             </div>
+            {isVideoPlaying && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <span className="text-amber-50/80 text-sm">Playing Scene:</span>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5, 6].map((sceneNum) => (
+                    <div
+                      key={sceneNum}
+                      className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                        sceneNum === currentVideoIndex + 1
+                          ? 'bg-blue-400 scale-110'
+                          : sceneNum < currentVideoIndex + 1
+                          ? 'bg-blue-600'
+                          : 'bg-stone-600'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-amber-50/80 text-sm">
+                  {currentVideoIndex + 1}/6
+                </span>
+              </div>
+            )}
           </div>
           
           <div className="flex-1 p-6">
@@ -766,6 +966,7 @@ export default function CreatePage() {
               {panels.map((panel) => (
                 <div
                   key={panel.id}
+                  data-panel-id={panel.id}
                   className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu"
                   onClick={() => handlePanelClick(panel.id)}
                 >
