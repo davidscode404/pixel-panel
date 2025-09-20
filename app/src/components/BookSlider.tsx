@@ -234,7 +234,7 @@ export default function BookSlider() {
   };
 
   return (
-    <div className="w-full max-w-full mx-auto px-8">
+    <div className="w-full max-w-7xl mx-auto px-12">
       <div className="relative">
         {/* Navigation Arrows */}
         <button
@@ -258,14 +258,14 @@ export default function BookSlider() {
         </button>
 
         {/* Overlapping Cards Container */}
-        <div className="relative h-96 flex justify-center items-center px-4">
+        <div className="relative h-96 flex justify-center items-center px-8">
           {books.map((book, index) => {
             const offset = index - currentIndex;
             const absOffset = Math.abs(offset);
             const isActive = index === currentIndex;
             
             // Calculate position and scale
-            const translateX = offset * 80; // Increased overlap spacing
+            const translateX = offset * 100; // Increased spacing for wider books
             const scale = Math.max(isActive ? 1 : 0.9 - (absOffset * 0.05), 0.7);
             const zIndex = books.length - absOffset;
             const opacity = absOffset > 3 ? 0 : 1 - (absOffset * 0.2);
@@ -273,7 +273,7 @@ export default function BookSlider() {
             return (
               <div
                 key={book.id}
-                className="absolute w-64 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer hover:shadow-2xl hover:scale-110 hover:brightness-110 group"
+                className="absolute w-80 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer hover:shadow-2xl hover:scale-110 hover:brightness-110 group"
                 style={{
                   transform: `translateX(${translateX}px) scale(${scale})`,
                   zIndex: zIndex,
