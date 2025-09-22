@@ -9,3 +9,5 @@ google-generativeai
 httpx
 pydantic
 asyncio
+sqlalchemy
+alembic
