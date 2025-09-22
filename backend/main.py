@@ -1,9 +1,7 @@
 import fastapi
 from fastapi import UploadFile, File, HTTPException, Request, Response
 import asyncio
-from dedalus_labs import AsyncDedalus, DedalusRunner
 from dotenv import load_dotenv
-from dedalus_labs.utils.streaming import stream_async
 import uvicorn
 import base64
 import PIL
@@ -19,15 +17,13 @@ from google import genai
 from google.genai import types
 import json
 import asyncio
-from dedalus_labs import AsyncDedalus, DedalusRunner
-from dedalus_labs.utils.streaming import stream_async
+from services.comic_generator import ComicArtGenerator
 
 load_dotenv()
 
-
 app = fastapi.FastAPI()
+comic_generator = ComicArtGenerator()
 
-# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -35,9 +31,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-
-dedalus_client = AsyncDedalus()
-dedalus_runner = DedalusRunner(dedalus_client)
 
 latest_img: Image.Image = None
 
@@ -53,15 +46,6 @@ class ComicArtRequest(BaseModel):
     reference_image: str = None  # Base64 encoded image data (optional)
     panel_id: int = None  # Panel ID to track generation order
 
-# Initialize the comic art generator
-from comic_art_generator import ComicArtGenerator
-
-try:
-    comic_generator = ComicArtGenerator()
-    print(" Comic Art Generator initialized successfully")
-except Exception as e:
-    print(f" Warning: Could not initialize Comic Art Generator: {e}")
-    comic_generator = None
 
 async def upload_file_to_image_obj(img_file: UploadFile) -> Image.Image:
     """
@@ -117,13 +101,6 @@ def get_previous_panel_context(panel_id: int):
 async def generate_comic_art(request: ComicArtRequest):
     """
     Generate comic art from text prompt and optional reference image
-
-    Expected JSON payload:
-    {
-        "text_prompt": "string",
-        "reference_image": "base64_encoded_image_data" (optional),
-        "panel_id": int (optional)
-    }
     """
     try:
         # FastAPI automatically parses the JSON body into the Pydantic model
@@ -137,7 +114,6 @@ async def generate_comic_art(request: ComicArtRequest):
         print(f"🔍 DEBUG: panel_id={panel_id}, is_reset={comic_context['is_reset']}, panels_count={len(comic_context['panels'])}")
         
         # For panels after the first, use previous panel as context
-        context_prompt = None
         context_image_data = None
         
         if panel_id and not is_first_panel_generation(panel_id) and not comic_context["is_reset"]:
@@ -148,31 +124,12 @@ async def generate_comic_art(request: ComicArtRequest):
                 context_image_data = previous_context['image']
                 text_prompt = context_prompt
                 print(f"🎯 Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
-                print(f"🖼️ Context image size: {len(context_image_data) if context_image_data else 0} characters")
             else:
                 print(f"⚠️ No previous panel context available for panel {panel_id}")
         else:
             print(f"📝 Panel {panel_id} - no context used (first panel or reset)")
         
-        # Process reference image in memory if provided
-        reference_image_path = None
-        if reference_image_data:
-            try:
-                # Decode base64 image
-                image_data = base64.b64decode(reference_image_data)
-                
-                # Create temporary file for processing (will be cleaned up)
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
-                    temp_file.write(image_data)
-                    reference_image_path = temp_file.name
-                
-                print(f"Processing reference image in memory...")
-                
-            except Exception as e:
-                print(f"Error processing reference image: {e}")
-                reference_image_path = None
-        
-        # Generate comic art
+        # Generate comic art using the service
         if not comic_generator:
             raise HTTPException(
                 status_code=500,
@@ -180,18 +137,10 @@ async def generate_comic_art(request: ComicArtRequest):
             )
         
         # Generate the comic art with context
-        image = comic_generator.generate_comic_art(text_prompt, reference_image_path, context_image_data)
-        
-        # Clean up temporary reference image file
-        if reference_image_path and os.path.exists(reference_image_path):
-            os.unlink(reference_image_path)
-            print(f"Cleaned up temporary reference image file")
+        image = comic_generator.generate_comic_art(text_prompt, reference_image_data, context_image_data)
         
         # Convert image to base64 for response
-        img_buffer = BytesIO()
-        image.save(img_buffer, format='PNG')
-        img_bytes = img_buffer.getvalue()
-        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+        img_base64 = comic_generator.image_to_base64(image)
         
         # Store the generated panel data for future context
         if panel_id:

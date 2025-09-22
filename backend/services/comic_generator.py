@@ -6,6 +6,7 @@ Generates comic art for panels based on reference sketches from users
 import os
 import sys
 import base64
+import tempfile
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -25,17 +26,49 @@ class ComicArtGenerator:
         
         self.client = genai.Client(api_key=self.api_key)
     
-    def generate_comic_art(self, text_prompt, reference_image_path=None, context_image_data=None):
+    def generate_comic_art(self, text_prompt, reference_image_data=None, context_image_data=None):
         """
         Generate comic art based on text prompt and optional reference sketch
         
         Args:
             text_prompt (str): Text description for the comic panel
-            reference_image_path (str): Path to reference sketch image file (optional)
+            reference_image_data (str): Base64 encoded reference sketch image data (optional)
             context_image_data (str): Base64 encoded context image data (optional)
             
         Returns:
             PIL.Image: Generated comic art image
+        """
+        # Process reference image if provided
+        reference_image_path = None
+        if reference_image_data:
+            try:
+                # Decode base64 image
+                image_data = base64.b64decode(reference_image_data)
+                
+                # Create temporary file for processing (will be cleaned up)
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                    temp_file.write(image_data)
+                    reference_image_path = temp_file.name
+                
+                print(f"Processing reference image in memory...")
+                
+            except Exception as e:
+                print(f"Error processing reference image: {e}")
+                reference_image_path = None
+        
+        try:
+            # Generate the comic art
+            image = self._generate_art(text_prompt, reference_image_path, context_image_data)
+            return image
+        finally:
+            # Clean up temporary reference image file
+            if reference_image_path and os.path.exists(reference_image_path):
+                os.unlink(reference_image_path)
+                print(f"Cleaned up temporary reference image file")
+    
+    def _generate_art(self, text_prompt, reference_image_path=None, context_image_data=None):
+        """
+        Internal method to generate comic art
         """
         # Determine if we have context (subsequent panel generation)
         has_context = context_image_data is not None
@@ -152,6 +185,13 @@ class ComicArtGenerator:
             
         except Exception as e:
             raise Exception(f"Error generating comic art: {e}")
+    
+    def image_to_base64(self, image: Image.Image) -> str:
+        """Convert PIL Image to base64 string"""
+        img_buffer = BytesIO()
+        image.save(img_buffer, format='PNG')
+        img_bytes = img_buffer.getvalue()
+        return base64.b64encode(img_bytes).decode('utf-8')
     
     def save_image(self, image, filename):
         """

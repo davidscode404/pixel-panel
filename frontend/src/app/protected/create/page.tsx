@@ -56,7 +56,6 @@ export default function CreatePage() {
     };
   }, [currentAudio]);
 
-  // Load comic for editing if one is selected via URL parameter
   useEffect(() => {
     const loadComicFromURL = async () => {
       // Check for comic parameter in URL
@@ -67,11 +66,9 @@ export default function CreatePage() {
         try {
           console.log(`Loading comic from URL parameter: ${comicTitle}`);
           
-          // Load comic data from backend
           const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.LOAD_COMIC}/${comicTitle}`));
           if (response.ok) {
             const comic = await response.json();
-            // Format the comic title for display
             const formattedTitle = comic.comic_title
               .replace(/_/g, ' ')
               .split(' ')
@@ -80,7 +77,6 @@ export default function CreatePage() {
             setComicTitle(formattedTitle);
             setIsEditing(true);
             
-            // Load the comic panels from project directory
             if (comic.panels) {
               const updatedPanels = panels.map(panel => {
                 const savedPanel = comic.panels.find((p: any) => p.id === panel.id);
@@ -96,7 +92,6 @@ export default function CreatePage() {
               
               setPanels(updatedPanels);
               
-              // After setting the panel data, draw the images onto the canvases
               setTimeout(() => {
                 console.log('Loading panels onto canvases...');
                 comic.panels.forEach((savedPanel: any) => {
@@ -128,7 +123,6 @@ export default function CreatePage() {
               }, 200);
             }
             
-            // Clean up URL parameter
             window.history.replaceState({}, document.title, window.location.pathname);
           } else {
             const errorData = await response.json();
@@ -187,9 +181,7 @@ export default function CreatePage() {
     const panel = panels.find(p => p.id === panelId);
     
     if (panel?.isZoomed) {
-      // Save current large canvas state before zooming out
       saveCanvasState(panelId, true);
-      // Update the small canvas preview
       updateSmallCanvasPreview(panelId);
     }
 
@@ -198,13 +190,11 @@ export default function CreatePage() {
       isZoomed: p.id === panelId ? !p.isZoomed : false
     })));
 
-    // If zooming in, restore the saved large canvas state after a brief delay
     if (!panel?.isZoomed) {
       setTimeout(() => {
         restoreCanvasState(panelId, true);
       }, 100);
     } else {
-      // If zooming out, restore small canvas previews
       setTimeout(() => {
         forceRestoreSmallCanvases();
       }, 100);
@@ -694,22 +684,18 @@ export default function CreatePage() {
   };
 
   const generateVideo = async () => {
-    // Check if this is the kan_vibe comic
     if (comicTitle.toLowerCase().includes('kan') || comicTitle.toLowerCase().includes('vibe')) {
       setIsGeneratingVideo(true);
       
       try {
-        // Simulate loading time
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Stop any currently playing audio
         if (currentAudio) {
           currentAudio.pause();
           currentAudio.currentTime = 0;
           setIsAudioPlaying(false);
         }
         
-        // Remove any existing videos from panels
         document.querySelectorAll('video').forEach(video => {
           if (video.parentNode) {
             video.parentNode.removeChild(video);
@@ -718,7 +704,6 @@ export default function CreatePage() {
         
         setIsVideoPlaying(true);
         
-        // Start playing scenes sequentially
         await playScenesSequentially();
         
       } catch (error) {
