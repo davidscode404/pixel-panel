@@ -1,5 +1,0 @@
-google-genai
-Pillow
-python-dotenv
-flask
-flask-cors
