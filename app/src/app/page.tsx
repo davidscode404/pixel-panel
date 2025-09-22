@@ -1,15 +1,57 @@
+'use client'
+
 import Link from 'next/link';
 import BookSlider from '../components/BookSlider';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function Home() {
+  const { user, loading, signOut } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800">
+        <div className="text-amber-50">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen p-8 sm:p-12 animated-gradient">
+      {/* Auth buttons in top right */}
+      <div className="absolute top-4 right-4 flex gap-2">
+        {user ? (
+          <div className="flex items-center gap-4">
+            <span className="text-stone-200 text-sm">
+              Welcome, {user.email}
+            </span>
+            <button
+              onClick={signOut}
+              className="px-4 py-2 text-sm bg-stone-700/50 text-stone-200 rounded-md hover:bg-stone-600/50 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <>
+            <Link href="/auth/login">
+              <button className="px-4 py-2 text-sm bg-stone-700/50 text-stone-200 rounded-md hover:bg-stone-600/50 transition-colors">
+                Sign In
+              </button>
+            </Link>
+            <Link href="/auth/signup">
+              <button className="px-4 py-2 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors">
+                Sign Up
+              </button>
+            </Link>
+          </>
+        )}
+      </div>
+
       <main className="flex flex-col items-center gap-12">
         <div className="text-center max-w-2xl">
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mb-6 text-amber-50 drop-shadow-2xl flex items-center justify-center gap-4">
             <svg className="w-12 h-12 sm:w-16 sm:h-16" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-              <path d="M7 8h2v2H7zm4-1h2v2h-2zm4 3h2v2h-2z"/>
             </svg>
             PixelPanel 
           </h1>
@@ -19,11 +61,11 @@ export default function Home() {
           </p>
         </div>
         
-        {/* Start button in the middle */}
+        {/* Smart Create Comic button */}
         <div className="flex justify-center">
-          <Link href="/create">
+          <Link href={user ? "/protected" : "/auth/login"}>
             <button className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-base h-12 px-8 shadow-xl hover:shadow-2xl hover:scale-105">
-              Create Your Comic
+              {user ? "Explore Comics" : "Create Your Comic"}
               <svg 
                 className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" 
                 fill="none" 

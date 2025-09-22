@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { buildApiUrl, API_CONFIG } from '../../config/api';
+import { buildApiUrl, API_CONFIG } from '../../../config/api';
 
 interface Panel {
   id: number;
