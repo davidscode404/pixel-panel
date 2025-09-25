@@ -1,7 +1,8 @@
 dedalus-labs
 fastapi
+pydantic-settings
+python-dotenv
 elevenlabs
-dotenv
 python-multipart
 uvicorn
 pillow
@@ -11,3 +12,5 @@ pydantic
 asyncio
 sqlalchemy
 alembic
+supabase
+PyJWT
