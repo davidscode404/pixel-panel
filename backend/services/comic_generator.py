@@ -184,6 +184,10 @@ class ComicArtGenerator:
             raise Exception("No image data found in response")
             
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"❌ Error in ComicArtGenerator._generate_art: {e}")
+            print(f"📋 Full traceback: {error_details}")
             raise Exception(f"Error generating comic art: {e}")
     
     def image_to_base64(self, image: Image.Image) -> str:

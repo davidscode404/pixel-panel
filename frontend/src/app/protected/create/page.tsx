@@ -1,8 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
+import { createClient as createSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/auth/AuthProvider';
+import Link from 'next/link';
+
+// Create Supabase client (shared with AuthProvider)
+const supabase = createSupabaseClient()
+
 
 interface Panel {
   id: number;
@@ -13,6 +19,8 @@ interface Panel {
 }
 
 export default function CreatePage() {
+  const { user, loading } = useAuth();
+  
   const [panels, setPanels] = useState<Panel[]>([
     { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
     { id: 2, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
@@ -22,37 +30,76 @@ export default function CreatePage() {
     { id: 6, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
   ]);
 
+  // Function to get the session token for API requests
+    const getAccessToken = async () => {
+      // 1) Try to read current session
+      let { data: { session }, error } = await supabase.auth.getSession();
+      console.log('🔍 DEBUG:getSession -> session:', session, 'error:', error);
+
+      // 2) If missing, try to refresh using stored refresh token
+      if (!session) {
+        console.log('ℹ️ No session returned. Attempting refreshSession...');
+        const refreshRes = await supabase.auth.refreshSession();
+        console.log('🔍 DEBUG:refreshSession ->', refreshRes);
+        session = refreshRes.data.session ?? null;
+      }
+
+      // 3) As a fallback, validate via getUser (forces a user check)
+      if (!session) {
+        console.log('ℹ️ No session after refresh. Attempting getUser as fallback...');
+        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        console.log('🔍 DEBUG:getUser -> user:', userData?.user, 'error:', userErr);
+        if (userData?.user) {
+          // Try getting session once more
+          const s2 = await supabase.auth.getSession();
+          session = s2.data.session ?? null;
+          console.log('🔍 DEBUG:getSession (after getUser) ->', session);
+        }
+      }
+
+      if (!session) {
+        console.log('❌ No active session available after retries');
+        throw new Error('No active session. Please sign in first.');
+      }
+
+      if (!session.access_token) {
+        console.log('❌ Session present but missing access_token');
+        throw new Error('No access token available');
+      }
+
+      console.log('🔍 DEBUG: Access token length:', session.access_token.length);
+      console.log('🔍 DEBUG: Access token starts with:', session.access_token.substring(0, 50));
+      // Check if token has proper JWT structure (3 parts separated by dots)
+      const tokenParts = session.access_token.split('.');
+      console.log('🔍 DEBUG: Token parts count:', tokenParts.length);
+      if (tokenParts.length !== 3) {
+        console.log('❌ Invalid JWT format - expected 3 parts, got:', tokenParts.length);
+        throw new Error('Invalid JWT token format');
+      }
+
+      return session.access_token;
+    };
+
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentTool, setCurrentTool] = useState('pen');
   const [brushSize, setBrushSize] = useState(3);
   const [currentColor, setCurrentColor] = useState('#000000');
   const [textPrompt, setTextPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [comicTitle, setComicTitle] = useState('');
+  const [comicTitle, setComicTitle] = useState('Untitled');
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const shouldContinueVideo = useRef(true);
 
-  // Cleanup audio and video on unmount
+  // Cleanup audio on unmount
   useEffect(() => {
     return () => {
       if (currentAudio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
       }
-      // Clean up any videos
-      document.querySelectorAll('video').forEach(video => {
-        video.pause();
-        video.currentTime = 0;
-        if (video.parentNode) {
-          video.parentNode.removeChild(video);
-        }
-      });
     };
   }, [currentAudio]);
 
@@ -393,10 +440,14 @@ export default function CreatePage() {
     if (allPanelsEmpty) {
       try {
         console.log('All panels cleared, resetting context...');
+        // Get access token for API request
+        const accessToken = await getAccessToken();
+        
         const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.RESET_CONTEXT), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
           }
         });
         
@@ -433,61 +484,114 @@ export default function CreatePage() {
     checkAndResetContext();
   };
 
-  const saveComic = async () => {
-    if (!comicTitle.trim()) {
-      alert('Please enter a comic title');
+  const createComic = async () => {
+    console.log('🔍 DEBUG: createComic called with comicTitle:', `"${comicTitle}"`);
+    console.log('🔍 DEBUG: comicTitle length:', comicTitle.length);
+    console.log('🔍 DEBUG: comicTitle type:', typeof comicTitle);
+
+    // Ensure we have a valid title
+    if (!comicTitle || comicTitle.trim() === '') {
+      alert('Please enter a comic title before saving.');
       return;
     }
 
-    console.log('Starting to save comic:', comicTitle);
+    console.log('Starting to create comic:', comicTitle);
 
-    // Collect all panel data
-    const comicData = {
-      id: isEditing ? comicTitle : Date.now(),
-      title: comicTitle,
-      date: new Date().toISOString(),
-      panels: panels.map(panel => ({
-        id: panel.id,
-        smallCanvasData: panel.smallCanvasData,
-        largeCanvasData: panel.largeCanvasData
-      }))
+    // Build payload for SAVE_COMIC (save all panels at once)
+    const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const panelsData = panels
+      .filter(panel => !!panel.largeCanvasData)
+      .map(panel => ({ id: panel.id, largeCanvasData: panel.largeCanvasData }));
+
+    if (panelsData.length === 0) {
+      alert('No panels have been drawn yet. Please draw something before saving.');
+      return;
+    }
+
+    const payload = {
+      comic_title: safeTitle,
+      panels_data: panelsData,
     };
 
-    console.log('Comic data prepared:', comicData);
+    console.log('🔍 DEBUG: SAVE_COMIC payload:', payload);
 
     try {
-      // Save each panel as PNG to project directory
-      console.log('Saving panels to project directory...');
-      await savePanelsAsPNG(comicTitle);
-      console.log('PNG save successful');
+      // Get access token for API request
+      const accessToken = await getAccessToken();
+      console.log('✅ Got access token for save-comic request');
+      
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_COMIC), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('🔍 DEBUG: Save comic response status:', response.status);
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({} as any));
+        console.log('❌ Save comic error response:', err);
+        throw new Error(err?.detail || err?.error || `Save comic failed with status ${response.status}`);
+      }
+
+      const result = await response.json().catch(() => ({} as any));
+      console.log('✅ SAVE_COMIC result:', result);
 
       alert(`Comic "${comicTitle}" saved successfully!`);
-      setComicTitle('');
+      // Only reset the title and editing state after successful save
+      setComicTitle('Untitled');
       setIsEditing(false);
     } catch (error) {
-      console.error('Error saving comic:', error);
-      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('❌ Error saving comic:', error);
       alert(`Failed to save comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   const savePanelsAsPNG = async (title: string) => {
+    // Ensure we have a valid title
+    if (!title || title.trim() === '') {
+      throw new Error('Comic title cannot be empty. Please enter a title before saving.');
+    }
+    
     const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    console.log(`🔍 DEBUG: Original title: "${title}", Safe title: "${safeTitle}"`);
+    
+    // Ensure safeTitle is not empty after processing
+    if (!safeTitle || safeTitle.trim() === '') {
+      throw new Error('Comic title becomes invalid after processing. Please use a title with letters or numbers.');
+    }
+    
+    // Check if any panels have data
+    const panelsWithData = panels.filter(panel => panel.largeCanvasData);
+    console.log(`🔍 DEBUG: Found ${panelsWithData.length} panels with data out of ${panels.length} total panels`);
+    
+    if (panelsWithData.length === 0) {
+      throw new Error('No panels have been drawn yet. Please draw something before saving.');
+    }
     
     try {
       // Send each panel to backend to save in project directory
       for (const panel of panels) {
+        console.log(`🔍 DEBUG: Panel ${panel.id} - largeCanvasData exists: ${!!panel.largeCanvasData}`);
         if (panel.largeCanvasData) {
           console.log(`Saving panel ${panel.id} to project directory...`);
           
           // Extract base64 data
           const base64Data = panel.largeCanvasData.split(',')[1];
+          console.log(`🔍 DEBUG: Panel ${panel.id} - base64Data length: ${base64Data.length}`);
+          
+          // Get access token for API request
+          const accessToken = await getAccessToken();
           
           // Send to backend to save in project directory
           const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
             },
             body: JSON.stringify({
               comic_title: safeTitle,
@@ -511,48 +615,6 @@ export default function CreatePage() {
     }
   };
 
-  // IndexedDB functions
-  const saveComicToDB = async (comicData: any) => {
-    return new Promise((resolve, reject) => {
-      console.log('Opening IndexedDB...');
-      const request = indexedDB.open('ComicDatabase', 1);
-      
-      request.onerror = () => {
-        console.error('IndexedDB open error:', request.error);
-        reject(new Error(`Failed to open database: ${request.error?.message}`));
-      };
-      
-      request.onsuccess = () => {
-        console.log('IndexedDB opened successfully');
-        const db = request.result;
-        const transaction = db.transaction(['comics'], 'readwrite');
-        const store = transaction.objectStore('comics');
-        
-        console.log('Putting data into store...');
-        const putRequest = store.put(comicData);
-        putRequest.onsuccess = () => {
-          console.log('Data saved to IndexedDB successfully');
-          resolve(putRequest.result);
-        };
-        putRequest.onerror = () => {
-          console.error('IndexedDB put error:', putRequest.error);
-          reject(new Error(`Failed to save data: ${putRequest.error?.message}`));
-        };
-      };
-      
-      request.onupgradeneeded = () => {
-        console.log('IndexedDB upgrade needed, creating store...');
-        const db = request.result;
-        if (!db.objectStoreNames.contains('comics')) {
-          const store = db.createObjectStore('comics', { keyPath: 'id' });
-          store.createIndex('title', 'title', { unique: false });
-          store.createIndex('date', 'date', { unique: false });
-          console.log('Object store created successfully');
-        }
-      };
-    });
-  };
-
   const generateComicArt = async (panelId: number) => {
     if (!textPrompt.trim()) {
       alert('Please enter a text prompt');
@@ -570,12 +632,16 @@ export default function CreatePage() {
       const canvasData = canvas.toDataURL('image/png');
       const base64Data = canvasData.split(',')[1]; // Remove data:image/png;base64, prefix
 
+      // Get access token for API request
+      const accessToken = await getAccessToken();
+      
       // Call backend API
       console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({
           text_prompt: textPrompt,
@@ -683,271 +749,69 @@ export default function CreatePage() {
     }
   };
 
-  const generateVideo = async () => {
-    if (comicTitle.toLowerCase().includes('kan') || comicTitle.toLowerCase().includes('vibe')) {
-      setIsGeneratingVideo(true);
-      
-      try {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio.currentTime = 0;
-          setIsAudioPlaying(false);
-        }
-        
-        document.querySelectorAll('video').forEach(video => {
-          if (video.parentNode) {
-            video.parentNode.removeChild(video);
-          }
-        });
-        
-        setIsVideoPlaying(true);
-        
-        await playScenesSequentially();
-        
-      } catch (error) {
-        console.error('Error generating video:', error);
-        alert('Error generating video');
-      } finally {
-        setIsGeneratingVideo(false);
-      }
-    } else {
-      alert('Video generation is only available for Kan Vibe comics');
-    }
+  const handleTitleClick = () => {
+    setIsEditingTitle(true);
   };
 
-  const playScenesSequentially = async () => {
-    shouldContinueVideo.current = true;
-    
-    for (let i = 1; i <= 6; i++) {
-      if (!shouldContinueVideo.current) break; // Stop if video was stopped
-      
-      setCurrentVideoIndex(i - 1);
-      
-      // Create video and audio elements for this scene
-      const video = document.createElement('video');
-      const audio = document.createElement('audio');
-      
-      video.src = `/saved-comics/kan_vibe/scene${i}.mp4`;
-      audio.src = `/saved-comics/kan_vibe/scene${i}.mp3`;
-      
-      video.muted = true; // Mute video to avoid double audio
-      video.loop = true; // Loop the video
-      audio.loop = false;
-      
-      // Style the video to fit the panel
-      video.style.width = '100%';
-      video.style.height = '100%';
-      video.style.objectFit = 'cover';
-      video.style.position = 'absolute';
-      video.style.top = '0';
-      video.style.left = '0';
-      video.style.zIndex = '10';
-      video.style.borderRadius = '8px';
-      
-      // Find the corresponding panel and append the video
-      const panelElement = document.querySelector(`[data-panel-id="${i}"]`);
-      if (panelElement) {
-        // Remove any existing video from this panel
-        const existingVideo = panelElement.querySelector('video');
-        if (existingVideo) {
-          existingVideo.remove();
-        }
-        
-        // Append the new video
-        panelElement.appendChild(video);
-      }
-      
-      try {
-        // Start playing video (it will loop automatically)
-        await video.play();
-        
-        // Play audio and wait for it to finish
-        await audio.play();
-        
-        // Wait for audio to finish
-        await new Promise<void>((resolve) => {
-          const handleAudioEnd = () => {
-            audio.removeEventListener('ended', handleAudioEnd);
-            resolve();
-          };
-          audio.addEventListener('ended', handleAudioEnd);
-        });
-        
-        // Remove video from panel when audio ends
-        if (video.parentNode) {
-          video.parentNode.removeChild(video);
-        }
-        
-      } catch (error) {
-        console.error(`Error playing scene ${i}:`, error);
-        // Continue to next scene even if this one fails
-      }
-    }
-    
-    // All scenes completed
-    setIsVideoPlaying(false);
-    setCurrentVideoIndex(0);
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setComicTitle(e.target.value);
   };
 
-  const stopVideo = () => {
-    // Stop the video sequence
-    shouldContinueVideo.current = false;
-    
-    // Stop all videos and audio
-    document.querySelectorAll('video').forEach(video => {
-      video.pause();
-      video.currentTime = 0;
-      if (video.parentNode) {
-        video.parentNode.removeChild(video);
-      }
-    });
-    
-    document.querySelectorAll('audio').forEach(audio => {
-      audio.pause();
-      audio.currentTime = 0;
-    });
-    
-    setIsVideoPlaying(false);
-    setCurrentVideoIndex(0);
+  const handleTitleBlur = () => {
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setIsEditingTitle(false);
+    }
   };
 
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
   return (
-    <div className="min-h-screen animated-gradient">
+    <div className="h-full">
       {!zoomedPanel ? (
         // Comic Canvas View
-        <div className="h-screen flex flex-col p-4">
+        <div className="h-full flex flex-col">
           <div className="flex-shrink-0 p-4 flex justify-between items-center">
-            <Link href="/">
-              <button className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105">
-                <svg 
-                  className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
+            <div className="flex items-center gap-4">
+              {isEditingTitle ? (
+                <input
+                  type="text"
+                  value={comicTitle}
+                  onChange={handleTitleChange}
+                  onBlur={handleTitleBlur}
+                  onKeyDown={handleTitleKeyDown}
+                  className="text-2xl font-bold text-amber-50 bg-transparent border-b-2 border-amber-500 focus:outline-none focus:border-amber-400"
+                  autoFocus
+                />
+              ) : (
+                <h1 
+                  className="text-2xl font-bold text-amber-50 drop-shadow-lg cursor-pointer hover:text-amber-300 transition-colors"
+                  onClick={handleTitleClick}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-                </svg>
-                Back
-              </button>
-            </Link>
-            <h1 className="text-sm text-amber-50/80 drop-shadow-lg font-medium">
-              Click any panel to draw
-            </h1>
-            {/* Save Comic Button - Top Right */}
+                  {comicTitle}
+                </h1>
+              )}
+              
+            </div>
+            {/* Action Buttons - Right Side */}
             <div className="flex items-center gap-2">
               <button
-                onClick={clearAllPanels}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors"
+                onClick={createComic}
+                className="group rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
               >
-                Clear All
-              </button>
-              <input
-                type="text"
-                value={comicTitle}
-                onChange={(e) => setComicTitle(e.target.value)}
-                placeholder="Comic title..."
-                className="px-4 py-2 text-sm border border-amber-100/30 rounded-lg bg-stone-800/40 backdrop-blur-sm text-amber-50 placeholder-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-100/50 shadow-lg"
-              />
-              <button
-                onClick={generateAudio}
-                disabled={isGeneratingAudio || !comicTitle.trim()}
-                className="group rounded-lg border border-solid border-purple-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-purple-600/80 backdrop-blur-sm text-white hover:bg-purple-500/90 hover:border-purple-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
-              >
-                {isGeneratingAudio ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                    </svg>
-                    Generate Audio
-                  </>
-                )}
-              </button>
-              {isAudioPlaying && (
-                <button
-                  onClick={stopAudio}
-                  className="group rounded-lg border border-solid border-red-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-red-600/80 backdrop-blur-sm text-white hover:bg-red-500/90 hover:border-red-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                  </svg>
-                  Stop Audio
-                </button>
-              )}
-              <button
-                onClick={generateVideo}
-                disabled={isGeneratingVideo || !comicTitle.trim()}
-                className="group rounded-lg border border-solid border-blue-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-blue-600/80 backdrop-blur-sm text-white hover:bg-blue-500/90 hover:border-blue-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
-              >
-                {isGeneratingVideo ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    Generate Video
-                  </>
-                )}
-              </button>
-              {isVideoPlaying && (
-                <button
-                  onClick={stopVideo}
-                  className="group rounded-lg border border-solid border-red-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-red-600/80 backdrop-blur-sm text-white hover:bg-red-500/90 hover:border-red-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" />
-                  </svg>
-                  Stop Video
-                </button>
-              )}
-              <button
-                onClick={saveComic}
-                disabled={!comicTitle.trim()}
-                className="group rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
-              >
-                {isEditing ? 'Update' : 'Save'}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                </svg>
+                {isEditing ? 'Update Comic' : 'Create Comic'}
               </button>
             </div>
-            {isVideoPlaying && (
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <span className="text-amber-50/80 text-sm">Playing Scene:</span>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5, 6].map((sceneNum) => (
-                    <div
-                      key={sceneNum}
-                      className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                        sceneNum === currentVideoIndex + 1
-                          ? 'bg-blue-400 scale-110'
-                          : sceneNum < currentVideoIndex + 1
-                          ? 'bg-blue-600'
-                          : 'bg-stone-600'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="text-amber-50/80 text-sm">
-                  {currentVideoIndex + 1}/6
-                </span>
-              </div>
-            )}
           </div>
           
-          <div className="flex-1 p-6">
-            <div className="w-full grid grid-cols-3 gap-6" style={{ height: '320px' }}>
+          <div className="flex-1 p-6 overflow-hidden">
+            <div className="w-full h-full grid grid-cols-3 gap-6">
               {panels.map((panel) => (
                 <div
                   key={panel.id}
@@ -965,6 +829,18 @@ export default function CreatePage() {
                   <div className="absolute top-2 left-2 w-6 h-6 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-stone-900 shadow-lg group-hover:bg-amber-400/90 transition-colors duration-300">
                     {panel.id}
                   </div>
+                  {/* Trash Icon Overlay */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearPanel(panel.id);
+                    }}
+                    className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-white shadow-lg hover:bg-red-600/90 transition-colors duration-300 opacity-0 group-hover:opacity-100"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                   {/* Hover Effect Overlay */}
                   <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
@@ -974,7 +850,7 @@ export default function CreatePage() {
         </div>
       ) : (
         // Zoomed Panel View with Drawing Toolbar
-        <div className="h-screen flex flex-col p-4">
+        <div className="h-full flex flex-col">
           <div className="flex-shrink-0 p-6 flex justify-between items-center">
             <button
               onClick={() => handlePanelClick(zoomedPanel.id)}
@@ -985,7 +861,7 @@ export default function CreatePage() {
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
-              >
+            >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
               </svg>
               Back to Canvas

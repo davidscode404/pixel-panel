@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -12,6 +12,10 @@ export default function LoginForm() {
   const [message, setMessage] = useState('')
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Get the intended destination from URL params, default to /protected
+  const redirectTo = searchParams.get('redirect') || '/protected'
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,8 +31,7 @@ export default function LoginForm() {
       setMessage(error.message)
     } else {
       setMessage('Successfully signed in!')
-      // Redirect will happen automatically via auth state change
-      router.push('/protected/dashboard')
+      // The redirect will be handled by the AuthProvider's auth state change listener
     }
     setLoading(false)
   }

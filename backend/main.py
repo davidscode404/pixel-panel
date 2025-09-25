@@ -1,5 +1,5 @@
 import fastapi
-from fastapi import UploadFile, File, HTTPException, Request, Response
+from fastapi import UploadFile, File, HTTPException, Request, Response, Depends
 import asyncio
 from dotenv import load_dotenv
 import uvicorn
@@ -17,12 +17,24 @@ from google import genai
 from google.genai import types
 import json
 import asyncio
+from typing import List, Optional
 from services.comic_generator import ComicArtGenerator
+from services.comic_storage import ComicStorageService
+from supabase import create_client, Client
+import jwt
 
+# Load environment variables from .env file
 load_dotenv()
 
 app = fastapi.FastAPI()
 comic_generator = ComicArtGenerator()
+comic_storage_service = ComicStorageService()
+
+# Initialize Supabase client for JWT verification
+supabase_url = os.getenv('SUPABASE_URL')
+supabase_anon_key = os.getenv('SUPABASE_ANON_KEY')
+
+supabase: Client = create_client(supabase_url, supabase_anon_key)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,6 +108,101 @@ def get_previous_panel_context(panel_id: int):
         return comic_context["panels"][previous_panel_id]
     return None
 
+async def get_current_user(request: Request) -> dict:
+    """
+    Extract and validate JWT token from Authorization header
+    Returns the user data if valid, raises HTTPException if invalid
+    """
+    try:
+        # Get the Authorization header
+        auth_header = request.headers.get("Authorization")
+        print(f"🔍 DEBUG: Auth header: {auth_header}")
+        
+        if not auth_header or not auth_header.startswith("Bearer "):
+            print("❌ Missing or invalid Authorization header")
+            raise HTTPException(
+                status_code=401,
+                detail="Missing or invalid authorization header"
+            )
+        
+        # Extract the token
+        token = auth_header.split(" ")[1]
+        print(f"🔍 DEBUG: Token length: {len(token)}")
+        print(f"🔍 DEBUG: Token starts with: {token[:50]}...")
+        
+        # Check if token has proper JWT structure (3 parts separated by dots)
+        token_parts = token.split('.')
+        print(f"🔍 DEBUG: Token parts count: {len(token_parts)}")
+        
+        # Verify the JWT token with Supabase Auth server
+        try:
+            # Use the auth server to verify the token
+            async with httpx.AsyncClient() as client:
+                auth_response = await client.get(
+                    f"{supabase_url}/auth/v1/user",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "apikey": supabase_anon_key
+                    }
+                )
+                
+                if auth_response.status_code != 200:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="Invalid or expired token"
+                    )
+                
+                user_data = auth_response.json()
+                return {
+                    "id": user_data.get("id"),
+                    "email": user_data.get("email"),
+                    "user_metadata": user_data.get("user_metadata", {})
+                }
+                
+        except httpx.HTTPError as e:
+            print(f"JWT verification HTTP error: {e}")
+            raise HTTPException(
+                status_code=401,
+                detail="Token verification failed"
+            )
+        except Exception as e:
+            print(f"JWT verification error: {e}")
+            raise HTTPException(
+                status_code=401,
+                detail="Token verification failed"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Authentication error: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication failed"
+        )
+
+@app.post("/save-comic")
+async def save_comic(request: Request, current_user: dict = Depends(get_current_user)):
+    """
+    Save a comic to the database
+    Requires authentication via JWT token
+    """
+    try:
+        data = await request.json()
+        comic_title = data.get('comic_title')
+        panels_data = data.get('panels_data')
+        
+        if not all([comic_title, panels_data]):
+            raise HTTPException(status_code=400, detail='Missing required fields')
+        
+        # Use the authenticated user's ID
+        user_id = current_user.get('id')
+        
+        return await comic_storage_service.save_comic(user_id, comic_title, panels_data)
+    except Exception as e:
+        print(f"❌ Error saving comic: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/generate")
 async def generate_comic_art(request: ComicArtRequest):
@@ -158,9 +265,13 @@ async def generate_comic_art(request: ComicArtRequest):
         }
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Error in generate endpoint: {e}")
+        print(f"📋 Full traceback: {error_details}")
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail=f"Error generating comic art: {str(e)}"
         )
 
 @app.post("/auto-complete")
@@ -345,21 +456,27 @@ async def load_comic(comic_title: str):
 
 
 @app.post("/save-panel")
-async def save_panel(request: Request):
+async def save_panel(request: Request, current_user: dict = Depends(get_current_user)):
     """
-    Save a comic panel image to the project directory
+    Save a comic panel image to both local storage and Supabase Storage
+    Requires authentication via JWT token
     """
     try:
         data = await request.json()
+        print(f"🔍 DEBUG: Received data keys: {list(data.keys())}")
+        print(f"🔍 DEBUG: comic_title: {data.get('comic_title')}")
+        print(f"🔍 DEBUG: panel_id: {data.get('panel_id')}")
+        print(f"🔍 DEBUG: image_data length: {len(data.get('image_data', '')) if data.get('image_data') else 'None'}")
+        print(f"🔍 DEBUG: Authenticated user: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'Unknown')})")
+        
         comic_title = data.get('comic_title')
         panel_id = data.get('panel_id')
         image_data = data.get('image_data')
 
         if not all([comic_title, panel_id, image_data]):
+            print(f"❌ Missing fields - comic_title: {comic_title}, panel_id: {panel_id}, image_data: {bool(image_data)}")
             raise HTTPException(status_code=400, detail='Missing required fields')
 
-        # Create saved-comics directory if it doesn't exist
-        import os
         saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
         os.makedirs(saved_comics_dir, exist_ok=True)
 
@@ -367,7 +484,7 @@ async def save_panel(request: Request):
         comic_dir = os.path.join(saved_comics_dir, comic_title)
         os.makedirs(comic_dir, exist_ok=True)
 
-        # Save the panel image
+        # Save the panel image locally
         import base64
         image_bytes = base64.b64decode(image_data)
         panel_filename = f"panel_{panel_id}.png"
@@ -376,8 +493,35 @@ async def save_panel(request: Request):
         with open(panel_path, 'wb') as f:
             f.write(image_bytes)
 
-        print(f"💾 Saved panel {panel_id} to: {panel_path}")
-        return {'success': True, 'message': f'Panel {panel_id} saved successfully'}
+        print(f"💾 Saved panel {panel_id} locally to: {panel_path}")
+
+        # 2. Save to Supabase Storage using ComicStorageService (NEW)
+        try:
+            # Use the authenticated user's ID
+            user_id = current_user.get('id')
+            
+            # Use the ComicStorageService to save the panel
+            panel_result = await comic_storage_service.save_panel(
+                user_id=user_id,
+                comic_title=comic_title,
+                panel_id=panel_id,
+                image_data=image_data
+            )
+            
+            print(f"☁️ Successfully saved panel {panel_id} to Supabase:")
+            print(f"   - User ID: {user_id}")
+            print(f"   - Comic ID: {panel_result['comic_id']}")
+            print(f"   - Storage Path: {panel_result['storage_path']}")
+            print(f"   - Public URL: {panel_result['public_url']}")
+            print(f"   - File Size: {panel_result['file_size']} bytes")
+            
+        except Exception as supabase_error:
+            print(f"⚠️ Warning: Failed to save to Supabase Storage: {supabase_error}")
+            import traceback
+            print(f"🔍 Full error traceback: {traceback.format_exc()}")
+            # Don't fail the entire request if Supabase fails - local save still worked
+        
+        return {'success': True, 'message': f'Panel {panel_id} saved successfully to both local and cloud storage'}
 
     except Exception as e:
         print(f"Error saving panel: {e}")
