@@ -13,8 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel
 import sys
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 import json
 import asyncio
 from typing import List, Optional
@@ -297,7 +297,7 @@ async def auto_complete(
             status_code=500,
             detail="GOOGLE_API_KEY environment variable not set"
         )
-    client = genai.Client(api_key=google_api_key)
+    genai.configure(api_key=google_api_key)
 
     contents_for_gemini = []
     for image in images:
@@ -308,10 +308,8 @@ async def auto_complete(
 
     contents_for_gemini.append(types.Part(text="Generate a story summary from the images"))
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=contents_for_gemini
-    )
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content(contents_for_gemini)
     print(response.text)
     return {'story_summary': response.text}
     
