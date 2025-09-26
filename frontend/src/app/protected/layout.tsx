@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import SideBar from '@/components/ui/SideBar'
 
 export default function ProtectedLayout({
@@ -13,6 +13,7 @@ export default function ProtectedLayout({
   const { user, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -33,10 +34,18 @@ export default function ProtectedLayout({
     return null
   }
 
+  const toggleSidebar = () => {
+    setIsSidebarMinimized(!isSidebarMinimized)
+  }
+
   return (
     <div className="h-screen bg-gradient-to-br from-stone-900 to-stone-800 flex overflow-hidden">
       {/* Sidebar - Fixed */}
-      <SideBar />
+      <SideBar 
+        isMinimized={isSidebarMinimized} 
+        onToggleMinimize={toggleSidebar}
+        onMinimize={() => setIsSidebarMinimized(true)}
+      />
       
       {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden">

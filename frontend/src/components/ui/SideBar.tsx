@@ -6,13 +6,26 @@ import { useAuth } from '@/components/auth/AuthProvider'
 
 interface SidebarProps {
   className?: string
+  isMinimized?: boolean
+  onToggleMinimize?: () => void
+  onMinimize?: () => void
 }
 
-export default function SideBar({ className = '' }: SidebarProps) {
+export default function SideBar({ 
+  className = '', 
+  isMinimized = false, 
+  onToggleMinimize, 
+  onMinimize 
+}: SidebarProps) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
 
-  const navigation = [
+  const navigation: Array<{
+    name: string
+    href: string
+    icon: React.ReactNode
+    onClick?: () => void
+  }> = [
     {
       name: 'Explore',
       href: '/protected/explore',
@@ -29,7 +42,8 @@ export default function SideBar({ className = '' }: SidebarProps) {
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
-      )
+      ),
+      onClick: onMinimize // Add minimize functionality to Create Comic
     },
     {
       name: 'My Comics',
@@ -52,33 +66,73 @@ export default function SideBar({ className = '' }: SidebarProps) {
   ]
 
   return (
-    <div className={`bg-stone-800/50 backdrop-blur-sm border-r border-stone-700 h-screen w-64 flex flex-col ${className}`}>
+    <div 
+      className={`bg-stone-800/50 backdrop-blur-sm border-r border-stone-700 h-screen flex flex-col transition-all duration-300 ${
+        isMinimized ? 'w-16 cursor-pointer' : 'w-64'
+      } ${className}`}
+      onClick={isMinimized && onToggleMinimize ? onToggleMinimize : undefined}
+    >
       {/* Logo/Brand */}
-      <div className="p-6 border-b border-stone-700 flex-shrink-0">
-        <Link href="/protected/explore" className="flex items-center space-x-2">
-          <svg className="w-8 h-8 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-          </svg>
-          <span className="text-xl font-bold text-amber-50">PixelPanel</span>
-        </Link>
+      <div className={`p-6 border-b border-stone-700 flex-shrink-0 flex items-center ${
+        isMinimized ? 'justify-center' : 'justify-between'
+      }`}>
+         <Link 
+           href="/protected/explore" 
+           className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'space-x-2'}`}
+           onClick={(e) => e.stopPropagation()}
+         >
+           <svg className="w-8 h-8 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
+             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+           </svg>
+           <span className={`text-xl font-bold text-amber-50 transition-all duration-300 whitespace-nowrap ${
+             isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+           }`}>
+             PixelPanel
+           </span>
+         </Link>
+        {onToggleMinimize && !isMinimized && (
+          <button
+            onClick={onToggleMinimize}
+            className="p-1 rounded-lg text-amber-50 hover:bg-stone-700/50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Navigation - Fixed height, no scroll */}
       <nav className="p-4 space-y-2 flex-1">
         {navigation.map((item) => {
           const isActive = pathname === item.href
+          const handleClick = () => {
+            if (item.onClick) {
+              item.onClick()
+            }
+          }
+          
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              onClick={(e) => {
+                e.stopPropagation() // Prevent sidebar expansion when clicking nav items
+                handleClick()
+              }}
+              className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'space-x-3'} px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-amber-600 text-white'
                   : 'text-stone-300 hover:text-white hover:bg-stone-700/50'
               }`}
+              title={isMinimized ? item.name : undefined}
             >
               {item.icon}
-              <span>{item.name}</span>
+              <span className={`transition-all duration-300 whitespace-nowrap ${
+                isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+              }`}>
+                {item.name}
+              </span>
             </Link>
           )
         })}
@@ -86,26 +140,38 @@ export default function SideBar({ className = '' }: SidebarProps) {
 
       {/* User Info & Sign Out - Fixed at bottom */}
       <div className="p-4 border-t border-stone-700 flex-shrink-0">
-        <div className="flex items-center space-x-3 mb-3">
+        <div className={`flex items-center transition-all duration-300 mb-3 ${
+          isMinimized ? 'justify-center' : 'space-x-3'
+        }`}>
           <div className="w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center">
             <span className="text-white text-sm font-medium">
               {user?.email?.charAt(0).toUpperCase()}
             </span>
           </div>
-          <div className="flex-1 min-w-0">
+          <div className={`transition-all duration-300 overflow-hidden ${
+            isMinimized ? 'opacity-0 w-0' : 'opacity-100 w-auto flex-1 min-w-0'
+          }`}>
             <p className="text-sm font-medium text-stone-200 truncate">
               {user?.email}
             </p>
           </div>
         </div>
         <button
-          onClick={signOut}
-          className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-stone-400 hover:text-white hover:bg-stone-700/50 rounded-lg transition-colors"
+          onClick={(e) => {
+            e.stopPropagation() // Prevent sidebar expansion when clicking sign out
+            signOut()
+          }}
+          className={`w-full flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'space-x-2'} px-3 py-2 text-sm text-stone-400 hover:text-white hover:bg-stone-700/50 rounded-lg transition-colors`}
+          title={isMinimized ? 'Sign Out' : undefined}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span>Sign Out</span>
+          <span className={`transition-all duration-300 whitespace-nowrap ${
+            isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+          }`}>
+            Sign Out
+          </span>
         </button>
       </div>
     </div>
