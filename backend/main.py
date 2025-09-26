@@ -600,6 +600,26 @@ async def generate_voiceover(
         )
 
 
+@app.get("/user-comics")
+async def get_user_comics(current_user: dict = Depends(get_current_user)):
+    """
+    Get all comics for the authenticated user from Supabase
+    """
+    try:
+        user_id = current_user.get('id')
+        print(f"🔍 DEBUG: Fetching comics for user: {user_id}")
+        
+        # Use the ComicStorageService to get user comics
+        comics = await comic_storage_service.get_user_comics(user_id)
+        
+        print(f"✅ Found {len(comics)} comics for user {user_id}")
+        return {'comics': comics}
+        
+    except Exception as e:
+        print(f"❌ Error fetching user comics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/video-gen")
 def on_queue_update(prompt: str, image_path: str):
     if isinstance(update, fal_client.InProgress):

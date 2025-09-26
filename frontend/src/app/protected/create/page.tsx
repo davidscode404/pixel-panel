@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
-import Link from 'next/link';
 
 // Create Supabase client (shared with AuthProvider)
 const supabase = createSupabaseClient()

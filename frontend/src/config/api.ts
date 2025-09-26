@@ -8,7 +8,8 @@ export const API_CONFIG = {
     SAVE_COMIC: '/save-comic',
     GENERATE: '/generate',
     LIST_COMICS: '/list-comics',
-    RESET_CONTEXT: '/reset-context'
+    RESET_CONTEXT: '/reset-context',
+    USER_COMICS: '/user-comics'
   }
 };
 

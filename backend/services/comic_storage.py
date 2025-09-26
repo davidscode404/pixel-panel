@@ -124,8 +124,8 @@ class ComicStorageService:
     async def get_user_comics(self, user_id: str) -> List[dict]:
         """Get all comics for a user"""
         response = self.supabase.table('comics').select("""
-            id, title, created_at, updated_at,
-            comic_panels(id, panel_number, public_url)
+            id, title, is_public, created_at, updated_at,
+            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at)
         """).eq('user_id', user_id).order('created_at', desc=True).execute()
         
         return response.data
