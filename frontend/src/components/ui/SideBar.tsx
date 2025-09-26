@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 
 interface SidebarProps {
@@ -18,6 +18,7 @@ export default function SideBar({
   onMinimize 
 }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, signOut } = useAuth()
 
   const navigation: Array<{
@@ -67,10 +68,11 @@ export default function SideBar({
 
   return (
     <div 
-      className={`bg-stone-800/50 backdrop-blur-sm border-r border-stone-700 h-screen flex flex-col transition-all duration-300 ${
+      className={`bg-stone-800/50 backdrop-blur-sm border-r border-stone-700 h-screen flex flex-col transition-all duration-300 relative z-50 ${
         isMinimized ? 'w-16 cursor-pointer' : 'w-64'
       } ${className}`}
       onClick={isMinimized && onToggleMinimize ? onToggleMinimize : undefined}
+      style={{ pointerEvents: 'auto' }}
     >
       {/* Logo/Brand */}
       <div className={`p-6 border-b border-stone-700 flex-shrink-0 flex items-center ${
@@ -107,7 +109,9 @@ export default function SideBar({
         {navigation.map((item) => {
           const isActive = pathname === item.href
           const handleClick = () => {
+            console.log(`🔧 Handle click for: ${item.name}`)
             if (item.onClick) {
+              console.log(`🔧 Executing onClick handler for: ${item.name}`)
               item.onClick()
             }
           }
@@ -117,8 +121,18 @@ export default function SideBar({
               key={item.name}
               href={item.href}
               onClick={(e) => {
-                e.stopPropagation() // Prevent sidebar expansion when clicking nav items
+                console.log(`🔍 Sidebar clicked: ${item.name} -> ${item.href}`)
+                e.preventDefault()
+                e.stopPropagation()
+                
+                // Execute any special onClick handler (like minimize for Create Comic)
                 handleClick()
+                
+                // Navigate with delay to allow minimize to complete
+                setTimeout(() => {
+                  console.log(`🚀 Navigating to: ${item.href}`)
+                  router.push(item.href)
+                }, item.onClick ? 200 : 50) // Longer delay if there's an onClick handler
               }}
               className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'space-x-3'} px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 isActive
