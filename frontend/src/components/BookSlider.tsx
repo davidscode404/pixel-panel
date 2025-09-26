@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import booksData from '../data/books.json';
-import { buildApiUrl, API_CONFIG } from '../config/api';
+import { buildApiUrl, API_CONFIG, cachedFetch } from '../config/api';
 
 interface Book {
   id: number | string; // Allow string for user comic titles
@@ -51,21 +51,15 @@ export default function BookSlider() {
     
     window.addEventListener('storage', handleStorageChange);
     
-    // Also refresh every 2 seconds to catch new saves
-    const interval = setInterval(() => {
-      loadComicsFromDB();
-    }, 2000);
-    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
     };
   }, []);
 
   const loadComicsFromDB = async () => {
     try {
       // Get list of saved comics from project directory
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
+      const response = await cachedFetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
       if (response.ok) {
         const data = await response.json();
         const comics = data.comics;

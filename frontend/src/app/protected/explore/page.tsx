@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { buildApiUrl, API_CONFIG } from '@/config/api';
+import { buildApiUrl, API_CONFIG, cachedFetch } from '@/config/api';
 
 interface ComicData {
   title: string;
@@ -26,7 +26,7 @@ export default function ExplorePage() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
+      const response = await cachedFetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
       
       if (!response.ok) {
         throw new Error(`Failed to load comics: ${response.statusText}`);
