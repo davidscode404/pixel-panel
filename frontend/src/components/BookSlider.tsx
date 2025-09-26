@@ -182,15 +182,15 @@ export default function BookSlider() {
 
   const openBookPopup = async (book: Book) => {
     if (book.isUserComic) {
-      // For user comics, redirect to create page with comic title as URL parameter
+      // For user comics, redirect to preview page
       try {
         // Use the original title (with underscores) for the backend
         const originalTitle = book.id as string; // The ID contains the original title
         const encodedTitle = encodeURIComponent(originalTitle);
-        console.log(`Loading comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
+        console.log(`Previewing comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
         
-        // Redirect to create page with comic title as URL parameter
-        window.location.href = `/create?comic=${encodedTitle}`;
+        // Redirect to preview page
+        window.location.href = `/preview/${encodedTitle}`;
       } catch (error) {
         console.error('Error loading comic:', error);
         alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
