@@ -5,9 +5,9 @@ export const API_CONFIG = {
   ENDPOINTS: {
     LOAD_COMIC: '/load-comic',
     SAVE_PANEL: '/save-panel',
-    SAVE_COMIC: '/save-comic',
-    GENERATE: '/generate',
-    LIST_COMICS: '/list-comics',
+    SAVE_COMIC: '/api/comics/save-comic',
+    GENERATE: '/api/comics/generate',
+    LIST_COMICS: '/api/comics/list-comics',
     RESET_CONTEXT: '/reset-context',
     USER_COMICS: '/user-comics'
   }

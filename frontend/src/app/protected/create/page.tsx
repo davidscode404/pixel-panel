@@ -430,6 +430,65 @@ export default function CreatePage() {
     checkAndResetContext();
   };
 
+  const saveCurrentPanelAndNext = async (currentPanelId: number) => {
+    try {
+      // Save current panel's canvas state
+      saveCanvasState(currentPanelId, true);
+      updateSmallCanvasPreview(currentPanelId);
+
+      // If we have a comic title, save the panel to the backend
+      if (comicTitle && comicTitle.trim() !== '' && comicTitle !== 'Untitled') {
+        const panel = panels.find(p => p.id === currentPanelId);
+        if (panel && panel.largeCanvasData) {
+          try {
+            const base64Data = panel.largeCanvasData.split(',')[1];
+            const accessToken = await getAccessToken();
+            const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            
+            const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({
+                comic_title: safeTitle,
+                panel_id: currentPanelId,
+                image_data: base64Data
+              })
+            });
+
+            if (response.ok) {
+              console.log(`✅ Panel ${currentPanelId} saved successfully`);
+            } else {
+              console.warn(`⚠️ Failed to save panel ${currentPanelId} to backend`);
+            }
+          } catch (error) {
+            console.warn(`⚠️ Error saving panel ${currentPanelId}:`, error);
+          }
+        }
+      }
+
+      // Navigate to next panel (or loop back to panel 1 if we're at panel 6)
+      const nextPanelId = currentPanelId === 6 ? 1 : currentPanelId + 1;
+      
+      // Close current panel and open next panel
+      setPanels(prev => prev.map(p => ({
+        ...p,
+        isZoomed: p.id === nextPanelId
+      })));
+
+      // Restore canvas state for the next panel after a short delay
+      setTimeout(() => {
+        restoreCanvasState(nextPanelId, true);
+      }, 100);
+
+    } catch (error) {
+      console.error('Error in saveCurrentPanelAndNext:', error);
+      alert(`Error saving panel: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const checkAndResetContext = async () => {
     // Check if all panels are empty
     const allPanelsEmpty = panels.every(panel => 
@@ -993,6 +1052,22 @@ export default function CreatePage() {
                     />
                     <span className="text-xs text-amber-50/80">Current color</span>
                   </div>
+                </div>
+
+                {/* Save & Next Panel Button */}
+                <div className="mb-4">
+                  <button
+                    onClick={() => saveCurrentPanelAndNext(zoomedPanel.id)}
+                    className="group w-full rounded-lg border border-solid border-green-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-green-600/80 backdrop-blur-sm text-white hover:bg-green-500/90 hover:border-green-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save & Next Panel
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </button>
                 </div>
 
                 {/* Clear Panel Button */}

@@ -7,17 +7,17 @@ export default function ExplorePage() {
 
   return (
     <div className="w-full h-full px-2">
-      <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-1 space-y-1 w-full">
+      <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-3 gap-4 space-y-4 w-full">
         {[...Array(24)].map((_, i) => {
           const index = i + 1
-          // Create varying heights for comic-like layout
-          const heights = ['h-48', 'h-64', 'h-56', 'h-72', 'h-40', 'h-80']
+          // Create varying heights for comic-like layout - made taller for wider cards
+          const heights = ['h-64', 'h-80', 'h-72', 'h-96', 'h-56', 'h-[400px]']
           const randomHeight = heights[index % heights.length]
 
           return (
             <div 
               key={index} 
-              className={`group bg-stone-800/50 rounded border border-stone-700/50 overflow-hidden hover:border-amber-500/50 transition-colors relative break-inside-avoid mb-1 ${randomHeight}`}
+              className={`group bg-stone-800/50 rounded-lg border border-stone-700/50 overflow-hidden hover:border-amber-500/50 transition-colors relative break-inside-avoid mb-4 ${randomHeight}`}
             >
               <div className="w-full h-full bg-gradient-to-br from-stone-600 to-stone-700 flex items-center justify-center">
                 <span className="text-stone-400 text-xs">Comic {index}</span>

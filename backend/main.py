@@ -1,5 +1,4 @@
-import fastapi
-from fastapi import UploadFile, File, HTTPException, Request, Response, Depends
+from fastapi import UploadFile, File, HTTPException, Request, Response, Depends, FastAPI
 import asyncio
 from dotenv import load_dotenv
 import uvicorn
@@ -8,29 +7,27 @@ import PIL
 from PIL import Image
 from io import BytesIO
 import os
-import tempfile
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel
-import sys
 from google import genai
 from google.genai import types
-import json
-import asyncio
-from typing import List, Optional
 from services.comic_generator import ComicArtGenerator
 from services.comic_storage import ComicStorageService
 from supabase import create_client, Client
-import jwt
+from api.auth import router as auth_router
+from api.comics import router as comics_router
+from api.voice_over import router as voice_over_router
+from api.comics import set_services
 
-# Load environment variables from .env file
+
 load_dotenv()
 
-app = fastapi.FastAPI()
+app = FastAPI(title="PixelPanel", version="1.0.0")
+
 comic_generator = ComicArtGenerator()
 comic_storage_service = ComicStorageService()
 
-# Initialize Supabase client for JWT verification
 supabase_url = os.getenv('SUPABASE_URL')
 supabase_anon_key = os.getenv('SUPABASE_ANON_KEY')
 
@@ -48,16 +45,20 @@ latest_img: Image.Image = None
 
 # Context tracking for comic generation
 comic_context = {
-    "panels": {},  # Store all generated panels: {panel_id: {"prompt": str, "image": str}}
+    "panels": {},  
     "is_reset": True
 }
 
-# Pydantic models
 class ComicArtRequest(BaseModel):
     text_prompt: str
-    reference_image: str = None  # Base64 encoded image data (optional)
-    panel_id: int = None  # Panel ID to track generation order
+    reference_image: str = None  
+    panel_id: int = None  
 
+app.include_router(auth_router)
+app.include_router(comics_router)
+
+# Initialize services in the comics router
+set_services(comic_generator, comic_storage_service, comic_context)
 
 async def upload_file_to_image_obj(img_file: UploadFile) -> Image.Image:
     """
@@ -181,98 +182,7 @@ async def get_current_user(request: Request) -> dict:
             detail="Authentication failed"
         )
 
-@app.post("/save-comic")
-async def save_comic(request: Request, current_user: dict = Depends(get_current_user)):
-    """
-    Save a comic to the database
-    Requires authentication via JWT token
-    """
-    try:
-        data = await request.json()
-        comic_title = data.get('comic_title')
-        panels_data = data.get('panels_data')
-        
-        if not all([comic_title, panels_data]):
-            raise HTTPException(status_code=400, detail='Missing required fields')
-        
-        # Use the authenticated user's ID
-        user_id = current_user.get('id')
-        
-        return await comic_storage_service.save_comic(user_id, comic_title, panels_data)
-    except Exception as e:
-        print(f"❌ Error saving comic: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/generate")
-async def generate_comic_art(request: ComicArtRequest):
-    """
-    Generate comic art from text prompt and optional reference image
-    """
-    try:
-        # FastAPI automatically parses the JSON body into the Pydantic model
-        text_prompt = request.text_prompt
-        reference_image_data = request.reference_image
-        panel_id = request.panel_id
-        
-        # Handle context tracking
-        global comic_context
-        
-        print(f"🔍 DEBUG: panel_id={panel_id}, is_reset={comic_context['is_reset']}, panels_count={len(comic_context['panels'])}")
-        
-        # For panels after the first, use previous panel as context
-        context_image_data = None
-        
-        if panel_id and not is_first_panel_generation(panel_id) and not comic_context["is_reset"]:
-            previous_context = get_previous_panel_context(panel_id)
-            if previous_context:
-                # Use the previous panel's prompt and image as context
-                context_prompt = f"Create the next scene using this context: {previous_context['prompt']}. {text_prompt}"
-                context_image_data = previous_context['image']
-                text_prompt = context_prompt
-                print(f"🎯 Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
-            else:
-                print(f"⚠️ No previous panel context available for panel {panel_id}")
-        else:
-            print(f"📝 Panel {panel_id} - no context used (first panel or reset)")
-        
-        # Generate comic art using the service
-        if not comic_generator:
-            raise HTTPException(
-                status_code=500,
-                detail="Comic art generator not initialized"
-            )
-        
-        # Generate the comic art with context
-        image = comic_generator.generate_comic_art(text_prompt, reference_image_data, context_image_data)
-        
-        # Convert image to base64 for response
-        img_base64 = comic_generator.image_to_base64(image)
-        
-        # Store the generated panel data for future context
-        if panel_id:
-            comic_context["panels"][panel_id] = {
-                "prompt": text_prompt,
-                "image": img_base64
-            }
-            comic_context["is_reset"] = False
-            print(f"💾 Stored panel {panel_id} data for context (prompt: {text_prompt[:30]}...)")
-        
-        return {
-            'success': True,
-            'image_data': img_base64,
-            'message': 'Comic art generated successfully'
-        }
-        
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"❌ Error in generate endpoint: {e}")
-        print(f"📋 Full traceback: {error_details}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating comic art: {str(e)}"
-        )
 
 @app.post("/auto-complete")
 async def auto_complete(
@@ -528,78 +438,6 @@ async def save_panel(request: Request, current_user: dict = Depends(get_current_
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate-voiceover")
-async def generate_voiceover(
-    voiceover_text: str,
-    voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
-):
-    """
-    Generate a voiceover for a given text prompt using ElevenLabs TTS.
-    
-    Args:
-        voiceover_text (str): The text to convert to speech.
-    
-    Returns:
-        dict: A JSON response containing the base64-encoded audio data.
-    """
-    from dotenv import load_dotenv
-    from elevenlabs.play import play
-    
-    import os
-    import httpx
-    
-    ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-    if not ELEVENLABS_API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="ELEVENLABS_API_KEY environment variable not set"
-        )
-    
-    url = "https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb"
-    params = {"output_format": "mp3_44100_128"}
-    headers = {
-        "xi-api-key": ELEVENLABS_API_KEY,
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "text": voiceover_text,
-        "model_id": "eleven_multilingual_v2",
-        "voice_id": voice_id
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                url,
-                params=params,
-                headers=headers,
-                json=payload,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            audio_bytes = response.content
-
-
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"ElevenLabs API error: {e.response.text}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error generating voiceover: {str(e)}"
-            )
-  
-    return Response(
-            content=audio_bytes,
-            media_type="audio/mpeg",
-            headers={
-                "Content-Disposition": "inline; filename=voiceover.mp3"
-            }
-        )
-
-
 @app.get("/user-comics")
 async def get_user_comics(current_user: dict = Depends(get_current_user)):
     """
@@ -619,24 +457,11 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
         print(f"❌ Error fetching user comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/video-gen")
-def on_queue_update(prompt: str, image_path: str):
-    if isinstance(update, fal_client.InProgress):
-        for log in update.logs:
-           print(log["message"])
-
-    result = fal_client.subscribe(
-        "fal-ai/kling-video/v2.1/master/image-to-video",
-        arguments={
-            "prompt": "A fluffy brown teddy bear, clinging precariously to a miniature surfboard, rides a playful wave toward the shore, the sun glinting off the wet fur.  The simple, bright animation style emphasizes the joy of the moment as the bear triumphantly reaches the sand, shaking the water from its ears.",
-            "image_url": "https://fal.media/files/panda/S_2Wdnsn0FGay6VhUgomf_9316cf185253481a9f794ebe995dbc07.jpg",
-            "aspect_ratio": "16:9"
-        },
-        with_logs=True,
-        on_queue_update=on_queue_update,
-    )
-    return result
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "message": "API is running"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
