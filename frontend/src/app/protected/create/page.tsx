@@ -56,17 +56,14 @@ export default function CreatePage() {
           console.log('🔍 DEBUG:getSession (after getUser) ->', session);
         }
       }
-
       if (!session) {
         console.log('❌ No active session available after retries');
         throw new Error('No active session. Please sign in first.');
       }
-
       if (!session.access_token) {
         console.log('❌ Session present but missing access_token');
         throw new Error('No access token available');
       }
-
       console.log('🔍 DEBUG: Access token length:', session.access_token.length);
       console.log('🔍 DEBUG: Access token starts with:', session.access_token.substring(0, 50));
       // Check if token has proper JWT structure (3 parts separated by dots)
@@ -428,8 +425,7 @@ export default function CreatePage() {
         : p
     ));
     
-    // Check if all panels are now empty and reset context if so
-    checkAndResetContext();
+    // Panel cleared - frontend state is automatically updated
   };
 
   const saveCurrentPanelAndNext = async (currentPanelId: number) => {
@@ -438,38 +434,8 @@ export default function CreatePage() {
       saveCanvasState(currentPanelId, true);
       updateSmallCanvasPreview(currentPanelId);
 
-      // If we have a comic title, save the panel to the backend
-      if (comicTitle && comicTitle.trim() !== '' && comicTitle !== 'Untitled') {
-        const panel = panels.find(p => p.id === currentPanelId);
-        if (panel && panel.largeCanvasData) {
-          try {
-            const base64Data = panel.largeCanvasData.split(',')[1];
-            const accessToken = await getAccessToken();
-            const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            
-            const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-              },
-              body: JSON.stringify({
-                comic_title: safeTitle,
-                panel_id: currentPanelId,
-                image_data: base64Data
-              })
-            });
-
-            if (response.ok) {
-              console.log(`✅ Panel ${currentPanelId} saved successfully`);
-            } else {
-              console.warn(`⚠️ Failed to save panel ${currentPanelId} to backend`);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Error saving panel ${currentPanelId}:`, error);
-          }
-        }
-      }
+      // Panel data is now managed entirely in React state
+      // No need to save individual panels - they'll be saved when the comic is finalized
 
       // Navigate to next panel (or loop back to panel 1 if we're at panel 6)
       const nextPanelId = currentPanelId === 6 ? 1 : currentPanelId + 1;
@@ -491,36 +457,7 @@ export default function CreatePage() {
     }
   };
 
-  const checkAndResetContext = async () => {
-    // Check if all panels are empty
-    const allPanelsEmpty = panels.every(panel => 
-      !panel.smallCanvasData && !panel.largeCanvasData
-    );
-    
-    if (allPanelsEmpty) {
-      try {
-        console.log('All panels cleared, resetting context...');
-        // Get access token for API request
-        const accessToken = await getAccessToken();
-        
-        const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.RESET_CONTEXT), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-        
-        if (response.ok) {
-          console.log('Context reset successfully');
-        } else {
-          console.error('Failed to reset context');
-        }
-      } catch (error) {
-        console.error('Error resetting context:', error);
-      }
-    }
-  };
+  // No need to reset backend context - frontend manages all continuity state
 
   const clearAllPanels = () => {
     panels.forEach(panel => {
@@ -541,8 +478,7 @@ export default function CreatePage() {
       prompt: undefined
     })));
     
-    // Reset context
-    checkAndResetContext();
+    // All panels cleared - frontend state is automatically updated
   };
 
   const createComic = async () => {
@@ -640,41 +576,9 @@ export default function CreatePage() {
     
     try {
       // Send each panel to backend to save in project directory
-      for (const panel of panels) {
-        console.log(`🔍 DEBUG: Panel ${panel.id} - largeCanvasData exists: ${!!panel.largeCanvasData}`);
-        if (panel.largeCanvasData) {
-          console.log(`Saving panel ${panel.id} to project directory...`);
-          
-          // Extract base64 data
-          const base64Data = panel.largeCanvasData.split(',')[1];
-          console.log(`🔍 DEBUG: Panel ${panel.id} - base64Data length: ${base64Data.length}`);
-          
-          // Get access token for API request
-          const accessToken = await getAccessToken();
-          
-          // Send to backend to save in project directory
-          const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify({
-              comic_title: safeTitle,
-              panel_id: panel.id,
-              image_data: base64Data
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to save panel ${panel.id}`);
-          }
-          
-          console.log(`Panel ${panel.id} saved to project directory successfully`);
-        } else {
-          console.log(`Panel ${panel.id} has no data to save`);
-        }
-      }
+      // Panel data is managed in React state and will be saved via save-comic endpoint
+      // No need to save individual panels to backend storage
+      console.log(`✅ All panel data is ready in React state for comic creation`);
     } catch (error) {
       console.error('Error saving PNG files:', error);
       throw new Error(`Failed to save PNG files: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -701,8 +605,19 @@ export default function CreatePage() {
       // Get access token for API request
       const accessToken = await getAccessToken();
       
+      // Get previous panel for continuity (if exists)
+      const previousPanel = panelId > 1 ? panels.find(p => p.id === panelId - 1) : null;
+      const previousPanelContext = previousPanel && previousPanel.largeCanvasData && previousPanel.prompt ? {
+        prompt: previousPanel.prompt,
+        image_data: previousPanel.largeCanvasData.split(',')[1] // Remove data:image/png;base64, prefix
+      } : null;
+      
       // Call backend API
       console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
+      if (previousPanelContext) {
+        console.log(`🎯 Using previous panel context from panel ${panelId - 1}`);
+      }
+      
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
@@ -712,7 +627,8 @@ export default function CreatePage() {
         body: JSON.stringify({
           text_prompt: textPrompt,
           reference_image: base64Data,
-          panel_id: panelId
+          panel_id: panelId,
+          previous_panel_context: previousPanelContext
         })
       });
 

@@ -9,10 +9,16 @@ class PanelData(BaseModel):
     image_data: str
     is_zoomed: bool = False
 
+class PreviousPanelContext(BaseModel):
+    """Context from the previous panel for continuity"""
+    prompt: str
+    image_data: str
+
 class ComicArtRequest(BaseModel):
     text_prompt: str
     reference_image: Optional[str] = None  # Base64 encoded image data (optional)
     panel_id: Optional[int] = None  # Panel ID to track generation order
+    previous_panel_context: Optional[PreviousPanelContext] = None  # Previous panel for continuity
 
 class ComicRequest(BaseModel):
     title: str

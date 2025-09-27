@@ -35,10 +35,8 @@ export default function ProtectedLayout({
 
   return (
     <div className="h-screen bg-gradient-to-br from-stone-900 to-stone-800 flex overflow-hidden">
-      {/* Sidebar - Fixed */}
       <SideBar />
       
-      {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 p-6 overflow-y-auto">
           {children}

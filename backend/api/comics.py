@@ -7,6 +7,10 @@ import json
 import httpx
 import os
 from supabase import create_client, Client
+from dotenv import load_dotenv
+import base64
+
+load_dotenv()
 
 router = APIRouter(prefix="/api/comics", tags=["comics"])
 
@@ -91,26 +95,12 @@ async def get_current_user(request: Request) -> dict:
 # These will be set by main.py to avoid circular imports
 comic_generator = None
 comic_storage_service = None
-comic_context = None
 
-def set_services(generator, storage, context):
+def set_services(generator, storage):
     """Set services from main.py to avoid circular imports"""
-    global comic_generator, comic_storage_service, comic_context
+    global comic_generator, comic_storage_service
     comic_generator = generator
     comic_storage_service = storage
-    comic_context = context
-
-def is_first_panel_generation(panel_id: int) -> bool:
-    """Check if this is the first panel being generated (panel 1)"""
-    return panel_id == 1
-
-def get_previous_panel_context(panel_id: int):
-    """Get the context from the previous panel"""
-    global comic_context
-    previous_panel_id = panel_id - 1
-    if previous_panel_id in comic_context["panels"]:
-        return comic_context["panels"][previous_panel_id]
-    return None
 
 @router.post("/generate")
 async def generate_comic_art(request: ComicArtRequest):
@@ -122,27 +112,21 @@ async def generate_comic_art(request: ComicArtRequest):
         text_prompt = request.text_prompt
         reference_image_data = request.reference_image
         panel_id = request.panel_id
+        previous_panel_context = request.previous_panel_context
         
-        # Handle context tracking
-        global comic_context
+        print(f"🔍 DEBUG: panel_id={panel_id}, has_previous_context={previous_panel_context is not None}")
         
-        print(f"🔍 DEBUG: panel_id={panel_id}, is_reset={comic_context['is_reset']}, panels_count={len(comic_context['panels'])}")
-        
-        # For panels after the first, use previous panel as context
+        # Use previous panel context if provided by frontend
         context_image_data = None
         
-        if panel_id and not is_first_panel_generation(panel_id) and not comic_context["is_reset"]:
-            previous_context = get_previous_panel_context(panel_id)
-            if previous_context:
-                # Use the previous panel's prompt and image as context
-                context_prompt = f"Create the next scene using this context: {previous_context['prompt']}. {text_prompt}"
-                context_image_data = previous_context['image']
-                text_prompt = context_prompt
-                print(f"🎯 Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
-            else:
-                print(f"⚠️ No previous panel context available for panel {panel_id}")
+        if previous_panel_context:
+            # Use the previous panel's prompt and image as context
+            context_prompt = f"Create the next scene using this context: {previous_panel_context.prompt}. {text_prompt}"
+            context_image_data = previous_panel_context.image_data
+            text_prompt = context_prompt
+            print(f"🎯 Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
         else:
-            print(f"📝 Panel {panel_id} - no context used (first panel or reset)")
+            print(f"📝 Panel {panel_id} - no context used (first panel or no previous context provided)")
         
         # Generate comic art using the service
         if not comic_generator:
@@ -157,14 +141,8 @@ async def generate_comic_art(request: ComicArtRequest):
         # Convert image to base64 for response
         img_base64 = comic_generator.image_to_base64(image)
         
-        # Store the generated panel data for future context
-        if panel_id:
-            comic_context["panels"][panel_id] = {
-                "prompt": text_prompt,
-                "image": img_base64
-            }
-            comic_context["is_reset"] = False
-            print(f"💾 Stored panel {panel_id} data for context (prompt: {text_prompt[:30]}...)")
+        # No need to store context - frontend handles continuity
+        print(f"✅ Generated panel {panel_id} successfully")
         
         return {
             'success': True,
@@ -240,6 +218,78 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         raise
     except Exception as e:
         print(f"❌ Error saving comic: {e}")
-        import traceback
-        print(f"📋 Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/user-comics")
+async def get_user_comics(current_user: dict = Depends(get_current_user)):
+    """
+    Get all comics for the authenticated user from Supabase
+    """
+    try:
+        user_id = current_user.get('id')
+        print(f"🔍 DEBUG: Fetching comics for user: {user_id}")
+        
+        # Use the ComicStorageService to get user comics
+        comics = await comic_storage_service.get_user_comics(user_id)
+        
+        print(f"✅ Found {len(comics)} comics for user {user_id}")
+        return {'comics': comics}
+        
+    except Exception as e:
+        print(f"❌ Error fetching user comics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/list-comics")
+async def list_comics():
+    """
+    List all saved comics in the project directory
+    """
+    try:
+        import glob
+        
+        # Look for saved comics directory
+        saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
+        
+        if not os.path.exists(saved_comics_dir):
+            return {'comics': []}
+        
+        # Get all comic directories
+        comic_dirs = [d for d in os.listdir(saved_comics_dir) 
+                     if os.path.isdir(os.path.join(saved_comics_dir, d))]
+        
+        # Sort by modification time (newest first)
+        comic_dirs.sort(key=lambda x: os.path.getmtime(os.path.join(saved_comics_dir, x)), reverse=True)
+        
+        comics = []
+        for comic_dir in comic_dirs:
+            # Check if it has panel files
+            panel_files = glob.glob(os.path.join(saved_comics_dir, comic_dir, "panel_*.png"))
+            if panel_files:
+                # Check for panel 1 as cover image
+                panel_1_path = os.path.join(saved_comics_dir, comic_dir, "panel_1.png")
+                has_cover = os.path.exists(panel_1_path)
+                
+                comic_data = {
+                    'title': comic_dir,
+                    'panel_count': len(panel_files),
+                    'has_cover': has_cover
+                }
+                
+                # If panel 1 exists, include it as cover image
+                if has_cover:
+                    try:
+                        with open(panel_1_path, 'rb') as f:
+                            cover_bytes = f.read()
+                            cover_base64 = base64.b64encode(cover_bytes).decode('utf-8')
+                            comic_data['cover_image'] = f"data:image/png;base64,{cover_base64}"
+                    except Exception as e:
+                        print(f"⚠️ Error reading panel 1 as cover for {comic_dir}: {e}")
+                
+                comics.append(comic_data)
+        
+        return {'comics': comics}
+
+    except Exception as e:
+        print(f"❌ Error listing comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
