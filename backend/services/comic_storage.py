@@ -37,14 +37,19 @@ class ComicStorageService:
             base_panel_size = None
             for panel_data in panels_data:
                 panel_id = panel_data['id']
-                image_data = panel_data['largeCanvasData']
+                # Handle both old and new schema
+                image_data = panel_data.get('image_data') or panel_data.get('largeCanvasData')
                 
                 if image_data:
                     # Upload to Supabase Storage
                     storage_path = f"users/{user_id}/comics/{comic_id}/panel_{panel_id}.png"
                     
                     # Convert base64 to bytes
-                    image_bytes = base64.b64decode(image_data.split(',')[1])
+                    # Handle both data URL format and raw base64
+                    if image_data.startswith('data:'):
+                        image_bytes = base64.b64decode(image_data.split(',')[1])
+                    else:
+                        image_bytes = base64.b64decode(image_data)
                     
                     # Upload to storage
                     self.supabase.storage.from_(self.bucket_name).upload(

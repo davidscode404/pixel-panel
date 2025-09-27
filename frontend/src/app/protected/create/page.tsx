@@ -15,18 +15,19 @@ interface Panel {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   smallCanvasData: string | null; // base64 data URL for small canvas
   largeCanvasData: string | null; // base64 data URL for large canvas
+  prompt?: string; // Optional prompt for the panel
 }
 
 export default function CreatePage() {
   const { user, loading } = useAuth();
   
   const [panels, setPanels] = useState<Panel[]>([
-    { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
-    { id: 2, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
-    { id: 3, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
-    { id: 4, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
-    { id: 5, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
-    { id: 6, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
+    { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
+    { id: 2, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
+    { id: 3, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
+    { id: 4, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
+    { id: 5, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
+    { id: 6, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
   ]);
 
   // Function to get the session token for API requests
@@ -130,7 +131,8 @@ export default function CreatePage() {
                   return {
                     ...panel,
                     smallCanvasData: savedPanel.image_data,
-                    largeCanvasData: savedPanel.image_data
+                    largeCanvasData: savedPanel.image_data,
+                    prompt: savedPanel.prompt || `Panel ${panel.id}`
                   };
                 }
                 return panel;
@@ -422,7 +424,7 @@ export default function CreatePage() {
     // Update panel data to reflect cleared state
     setPanels(prev => prev.map(p => 
       p.id === panelId 
-        ? { ...p, smallCanvasData: null, largeCanvasData: null }
+        ? { ...p, smallCanvasData: null, largeCanvasData: null, prompt: undefined }
         : p
     ));
     
@@ -535,7 +537,8 @@ export default function CreatePage() {
     setPanels(prev => prev.map(panel => ({
       ...panel,
       smallCanvasData: null,
-      largeCanvasData: null
+      largeCanvasData: null,
+      prompt: undefined
     })));
     
     // Reset context
@@ -559,7 +562,12 @@ export default function CreatePage() {
     const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const panelsData = panels
       .filter(panel => !!panel.largeCanvasData)
-      .map(panel => ({ id: panel.id, largeCanvasData: panel.largeCanvasData }));
+      .map(panel => ({ 
+        id: panel.id, 
+        prompt: panel.prompt || `Panel ${panel.id}`, // Use panel prompt or default
+        image_data: panel.largeCanvasData, // This should be the base64 image data
+        is_zoomed: false // Default value
+      }));
 
     if (panelsData.length === 0) {
       alert('No panels have been drawn yet. Please draw something before saving.');
@@ -567,8 +575,8 @@ export default function CreatePage() {
     }
 
     const payload = {
-      comic_title: safeTitle,
-      panels_data: panelsData,
+      title: safeTitle, // Changed from comic_title to title
+      panels: panelsData, // Changed from panels_data to panels
     };
 
     console.log('🔍 DEBUG: SAVE_COMIC payload:', payload);
