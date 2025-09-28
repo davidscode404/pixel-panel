@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -20,6 +21,8 @@ interface Panel {
 
 export default function CreatePage() {
   const { user, loading } = useAuth();
+  const searchParams = useSearchParams();
+  const editComicId = searchParams.get('edit');
   
   const [panels, setPanels] = useState<Panel[]>([
     { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null },
@@ -92,6 +95,9 @@ export default function CreatePage() {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editComicTitle, setEditComicTitle] = useState('');
+  const [isLoadingEditData, setIsLoadingEditData] = useState(false);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -102,6 +108,15 @@ export default function CreatePage() {
       }
     };
   }, [currentAudio]);
+
+  // Handle edit mode initialization
+  useEffect(() => {
+    if (editComicId) {
+      setIsEditMode(true);
+      setIsLoadingEditData(true);
+      loadComicForEditing(editComicId);
+    }
+  }, [editComicId]);
 
   useEffect(() => {
     const loadComicFromURL = async () => {
@@ -193,8 +208,6 @@ export default function CreatePage() {
     const canvas = panel.canvasRef.current;
     const dataURL = canvas.toDataURL();
     
-    console.log(`Saving ${isLargeCanvas ? 'large' : 'small'} canvas data for panel ${panelId}:`, dataURL.substring(0, 50) + '...');
-    
     setPanels(prev => prev.map(p => 
       p.id === panelId 
         ? { 
@@ -222,6 +235,108 @@ export default function CreatePage() {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     };
     img.src = dataURL;
+  };
+
+  const loadComicForEditing = async (comicId: string) => {
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        alert('You must be logged in to edit comics');
+        setIsLoadingEditData(false);
+        return;
+      }
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_COMICS), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const comicToEdit = data.comics.find((comic: any) => comic.id === comicId);
+        
+        if (comicToEdit) {
+          setEditComicTitle(comicToEdit.title);
+          setComicTitle(comicToEdit.title);
+          
+          // Load panels 1-6 into the create interface (skip panel 0 which is the cover)
+          const sortedPanels = comicToEdit.comic_panels
+            .filter((panel: any) => panel.panel_number >= 1 && panel.panel_number <= 6)
+            .sort((a: any, b: any) => a.panel_number - b.panel_number);
+          
+          // Create updated panels with the loaded image data
+          const updatedPanels = panels.map((panel, index) => {
+            const panelData = sortedPanels[index];
+            if (panelData && panelData.public_url) {
+              // Convert Supabase URL to base64 data URL format that the existing system expects
+              return {
+                ...panel,
+                // We'll load the image and convert it to base64 format
+                largeCanvasData: null, // Will be set after image loads
+                smallCanvasData: null  // Will be set after image loads
+              };
+            }
+            return panel;
+          });
+          
+          setPanels(updatedPanels);
+          
+          // Load images and convert to base64 format
+          for (let i = 0; i < Math.min(sortedPanels.length, 6); i++) {
+            const panelData = sortedPanels[i];
+            if (panelData.public_url) {
+              const img = new Image();
+              img.crossOrigin = 'anonymous';
+              img.onload = () => {
+                // Create a temporary canvas to convert the image to base64
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 800; // Standard canvas width
+                tempCanvas.height = 600; // Standard canvas height
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                if (tempCtx) {
+                  tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                  const base64Data = tempCanvas.toDataURL('image/png');
+                  
+                  // Update the panel with the base64 data
+                  setPanels(prev => prev.map(p => 
+                    p.id === i + 1 
+                      ? { ...p, largeCanvasData: base64Data, smallCanvasData: base64Data }
+                      : p
+                  ));
+                  
+                  // Also load it onto the actual canvas
+                  const panel = panels[i];
+                  if (panel && panel.canvasRef.current) {
+                    const canvas = panel.canvasRef.current;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    }
+                  }
+                }
+              };
+              img.onerror = (error) => {
+                console.error(`Failed to load image for panel ${i + 1}:`, error);
+              };
+              img.src = panelData.public_url;
+            }
+          }
+        } else {
+          alert('Comic not found');
+        }
+      } else {
+        alert('Failed to load comic for editing');
+      }
+    } catch (error) {
+      console.error('Error loading comic for editing:', error);
+      alert('Failed to load comic for editing');
+    } finally {
+      setIsLoadingEditData(false);
+    }
   };
 
   const handlePanelClick = (panelId: number) => {
@@ -285,7 +400,6 @@ export default function CreatePage() {
             const isEmpty = imageData.data.every(pixel => pixel === 0);
             
             if (isEmpty && panel.smallCanvasData) {
-              console.log(`Restoring canvas for panel ${panel.id}`);
               const img = new Image();
               img.onload = () => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -376,10 +490,8 @@ export default function CreatePage() {
 
   // Force restore small canvas data when returning to grid view
   const forceRestoreSmallCanvases = () => {
-    console.log('Force restoring small canvases...');
     panels.forEach(panel => {
       if (panel.smallCanvasData && panel.canvasRef.current) {
-        console.log(`Restoring small canvas for panel ${panel.id}:`, panel.smallCanvasData.substring(0, 50) + '...');
         const canvas = panel.canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (ctx) {
@@ -387,12 +499,9 @@ export default function CreatePage() {
           img.onload = () => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            console.log(`Restored small canvas for panel ${panel.id}`);
           };
           img.src = panel.smallCanvasData;
         }
-      } else {
-        console.log(`No small canvas data for panel ${panel.id}`);
       }
     });
   };
@@ -749,6 +858,18 @@ export default function CreatePage() {
 
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
+  // Show loading state when loading edit data
+  if (isLoadingEditData) {
+    return (
+      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+          <p style={{ color: 'var(--foreground)' }}>Loading comic for editing...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full">
       {!zoomedPanel ? (
@@ -761,7 +882,10 @@ export default function CreatePage() {
                   type="text"
                   value={comicTitle}
                   onChange={handleTitleChange}
-                  onBlur={handleTitleBlur}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--accent)';
+                    handleTitleBlur();
+                  }}
                   onKeyDown={handleTitleKeyDown}
                   className="text-2xl font-bold bg-transparent border-b-2 focus:outline-none"
                   style={{
@@ -770,9 +894,6 @@ export default function CreatePage() {
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = 'var(--accent-hover)'
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--accent)'
                   }}
                   autoFocus
                 />
@@ -788,7 +909,7 @@ export default function CreatePage() {
                   }}
                   onClick={handleTitleClick}
                 >
-                  {comicTitle}
+                  {isEditMode ? `Edit: ${comicTitle}` : comicTitle}
                 </h1>
               )}
               
@@ -815,7 +936,7 @@ export default function CreatePage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-                {isEditing ? 'Update Comic' : 'Create Comic'}
+                {isEditMode ? 'Update Comic' : (isEditing ? 'Update Comic' : 'Create Comic')}
               </button>
             </div>
           </div>
