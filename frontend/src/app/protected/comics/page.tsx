@@ -6,6 +6,7 @@ import { User } from '@supabase/supabase-js'
 import Modal from '@/components/ui/Modal'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
 interface Panel {
   id: string
@@ -28,6 +29,7 @@ interface Comic {
 }
 
 export default function MyComicsPage() {
+  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [comics, setComics] = useState<Comic[]>([])
   const [loading, setLoading] = useState(true)
@@ -146,8 +148,8 @@ export default function MyComicsPage() {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-200 mx-auto mb-4"></div>
-          <p className="text-amber-50">Loading your comics...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+          <p style={{ color: 'var(--foreground)' }}>Loading your comics...</p>
         </div>
       </div>
     )
@@ -157,12 +159,22 @@ export default function MyComicsPage() {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-400 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-amber-50 mb-4">Error Loading Comics</h2>
-          <p className="text-stone-200 mb-6">{error}</p>
+          <div className="text-6xl mb-4" style={{ color: 'var(--error)' }}>⚠️</div>
+          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>Error Loading Comics</h2>
+          <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>{error}</p>
           <button 
             onClick={fetchUserAndComics}
-            className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+            className="px-6 py-3 rounded-lg transition-colors"
+            style={{ 
+              backgroundColor: 'var(--accent)',
+              color: 'var(--foreground-inverse)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--accent-hover)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--accent)'
+            }}
           >
             Try Again
           </button>
@@ -175,8 +187,8 @@ export default function MyComicsPage() {
     <div className="w-full h-full px-2">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-amber-50 mb-2">My Comics</h1>
-          <p className="text-stone-200">
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>My Comics</h1>
+          <p style={{ color: 'var(--foreground-secondary)' }}>
             {comics.length === 0 ? 'No comics yet' : `${comics.length} comic${comics.length !== 1 ? 's' : ''} created`}
           </p>
         </div>
@@ -184,12 +196,22 @@ export default function MyComicsPage() {
         {comics.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center">
-              <div className="text-amber-400 text-6xl mb-4">📖</div>
-              <h2 className="text-2xl font-bold text-amber-50 mb-4">No Comics Yet</h2>
-              <p className="text-stone-200 mb-6">Start creating your first comic story! Let your imagination run wild and bring your ideas to life.</p>
+              <div className="text-6xl mb-4" style={{ color: 'var(--accent)' }}>📖</div>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>No Comics Yet</h2>
+              <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>Start creating your first comic story! Let your imagination run wild and bring your ideas to life.</p>
               <a
                 href="/protected/create"
-                className="inline-block px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                className="inline-block px-6 py-3 rounded-lg transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--foreground-inverse)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent-hover)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent)'
+                }}
               >
                 Create Your First Comic
               </a>
@@ -207,8 +229,18 @@ export default function MyComicsPage() {
               return (
               <div 
                 key={comic.id} 
-                className={`group bg-stone-800/50 rounded border border-stone-700/50 overflow-hidden hover:border-amber-500/50 transition-colors relative break-inside-avoid mb-1 ${randomHeight} cursor-pointer`}
-                onClick={() => openModal(comic)}
+                className={`group rounded border overflow-hidden transition-colors relative break-inside-avoid mb-1 ${randomHeight} cursor-pointer`}
+                style={{
+                  backgroundColor: 'var(--background-card)',
+                  borderColor: 'var(--border)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--accent)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border)'
+                }}
+                onClick={() => router.push(`/preview/${comic.id}`)}
               >
                 {/* Image */}
                 <div className="relative w-full aspect-[4/3]">

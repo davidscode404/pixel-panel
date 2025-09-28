@@ -783,12 +783,29 @@ export default function CreatePage() {
                   onChange={handleTitleChange}
                   onBlur={handleTitleBlur}
                   onKeyDown={handleTitleKeyDown}
-                  className="text-2xl font-bold text-amber-50 bg-transparent border-b-2 border-amber-500 focus:outline-none focus:border-amber-400"
+                  className="text-2xl font-bold bg-transparent border-b-2 focus:outline-none"
+                  style={{
+                    color: 'var(--foreground)',
+                    borderColor: 'var(--accent)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-hover)'
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--accent)'
+                  }}
                   autoFocus
                 />
               ) : (
                 <h1 
-                  className="text-2xl font-bold text-amber-50 drop-shadow-lg cursor-pointer hover:text-amber-300 transition-colors"
+                  className="text-2xl font-bold drop-shadow-lg cursor-pointer transition-colors"
+                  style={{ color: 'var(--foreground)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--accent-hover)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--foreground)'
+                  }}
                   onClick={handleTitleClick}
                 >
                   {comicTitle}
@@ -800,7 +817,20 @@ export default function CreatePage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={createComic}
-                className="group rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                className="group rounded-lg border border-solid transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  borderColor: 'var(--accent)',
+                  color: 'var(--foreground-inverse)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent-hover)'
+                  e.currentTarget.style.borderColor = 'var(--accent-hover)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent)'
+                  e.currentTarget.style.borderColor = 'var(--accent)'
+                }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />

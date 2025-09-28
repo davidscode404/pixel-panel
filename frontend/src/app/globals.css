@@ -1,28 +1,108 @@
 @import "tailwindcss";
 
+/* Light Theme (Default) */
 :root {
+  /* Background Colors */
   --background: #ffffff;
-  --foreground: #171717;
+  --background-secondary: #f8fafc;
+  --background-tertiary: #f1f5f9;
+  --background-card: #ffffff;
+  --background-sidebar: #f8fafc;
+  
+  /* Text Colors */
+  --foreground: #0f172a;
+  --foreground-secondary: #475569;
+  --foreground-muted: #64748b;
+  --foreground-inverse: #ffffff;
+  --foreground-on-accent: #ffffff;
+  
+  /* Border Colors */
+  --border: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --border-muted: #f1f5f9;
+  
+  /* Accent Colors (Amber/Orange) */
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-light: #fbbf24;
+  
+  /* Status Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  
+  /* Shadows */
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Dark Theme - Original Stone/Amber Palette */
+.dark {
+  /* Background Colors - Original stone palette */
+  --background: #1c1917; /* stone-900 */
+  --background-secondary: #292524; /* stone-800 */
+  --background-tertiary: #44403c; /* stone-700 */
+  --background-card: #44403c; /* stone-700 */
+  --background-sidebar: #292524; /* stone-800 with transparency */
+  
+  /* Text Colors - Original amber/stone palette */
+  --foreground: #fef3c7; /* amber-100 */
+  --foreground-secondary: #d97706; /* amber-600 */
+  --foreground-muted: #a3a3a3; /* neutral-400 */
+  --foreground-inverse: #1c1917; /* stone-900 */
+  --foreground-on-accent: #ffffff;
+  
+  /* Border Colors - Original stone palette */
+  --border: #57534e; /* stone-600 */
+  --border-secondary: #44403c; /* stone-700 */
+  --border-muted: #292524; /* stone-800 */
+  
+  /* Accent Colors - Original amber palette */
+  --accent: #d97706; /* amber-600 */
+  --accent-hover: #b45309; /* amber-700 */
+  --accent-light: #fbbf24; /* amber-400 */
+  
+  /* Status Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  
+  /* Shadows */
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-tertiary: var(--background-tertiary);
+  --color-background-card: var(--background-card);
+  --color-background-sidebar: var(--background-sidebar);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-inverse: var(--foreground-inverse);
+  --color-border: var(--border);
+  --color-border-secondary: var(--border-secondary);
+  --color-border-muted: var(--border-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-light: var(--accent-light);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Comic Sans MS", "Chalkboard SE", "Bradley Hand", cursive, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Hide scrollbar for webkit browsers */

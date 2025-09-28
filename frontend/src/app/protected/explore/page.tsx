@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { API_CONFIG, buildApiUrl } from '@/config/api';
 
 interface ComicPanel {
@@ -24,6 +25,7 @@ interface Comic {
 }
 
 export default function ExplorePage() {
+  const router = useRouter();
   const [comics, setComics] = useState<Comic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +166,7 @@ export default function ExplorePage() {
             <div 
               key={comic.id} 
               className={`group bg-background-card rounded-lg border-2 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer shadow-lg ${randomHeight}`}
-              onClick={() => openModal(comic)}
+              onClick={() => router.push(`/preview/${comic.id}`)}
             >
               {/* Image */}
               <div className="relative w-full h-full">

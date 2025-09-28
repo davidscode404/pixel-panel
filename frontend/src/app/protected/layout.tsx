@@ -24,8 +24,8 @@ export default function ProtectedLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800">
-        <div className="text-amber-50">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+        <div style={{ color: 'var(--foreground)' }}>Loading...</div>
       </div>
     )
   }
@@ -39,7 +39,7 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-stone-900 to-stone-800 flex overflow-hidden">
+    <div className="h-screen flex overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
       {/* Sidebar - Fixed */}
       <SideBar 
         isMinimized={isSidebarMinimized} 
@@ -49,7 +49,7 @@ export default function ProtectedLayout({
       
       {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto" style={{ backgroundColor: 'var(--background)' }}>
           {children}
         </main>
       </div>
