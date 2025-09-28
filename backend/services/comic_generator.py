@@ -85,14 +85,16 @@ class ComicArtGenerator:
                 "You have been provided with the previous panel as context. Create a new scene that follows naturally from the context, "
                 "maintaining visual consistency in style, characters, and setting. Use the reference sketch as a guide for composition. "
                 "Create clean, professional comic book style artwork with bold lines, clear forms, and comic book aesthetics. "
-                "The new scene should feel like a natural continuation of the story."
+                "The new scene should feel like a natural continuation of the story. "
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders."
             )
         else:
             system_prompt = (
                 "You are a comic art generator. You generate art for panels based on a reference sketch from the user. "
                 "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
                 "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
-                "and scene composition as shown in the reference sketch."
+                "and scene composition as shown in the reference sketch. "
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders."
             )
         
         if reference_image_path:
