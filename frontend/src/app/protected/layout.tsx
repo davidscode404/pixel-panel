@@ -22,6 +22,13 @@ export default function ProtectedLayout({
     }
   }, [user, loading, router, pathname])
 
+  // Track the current page for navigation purposes
+  useEffect(() => {
+    if (pathname && pathname !== '/protected') {
+      localStorage.setItem('lastVisitedPage', pathname)
+    }
+  }, [pathname])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>

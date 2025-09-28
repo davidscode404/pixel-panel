@@ -156,7 +156,10 @@ export default function SideBar({
          <Link 
            href="/protected/explore" 
            className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'space-x-2'}`}
-           onClick={(e) => e.stopPropagation()}
+           onClick={(e) => {
+             e.stopPropagation()
+             localStorage.setItem('lastVisitedPage', '/protected/explore')
+           }}
          >
            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
@@ -217,6 +220,8 @@ export default function SideBar({
                 // Navigate with delay to allow minimize to complete
                 setTimeout(() => {
                   console.log(`🚀 Navigating to: ${item.href}`)
+                  // Save the current page to localStorage before navigating
+                  localStorage.setItem('lastVisitedPage', item.href)
                   router.push(item.href)
                 }, item.onClick ? 200 : 50) // Longer delay if there's an onClick handler
               }}
