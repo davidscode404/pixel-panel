@@ -149,7 +149,8 @@ async def list_comics():
                     try:
                         with open(sorted(panel_files)[0], "rb") as f:
                             image_data = f.read()
-                            cover_image = base64.b64encode(image_data).decode('utf-8')
+                            img_base64 = base64.b64encode(image_data).decode('utf-8')
+                            cover_image = f"data:image/png;base64,{img_base64}"
                     except Exception as e:
                         print(f"Error reading cover for {item}: {e}")
                     

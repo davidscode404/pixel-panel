@@ -115,13 +115,27 @@ export default function ExplorePage() {
               >
                 {comic.cover_image ? (
                   <div className="w-full h-full relative">
-                    <Image
-                      src={comic.cover_image}
-                      alt={formatComicTitle(comic.title)}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
-                    />
+                    {comic.cover_image.startsWith('data:') ? (
+                      <img
+                        src={comic.cover_image}
+                        alt={formatComicTitle(comic.title)}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : comic.cover_image.startsWith('http') ? (
+                      <Image
+                        src={comic.cover_image}
+                        alt={formatComicTitle(comic.title)}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 20vw"
+                      />
+                    ) : (
+                      <img
+                        src={`data:image/png;base64,${comic.cover_image}`}
+                        alt={formatComicTitle(comic.title)}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
                     {/* Overlay for better text readability */}
                     <div className="absolute inset-0 bg-black/20" />
                   </div>
