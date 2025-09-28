@@ -229,7 +229,7 @@ export default function MyComicsPage() {
               return (
               <div 
                 key={comic.id} 
-                className={`group rounded border overflow-hidden transition-colors relative break-inside-avoid mb-1 ${randomHeight} cursor-pointer`}
+                className={`group border overflow-hidden transition-colors relative break-inside-avoid mb-1 ${randomHeight} cursor-pointer`}
                 style={{
                   backgroundColor: 'var(--background-card)',
                   borderColor: 'var(--border)'
@@ -325,7 +325,7 @@ export default function MyComicsPage() {
                   .filter(panel => panel.panel_number > 0)
                   .sort((a, b) => a.panel_number - b.panel_number)
                   .map((panel) => (
-                  <div key={panel.id} className="bg-background-tertiary rounded-lg overflow-hidden border-2 border-black shadow-lg">
+                  <div key={panel.id} className="bg-background-tertiary overflow-hidden border-2 border-black shadow-lg">
                     {imageErrors[`${selectedComic.id}-${panel.id}`] ? (
                       <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
                         <div className="text-foreground-muted text-center">

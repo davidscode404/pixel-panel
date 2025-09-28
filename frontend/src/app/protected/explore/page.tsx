@@ -165,7 +165,7 @@ export default function ExplorePage() {
             return (
             <div 
               key={comic.id} 
-              className={`group bg-background-card rounded-lg border-2 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer shadow-lg ${randomHeight}`}
+              className={`group bg-background-card border-2 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer shadow-lg ${randomHeight}`}
               onClick={() => router.push(`/preview/${comic.id}`)}
             >
               {/* Image */}
@@ -244,7 +244,7 @@ export default function ExplorePage() {
                   .filter(panel => panel.panel_number !== 0) // Exclude panel 0 (comic_full.png)
                   .sort((a, b) => a.panel_number - b.panel_number)
                   .map((panel) => (
-                  <div key={panel.id} className="relative bg-background-tertiary rounded-lg overflow-hidden border-2 border-black shadow-lg">
+                  <div key={panel.id} className="relative bg-background-tertiary overflow-hidden border-2 border-black shadow-lg">
                     {imageErrors[`${selectedComic.id}-${panel.id}`] ? (
                       <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
                         <div className="text-foreground-muted text-center">

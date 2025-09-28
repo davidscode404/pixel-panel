@@ -290,7 +290,7 @@ export default function ComicPreview() {
             {comicData.panels.map((panel, index) => (
               <div
                 key={`${panel.id}-${panel.panel_number}` || `panel-${index}`}
-                className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
+                className="group relative bg-stone-800/60 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
                 onClick={() => handlePanelClick(panel, index)}
               >
                 {/* Panel Image */}
@@ -300,11 +300,11 @@ export default function ComicPreview() {
                       src={panel.public_url}
                       alt={`Panel ${panel.display_number}`}
                       fill
-                      className="object-cover rounded-lg"
+                      className="object-cover"
                       priority={index < 3} // Prioritize first 3 images
                     />
                   ) : (
-                    <div className="w-full h-full bg-background-tertiary flex items-center justify-center rounded-lg">
+                    <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
                       <div className="text-foreground-muted text-center">
                         <div className="text-xl mb-1">🖼️</div>
                         <div className="text-xs">No image</div>
@@ -314,7 +314,7 @@ export default function ComicPreview() {
                 </div>
                 
                 {/* Hover Effect Overlay */}
-                <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               </div>
             ))}
           </div>
@@ -337,7 +337,7 @@ export default function ComicPreview() {
               {/* Panel Container */}
               <div className="max-w-4xl w-full">
                 <div
-                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
+                  className="group relative bg-stone-800/60 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
                   onClick={() => handlePanelClick(comicData.panels[currentPanelIndex], currentPanelIndex)}
                 >
                   {/* Panel Image */}
@@ -347,11 +347,11 @@ export default function ComicPreview() {
                         src={comicData.panels[currentPanelIndex].public_url}
                         alt={`Panel ${comicData.panels[currentPanelIndex].display_number}`}
                         fill
-                        className="object-cover rounded-lg"
+                        className="object-cover"
                         priority
                       />
                     ) : (
-                      <div className="w-full h-full bg-background-tertiary flex items-center justify-center rounded-lg">
+                      <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
                         <div className="text-foreground-muted text-center">
                           <div className="text-xl mb-1">🖼️</div>
                           <div className="text-xs">No image</div>
@@ -361,7 +361,7 @@ export default function ComicPreview() {
                   </div>
                   
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               </div>
 
@@ -390,7 +390,7 @@ export default function ComicPreview() {
                 <button
                   key={`${panel.id}-${panel.panel_number}` || `panel-${index}`}
                   onClick={() => goToPanel(index)}
-                  className={`relative w-16 h-12 rounded-lg overflow-hidden transition-all duration-200 ${
+                  className={`relative w-16 h-12 overflow-hidden transition-all duration-200 ${
                     index === currentPanelIndex
                       ? 'ring-2 ring-amber-400 scale-110'
                       : 'hover:scale-105 opacity-70 hover:opacity-100'
@@ -484,11 +484,11 @@ export default function ComicPreview() {
                     src={selectedPanel.public_url}
                         alt={`Panel ${selectedPanel.display_number}`}
                     fill
-                    className="object-contain rounded-lg"
+                    className="object-contain"
                     priority
                   />
                 ) : (
-                  <div className="w-full h-full bg-background-tertiary flex items-center justify-center rounded-lg">
+                  <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
                     <div className="text-foreground-muted text-center">
                       <div className="text-xl mb-1">🖼️</div>
                       <div className="text-xs">No image</div>
