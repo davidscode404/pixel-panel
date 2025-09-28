@@ -86,7 +86,8 @@ class ComicArtGenerator:
                 "maintaining visual consistency in style, characters, and setting. Use the reference sketch as a guide for composition. "
                 "Create clean, professional comic book style artwork with bold lines, clear forms, and comic book aesthetics. "
                 "The new scene should feel like a natural continuation of the story. "
-                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders."
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
+                "Do NOT include white borders or empty white space around the artwork unless specifically requested in the prompt."
             )
         else:
             system_prompt = (
@@ -94,7 +95,8 @@ class ComicArtGenerator:
                 "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
                 "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
                 "and scene composition as shown in the reference sketch. "
-                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders."
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
+                "Do NOT include white borders or empty white space around the artwork unless specifically requested in the prompt."
             )
         
         if reference_image_path:
