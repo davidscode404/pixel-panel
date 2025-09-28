@@ -233,6 +233,12 @@ class ComicStorageService:
     async def delete_comic(self, user_id: str, comic_id: str) -> bool:
         """Delete a comic and all its panels"""
         try:
+            # First, check if the comic exists and belongs to the user
+            comic_check = self.supabase.table('comics').select('id, title').eq('id', comic_id).eq('user_id', user_id).execute()
+            
+            if not comic_check.data:
+                return False
+            
             # Get all panel storage paths
             panels = await self.get_comic_panels(comic_id)
             

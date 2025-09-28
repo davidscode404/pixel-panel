@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { Modal } from '@/components/ui/Modal'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -33,8 +32,6 @@ export default function MyComicsPage() {
   const [user, setUser] = useState<User | null>(null)
   const [comics, setComics] = useState<Comic[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedComic, setSelectedComic] = useState<Comic | null>(null)
-  const [showModal, setShowModal] = useState(false)
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [error, setError] = useState<string | null>(null)
@@ -120,15 +117,6 @@ export default function MyComicsPage() {
     fetchUserAndComics()
   }, [])
 
-  const openModal = (comic: Comic) => {
-    setSelectedComic(comic)
-    setShowModal(true)
-  }
-
-  const closeModal = () => {
-    setShowModal(false)
-    setSelectedComic(null)
-  }
 
   const handleImageLoad = (imageId: string) => {
     setImageLoading(prev => ({ ...prev, [imageId]: false }))
@@ -143,6 +131,7 @@ export default function MyComicsPage() {
     setImageLoading(prev => ({ ...prev, [imageId]: true }))
     setImageErrors(prev => ({ ...prev, [imageId]: false }))
   }
+
 
   if (loading) {
     return (
@@ -306,60 +295,7 @@ export default function MyComicsPage() {
           </div>
         )}
 
-        {/* Modal for viewing comic details */}
-        {showModal && selectedComic && (
-          <Modal onClose={closeModal}>
-            <div className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-foreground">{selectedComic.title}</h2>
-                <button
-                  onClick={closeModal}
-                  className="text-foreground-muted hover:text-foreground text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedComic.panels
-                  .filter(panel => panel.panel_number > 0)
-                  .sort((a, b) => a.panel_number - b.panel_number)
-                  .map((panel) => (
-                  <div key={panel.id} className="bg-background-tertiary overflow-hidden border-2 border-black shadow-lg">
-                    {imageErrors[`${selectedComic.id}-${panel.id}`] ? (
-                      <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
-                        <div className="text-foreground-muted text-center">
-                          <div className="text-2xl mb-2">🖼️</div>
-                          <div className="text-sm">Image not available</div>
-                        </div>
-                      </div>
-                    ) : (
-                       <Image
-                          src={panel.public_url}
-                          alt={`Panel ${panel.panel_number}`}
-                          width={400}
-                          height={192}
-                          className="w-full h-48 object-contain bg-white"
-                          onLoad={() => handleImageLoad(`${selectedComic.id}-${panel.id}`)}
-                          onError={() => handleImageError(`${selectedComic.id}-${panel.id}`)}
-                          onLoadStart={() => handleImageLoadStart(`${selectedComic.id}-${panel.id}`)}
-                        />
-                    )}
-                    <div className="p-3">
-                      <p className="text-foreground text-sm font-medium">Panel {panel.panel_number}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-6 pt-4 border-t border-border">
-                <div className="text-center text-sm text-foreground-secondary">
-                  <span>Created: {new Date(selectedComic.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                </div>
-              </div>
-            </div>
-          </Modal>
-        )}
+
       </div>
     </div>
   )

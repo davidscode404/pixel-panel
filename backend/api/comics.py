@@ -219,3 +219,26 @@ async def list_comics():
     except Exception as e:
         print(f"❌ Error listing comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/user-comics/{comic_id}")
+async def delete_comic(comic_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a specific comic by ID"""
+    try:
+        print(f"🗑️ Deleting comic {comic_id} for user {current_user.get('email', 'Unknown')}")
+        
+        # Use the comic storage service to delete the comic
+        success = await comic_storage_service.delete_comic(current_user.get('id'), comic_id)
+        
+        if success:
+            print(f"✅ Successfully deleted comic {comic_id}")
+            return {"success": True, "message": "Comic deleted successfully"}
+        else:
+            print(f"❌ Failed to delete comic {comic_id}")
+            raise HTTPException(status_code=404, detail="Comic not found or you don't have permission to delete it")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error deleting comic: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
