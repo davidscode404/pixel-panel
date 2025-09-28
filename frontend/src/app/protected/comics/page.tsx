@@ -132,6 +132,15 @@ export default function MyComicsPage() {
     setImageErrors(prev => ({ ...prev, [imageId]: false }))
   }
 
+  const formatComicTitle = (title: string | undefined): string => {
+    if (!title) return 'Unknown Comic';
+    return title
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
 
   if (loading) {
     return (
@@ -256,7 +265,7 @@ export default function MyComicsPage() {
                         return (
                           <Image
                             src={imageUrl}
-                            alt={comic.title}
+                            alt={formatComicTitle(comic.title)}
                             width={400}
                             height={300}
                             className="w-full h-full object-cover"
@@ -269,7 +278,7 @@ export default function MyComicsPage() {
                         return (
                           <img
                             src={imageUrl}
-                            alt={comic.title}
+                            alt={formatComicTitle(comic.title)}
                             className="w-full h-full object-cover"
                             onLoad={() => handleImageLoad(`${comic.id}-preview`)}
                             onError={() => handleImageError(`${comic.id}-preview`)}
@@ -283,7 +292,7 @@ export default function MyComicsPage() {
 
                 {/* Title and date at bottom with overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
-                  <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{comic.title}</h3>
+                  <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{formatComicTitle(comic.title)}</h3>
                   <p className="text-foreground-secondary text-xs">
                     {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                   </p>

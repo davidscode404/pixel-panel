@@ -32,8 +32,6 @@ export default function ComicPreview() {
   const [comicData, setComicData] = useState<ComicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPanel, setSelectedPanel] = useState<ComicPanel | null>(null);
-  const [selectedPanelIndex, setSelectedPanelIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'grid' | 'clickthrough'>('grid');
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -168,15 +166,10 @@ export default function ComicPreview() {
       setCurrentPanelIndex(index);
       setViewMode('clickthrough');
     } else {
-      // In clickthrough mode, open the enlarged modal
-      setSelectedPanel(panel);
-      setSelectedPanelIndex(index);
+      // In clickthrough mode, do nothing (modal removed)
     }
   };
 
-  const closeEnlargedView = () => {
-    setSelectedPanel(null);
-  };
 
   const nextPanel = () => {
     if (comicData && currentPanelIndex < comicData.panels.length - 1) {
@@ -447,10 +440,9 @@ export default function ComicPreview() {
 
               {/* Panel Container */}
               <div className="max-w-4xl w-full">
-                <div
-                  className="group relative bg-stone-800/60 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
-                  onClick={() => handlePanelClick(comicData.panels[currentPanelIndex], currentPanelIndex)}
-                >
+                 <div
+                   className="group relative bg-stone-800/60 backdrop-blur-sm overflow-hidden shadow-2xl transition-all duration-300 transform-gpu border border-stone-700/50"
+                 >
                   {/* Panel Image */}
                   <div className="relative aspect-[4/3] w-full">
                     {comicData.panels[currentPanelIndex].public_url ? (
@@ -470,9 +462,6 @@ export default function ComicPreview() {
                       </div>
                     )}
                   </div>
-                  
-                  {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               </div>
 
@@ -552,96 +541,6 @@ export default function ComicPreview() {
         )}
       </div>
 
-      {/* Enlarged Panel Modal */}
-      {selectedPanel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-300"
-            onClick={closeEnlargedView}
-          />
-          
-          {/* Modal Content */}
-          <div className="relative bg-stone-800/90 backdrop-blur-sm rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
-            {/* Close Button */}
-            <button
-              onClick={closeEnlargedView}
-              className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/20 hover:bg-black/30 rounded-full flex items-center justify-center transition-colors"
-            >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* Panel Content */}
-            <div className="p-6">
-              {/* Panel Header */}
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-amber-50 flex items-center gap-3">
-                  <div className="w-8 h-8 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-stone-900 shadow-lg">
-                  {selectedPanel.display_number}
-                </div>
-                Panel {selectedPanel.display_number}
-                </h2>
-                <div className="text-stone-300 text-sm">
-                  {selectedPanelIndex + 1} of {comicData.panels.length}
-                </div>
-              </div>
-
-              {/* Panel Image */}
-              <div className="relative aspect-[4/3] w-full max-w-3xl mx-auto">
-                {selectedPanel.public_url ? (
-                  <Image
-                    src={selectedPanel.public_url}
-                        alt={`Panel ${selectedPanel.display_number}`}
-                    fill
-                    className="object-contain"
-                    priority
-                  />
-                ) : (
-                  <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
-                    <div className="text-foreground-muted text-center">
-                      <div className="text-xl mb-1">🖼️</div>
-                      <div className="text-xs">No image</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Navigation */}
-              <div className="flex justify-center mt-6 space-x-4">
-                <button
-                  onClick={() => {
-                    const prevIndex = selectedPanelIndex > 0 ? selectedPanelIndex - 1 : comicData.panels.length - 1;
-                    setSelectedPanel(comicData.panels[prevIndex]);
-                    setSelectedPanelIndex(prevIndex);
-                  }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-stone-700/50 text-stone-200 rounded-lg hover:bg-stone-600/50 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  <span>Previous</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const nextIndex = selectedPanelIndex < comicData.panels.length - 1 ? selectedPanelIndex + 1 : 0;
-                    setSelectedPanel(comicData.panels[nextIndex]);
-                    setSelectedPanelIndex(nextIndex);
-                  }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-stone-700/50 text-stone-200 rounded-lg hover:bg-stone-600/50 transition-colors"
-                >
-                  <span>Next</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
