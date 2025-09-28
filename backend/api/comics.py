@@ -3,104 +3,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from schemas.comic import ComicArtRequest, ComicResponse, ComicRequest
 from services.comic_storage import ComicStorageService
 from services.comic_generator import ComicArtGenerator
+from auth_shared import get_current_user
 import json
-import httpx
-import os
-from supabase import create_client, Client
-from dotenv import load_dotenv
 import base64
-
-load_dotenv()
+import os
 
 router = APIRouter(prefix="/api/comics", tags=["comics"])
 
-# Initialize Supabase client for auth
-supabase_url = os.getenv('SUPABASE_URL')
-supabase_anon_key = os.getenv('SUPABASE_ANON_KEY')
-supabase: Client = create_client(supabase_url, supabase_anon_key)
-
-async def get_current_user(request: Request) -> dict:
-    """
-    Extract and validate JWT token from Authorization header
-    Returns the user data if valid, raises HTTPException if invalid
-    """
-    try:
-        # Get the Authorization header
-        auth_header = request.headers.get("Authorization")
-        print(f"🔍 DEBUG: Auth header: {auth_header}")
-        
-        if not auth_header or not auth_header.startswith("Bearer "):
-            print("❌ Missing or invalid Authorization header")
-            raise HTTPException(
-                status_code=401,
-                detail="Missing or invalid authorization header"
-            )
-        
-        # Extract the token
-        token = auth_header.split(" ")[1]
-        print(f"🔍 DEBUG: Token length: {len(token)}")
-        print(f"🔍 DEBUG: Token starts with: {token[:50]}...")
-        
-        # Check if token has proper JWT structure (3 parts separated by dots)
-        token_parts = token.split('.')
-        print(f"🔍 DEBUG: Token parts count: {len(token_parts)}")
-        
-        # Verify the JWT token with Supabase Auth server
-        try:
-            # Use the auth server to verify the token
-            async with httpx.AsyncClient() as client:
-                auth_response = await client.get(
-                    f"{supabase_url}/auth/v1/user",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "apikey": supabase_anon_key
-                    }
-                )
-                
-                if auth_response.status_code != 200:
-                    raise HTTPException(
-                        status_code=401,
-                        detail="Invalid or expired token"
-                    )
-                
-                user_data = auth_response.json()
-                return {
-                    "id": user_data.get("id"),
-                    "email": user_data.get("email"),
-                    "user_metadata": user_data.get("user_metadata", {})
-                }
-                
-        except httpx.HTTPError as e:
-            print(f"JWT verification HTTP error: {e}")
-            raise HTTPException(
-                status_code=401,
-                detail="Token verification failed"
-            )
-        except Exception as e:
-            print(f"JWT verification error: {e}")
-            raise HTTPException(
-                status_code=401,
-                detail="Token verification failed"
-            )
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Authentication error: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication failed"
-        )
-
-# These will be set by main.py to avoid circular imports
-comic_generator = None
-comic_storage_service = None
-
-def set_services(generator, storage):
-    """Set services from main.py to avoid circular imports"""
-    global comic_generator, comic_storage_service
-    comic_generator = generator
-    comic_storage_service = storage
+comic_generator = ComicArtGenerator()
+comic_storage_service = ComicStorageService()
 
 @router.post("/generate")
 async def generate_comic_art(request: ComicArtRequest):
@@ -108,7 +19,6 @@ async def generate_comic_art(request: ComicArtRequest):
     Generate comic art from text prompt and optional reference image
     """
     try:
-        # FastAPI automatically parses the JSON body into the Pydantic model
         text_prompt = request.text_prompt
         reference_image_data = request.reference_image
         panel_id = request.panel_id
@@ -116,11 +26,9 @@ async def generate_comic_art(request: ComicArtRequest):
         
         print(f"🔍 DEBUG: panel_id={panel_id}, has_previous_context={previous_panel_context is not None}")
         
-        # Use previous panel context if provided by frontend
         context_image_data = None
         
         if previous_panel_context:
-            # Use the previous panel's prompt and image as context
             context_prompt = f"Create the next scene using this context: {previous_panel_context.prompt}. {text_prompt}"
             context_image_data = previous_panel_context.image_data
             text_prompt = context_prompt
@@ -237,6 +145,25 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
         
     except Exception as e:
         print(f"❌ Error fetching user comics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/public-comics")
+async def get_public_comics():
+    """
+    Get all public comics from all users for the explore page
+    """
+    try:
+        print(f"🔍 DEBUG: Fetching public comics")
+        
+        # Use the ComicStorageService to get public comics
+        comics = await comic_storage_service.get_public_comics()
+        
+        print(f"✅ Found {len(comics)} public comics")
+        return {'comics': comics}
+        
+    except Exception as e:
+        print(f"❌ Error fetching public comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

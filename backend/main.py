@@ -3,18 +3,10 @@ import uvicorn
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.comic_generator import ComicArtGenerator
-from services.comic_storage import ComicStorageService
-
-from api.auth import router as auth_router
 from api.comics import router as comics_router
 # from api.voice_over import router as voice_over_router
-from api.comics import set_services
 
 app = FastAPI(title="PixelPanel", version="1.0.0")
-
-comic_generator = ComicArtGenerator()
-comic_storage_service = ComicStorageService()
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,10 +23,7 @@ async def health_check():
     return {"status": "healthy", "message": "API is running"}
 
 
-app.include_router(auth_router)
 app.include_router(comics_router)
-
-set_services(comic_generator, comic_storage_service)
 
 # Legacy endpoint, stores comics from local directory - needs to be updated to use the new database
 # TODO: Remove this endpoint

@@ -1,14 +1,11 @@
-# backend/api/auth.py
-from fastapi import APIRouter, Depends, HTTPException, Request
+# backend/auth_shared.py
+from fastapi import HTTPException, Request
 import os
+import httpx
 from supabase import create_client, Client
 from dotenv import load_dotenv
-import httpx
-
 
 load_dotenv()
-
-router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Initialize Supabase client
 supabase_url = os.getenv('SUPABASE_URL')
@@ -21,6 +18,7 @@ async def get_current_user(request: Request) -> dict:
     Returns the user data if valid, raises HTTPException if invalid
     """
     try:
+        # Get the Authorization header
         auth_header = request.headers.get("Authorization")
         print(f"🔍 DEBUG: Auth header: {auth_header}")
         
@@ -31,14 +29,24 @@ async def get_current_user(request: Request) -> dict:
                 detail="Missing or invalid authorization header"
             )
         
+        # Extract the token
         token = auth_header.split(" ")[1]
         print(f"🔍 DEBUG: Token length: {len(token)}")
         print(f"🔍 DEBUG: Token starts with: {token[:50]}...")
         
+        # Check if token has proper JWT structure (3 parts separated by dots)
         token_parts = token.split('.')
         print(f"🔍 DEBUG: Token parts count: {len(token_parts)}")
         
+        if len(token_parts) != 3:
+            print("❌ Invalid JWT token structure")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token format"
+            )
+        
         try:
+            # Verify token with Supabase
             async with httpx.AsyncClient() as client:
                 auth_response = await client.get(
                     f"{supabase_url}/auth/v1/user",
@@ -49,12 +57,15 @@ async def get_current_user(request: Request) -> dict:
                 )
                 
                 if auth_response.status_code != 200:
+                    print(f"❌ Token verification failed with status: {auth_response.status_code}")
                     raise HTTPException(
                         status_code=401,
                         detail="Invalid or expired token"
                     )
                 
                 user_data = auth_response.json()
+                print(f"✅ User authenticated: {user_data.get('email', 'Unknown')}")
+                
                 return {
                     "id": user_data.get("id"),
                     "email": user_data.get("email"),
@@ -82,8 +93,3 @@ async def get_current_user(request: Request) -> dict:
             status_code=401,
             detail="Authentication failed"
         )
-
-@router.get("/me")
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    """Get current user information"""
-    return current_user

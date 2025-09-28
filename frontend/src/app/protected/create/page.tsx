@@ -765,12 +765,12 @@ export default function CreatePage() {
                   onChange={handleTitleChange}
                   onBlur={handleTitleBlur}
                   onKeyDown={handleTitleKeyDown}
-                  className="text-2xl font-bold text-amber-50 bg-transparent border-b-2 border-amber-500 focus:outline-none focus:border-amber-400"
+                  className="text-2xl font-bold text-foreground bg-transparent border-b-2 border-accent focus:outline-none focus:border-accent-light"
                   autoFocus
                 />
               ) : (
                 <h1 
-                  className="text-2xl font-bold text-amber-50 drop-shadow-lg cursor-pointer hover:text-amber-300 transition-colors"
+                  className="text-2xl font-bold text-foreground drop-shadow-lg cursor-pointer hover:text-accent-light transition-colors"
                   onClick={handleTitleClick}
                 >
                   {comicTitle}
@@ -782,7 +782,7 @@ export default function CreatePage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={createComic}
-                className="group rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                className="group rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-accent backdrop-blur-sm text-foreground-inverse hover:bg-accent-hover hover:border-accent/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
@@ -798,7 +798,7 @@ export default function CreatePage() {
                 <div
                   key={panel.id}
                   data-panel-id={panel.id}
-                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu"
+                  className="group relative bg-background-card backdrop-blur-sm rounded-lg cursor-pointer hover:bg-background-tertiary transition-all duration-300 shadow-2xl hover:shadow-accent/20 hover:scale-[1.02] transform-gpu border-2 border-black"
                   onClick={() => handlePanelClick(panel.id)}
                 >
                   <canvas
@@ -808,7 +808,7 @@ export default function CreatePage() {
                     className="w-full h-full rounded-lg pointer-events-none bg-white"
                   />
                   {/* Panel Number Overlay */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-stone-900 shadow-lg group-hover:bg-amber-400/90 transition-colors duration-300">
+                  <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-foreground-inverse shadow-lg group-hover:bg-accent-light transition-colors duration-300">
                     {panel.id}
                   </div>
                   {/* Trash Icon Overlay */}
@@ -824,7 +824,7 @@ export default function CreatePage() {
                     </svg>
                   </button>
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent/10 to-accent-light/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               ))}
             </div>
@@ -836,7 +836,7 @@ export default function CreatePage() {
           <div className="flex-shrink-0 p-6 flex justify-between items-center">
             <button
               onClick={() => handlePanelClick(zoomedPanel.id)}
-              className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+              className="group rounded-lg border border-solid border-border transition-all duration-300 flex items-center justify-center gap-2 bg-background-secondary backdrop-blur-sm text-foreground hover:bg-background-tertiary hover:border-border-secondary font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
             >
               <svg 
                 className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
@@ -848,8 +848,8 @@ export default function CreatePage() {
               </svg>
               Back to Canvas
             </button>
-            <h2 className="text-xl font-bold text-amber-50 drop-shadow-lg flex items-center gap-3">
-              <div className="w-8 h-8 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-stone-900 shadow-lg">
+            <h2 className="text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-3">
+              <div className="w-8 h-8 bg-accent backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-foreground-inverse shadow-lg">
                 {zoomedPanel.id}
               </div>
               Panel {zoomedPanel.id}
@@ -863,7 +863,7 @@ export default function CreatePage() {
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="rounded-xl bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
+                className="rounded-xl bg-background-card shadow-2xl shadow-accent/10 max-w-full max-h-full border-2 border-black"
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
@@ -872,10 +872,10 @@ export default function CreatePage() {
             </div>
             
             {/* Combined Tools and Generate Section - Right Side */}
-            <div className="w-80 bg-stone-800/40 backdrop-blur-sm rounded-l-xl p-4 flex flex-col overflow-y-auto border border-amber-100/20">
+            <div className="w-80 bg-background-secondary backdrop-blur-sm rounded-l-xl p-4 flex flex-col overflow-y-auto border border-border">
               {/* Generate Scene Section */}
               <div className="mb-6">
-                <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
+                <h3 className="text-base font-bold text-foreground drop-shadow-lg mb-3">
                   Generate Scene
                 </h3>
                 <div className="flex flex-col gap-3">
@@ -883,13 +883,13 @@ export default function CreatePage() {
                     value={textPrompt}
                     onChange={(e) => setTextPrompt(e.target.value)}
                     placeholder="Describe the scene you want to generate..."
-                    className="w-full px-3 py-2 border border-amber-100/30 rounded-lg bg-stone-800/40 backdrop-blur-sm text-amber-50 placeholder-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-100/50 resize-none shadow-lg text-sm"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background-secondary backdrop-blur-sm text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent resize-none shadow-lg text-sm"
                     rows={3}
                   />
                   <button
                     onClick={() => generateComicArt(zoomedPanel.id)}
                     disabled={isGenerating || !textPrompt.trim()}
-                    className="group w-full rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
+                    className="group w-full rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-accent backdrop-blur-sm text-white hover:bg-accent-hover hover:border-accent/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-background-muted disabled:hover:scale-100 disabled:hover:shadow-xl"
                   >
                     {isGenerating ? (
                       <>
@@ -912,19 +912,19 @@ export default function CreatePage() {
               </div>
 
               <div className="flex-1">
-                <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
+                <h3 className="text-base font-bold text-foreground drop-shadow-lg mb-3">
                   Drawing Tools
                 </h3>
                 
                 <div className="mb-4">
-                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Tools</label>
+                  <label className="text-xs font-medium text-foreground-secondary mb-2 block">Tools</label>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleToolChange('pen')}
                       className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
                         currentTool === 'pen' 
-                          ? 'bg-amber-500/80 text-stone-900 shadow-lg border border-amber-300/50' 
-                          : 'bg-stone-800/40 text-amber-50 border border-amber-100/20 hover:bg-stone-700/50 hover:border-amber-100/40'
+                          ? 'bg-accent text-foreground-inverse shadow-lg border border-accent/50' 
+                          : 'bg-background-secondary text-foreground border border-border hover:bg-background-tertiary hover:border-border-secondary'
                       }`}
                     >
                       <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -936,8 +936,8 @@ export default function CreatePage() {
                       onClick={() => handleToolChange('eraser')}
                       className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
                         currentTool === 'eraser' 
-                          ? 'bg-amber-500/80 text-stone-900 shadow-lg border border-amber-300/50' 
-                          : 'bg-stone-800/40 text-amber-50 border border-amber-100/20 hover:bg-stone-700/50 hover:border-amber-100/40'
+                          ? 'bg-accent text-foreground-inverse shadow-lg border border-accent/50' 
+                          : 'bg-background-secondary text-foreground border border-border hover:bg-background-tertiary hover:border-border-secondary'
                       }`}
                     >
                       <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -950,8 +950,8 @@ export default function CreatePage() {
                 
                 {/* Brush Size */}
                 <div className="mb-4">
-                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Brush Size</label>
-                  <div className="flex items-center space-x-2 bg-stone-800/40 rounded-lg px-3 py-2 border border-amber-100/20">
+                  <label className="text-xs font-medium text-foreground-secondary mb-2 block">Brush Size</label>
+                  <div className="flex items-center space-x-2 bg-background-secondary rounded-lg px-3 py-2 border border-border">
                     <input
                       type="range"
                       min="1"
@@ -960,21 +960,21 @@ export default function CreatePage() {
                       onChange={(e) => setBrushSize(Number(e.target.value))}
                       className="flex-1 accent-amber-500"
                     />
-                    <span className="text-xs font-bold text-amber-50 w-6 text-center">{brushSize}</span>
+                    <span className="text-xs font-bold text-foreground w-6 text-center">{brushSize}</span>
                   </div>
                 </div>
                 
                 {/* Color Picker */}
                 <div className="mb-4">
-                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Color</label>
-                  <div className="flex items-center space-x-2 bg-stone-800/40 rounded-lg px-3 py-2 border border-amber-100/20">
+                  <label className="text-xs font-medium text-foreground-secondary mb-2 block">Color</label>
+                  <div className="flex items-center space-x-2 bg-background-secondary rounded-lg px-3 py-2 border border-border">
                     <input
                       type="color"
                       value={currentColor}
                       onChange={(e) => setCurrentColor(e.target.value)}
-                      className="w-8 h-8 rounded border border-amber-100/30 bg-stone-800/60 cursor-pointer"
+                      className="w-8 h-8 rounded border border-border bg-background-card cursor-pointer"
                     />
-                    <span className="text-xs text-amber-50/80">Current color</span>
+                    <span className="text-xs text-foreground-secondary">Current color</span>
                   </div>
                 </div>
 
@@ -998,7 +998,7 @@ export default function CreatePage() {
                 <div>
                   <button
                     onClick={() => clearPanel(zoomedPanel.id)}
-                    className="group w-full rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-700/80 backdrop-blur-sm text-amber-50 hover:bg-stone-600/90 hover:border-amber-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
+                    className="group w-full rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-background-secondary backdrop-blur-sm text-foreground hover:bg-background-tertiary hover:border-accent/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

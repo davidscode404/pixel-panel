@@ -23,8 +23,8 @@ export default function ProtectedLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800">
-        <div className="text-amber-50">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-foreground">Loading...</div>
       </div>
     )
   }
@@ -34,7 +34,7 @@ export default function ProtectedLayout({
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-stone-900 to-stone-800 flex overflow-hidden">
+    <div className="h-screen bg-background flex overflow-hidden">
       <SideBar />
       
       <div className="flex-1 flex flex-col overflow-hidden">

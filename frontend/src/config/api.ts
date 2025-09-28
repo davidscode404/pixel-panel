@@ -7,7 +7,8 @@ export const API_CONFIG = {
     SAVE_COMIC: '/api/comics/save-comic',
     GENERATE: '/api/comics/generate',
     LIST_COMICS: '/api/comics/list-comics',
-    USER_COMICS: '/api/comics/user-comics'
+    USER_COMICS: '/api/comics/user-comics',
+    PUBLIC_COMICS: '/api/comics/public-comics'
   }
 };
 
