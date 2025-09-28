@@ -53,9 +53,11 @@ export default function Home() {
       <main className="flex flex-col items-center gap-12">
         <div className="text-center max-w-2xl">
           <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mb-6 text-amber-50 drop-shadow-2xl flex items-center justify-center gap-4">
-            <svg className="w-12 h-12 sm:w-16 sm:h-16" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-            </svg>
+            <img 
+              src="/logo.png" 
+              alt="PixelPanel Logo" 
+              className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+            />
             PixelPanel 
           </h1>
           <p className="text-base sm:text-lg text-stone-200 drop-shadow-lg">

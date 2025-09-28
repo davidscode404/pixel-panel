@@ -1,83 +1,51 @@
-import React, { useEffect } from 'react';
-import { cn } from '@/lib/utils';
-import type { ModalProps } from '@/types';
+'use client'
 
-const Modal: React.FC<ModalProps> = ({
-  isOpen,
-  onClose,
-  title,
-  children,
-  className = '',
-}) => {
-  // Handle escape key press
+import { useEffect, useRef } from 'react'
+
+interface ModalProps {
+  children: React.ReactNode
+  onClose: () => void
+}
+
+export function Modal({ children, onClose }: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        onClose()
       }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
     }
 
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose()
+      }
+    }
 
-  if (!isOpen) return null;
+    document.addEventListener('keydown', handleEscape)
+    document.addEventListener('mousedown', handleClickOutside)
+
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.body.style.overflow = 'unset'
+    }
+  }, [onClose])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
-        className="absolute inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
-      />
-      
-      {/* Modal content */}
-      <div
-        className={cn(
-          'relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto',
-          className
-        )}
+        ref={modalRef}
+        className="relative max-w-full max-h-full overflow-hidden bg-background-card rounded-xl shadow-2xl"
       >
-        {/* Header */}
-        {title && (
-          <div className="flex items-center justify-between p-6 border-b border-stone-200">
-            <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
-            <button
-              onClick={onClose}
-              className="text-stone-400 hover:text-stone-600 transition-colors"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
-        
-        {/* Body */}
         <div className="p-6">
           {children}
         </div>
       </div>
     </div>
-  );
-};
-
-export default Modal;
+  )
+}

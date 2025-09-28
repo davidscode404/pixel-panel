@@ -1,28 +1,106 @@
 @import "tailwindcss";
 
+/* Light Theme (Default) */
 :root {
+  /* Background Colors */
   --background: #ffffff;
-  --foreground: #171717;
+  --background-secondary: #f8fafc;
+  --background-tertiary: #f1f5f9;
+  --background-card: #ffffff;
+  --background-sidebar: #f8fafc;
+  
+  /* Text Colors */
+  --foreground: #0f172a;
+  --foreground-secondary: #475569;
+  --foreground-muted: #64748b;
+  --foreground-inverse: #ffffff;
+  
+  /* Border Colors */
+  --border: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --border-muted: #f1f5f9;
+  
+  /* Accent Colors (Ocean Blue) */
+  --accent: #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-light: #38bdf8;
+  
+  /* Status Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  
+  /* Shadows */
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Dark Theme */
+.dark {
+  /* Background Colors */
+  --background: #0a0a0a;
+  --background-secondary: #1a1a1a;
+  --background-tertiary: #2a2a2a;
+  --background-card: #1a1a1a;
+  --background-sidebar: #1a1a1a;
+  
+  /* Text Colors */
+  --foreground: #f5f5f5;
+  --foreground-secondary: #b3b3b3;
+  --foreground-muted: #808080;
+  --foreground-inverse: #0a0a0a;
+  
+  /* Border Colors */
+  --border: #2a2a2a;
+  --border-secondary: #404040;
+  --border-muted: #1a1a1a;
+  
+  /* Accent Colors (Ocean Blue) - Same as light theme */
+  --accent: #0ea5e9;
+  --accent-hover: #0284c7;
+  --accent-light: #38bdf8;
+  
+  /* Status Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+  
+  /* Shadows */
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-background-secondary: var(--background-secondary);
+  --color-background-tertiary: var(--background-tertiary);
+  --color-background-card: var(--background-card);
+  --color-background-sidebar: var(--background-sidebar);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-inverse: var(--foreground-inverse);
+  --color-border: var(--border);
+  --color-border-secondary: var(--border-secondary);
+  --color-border-muted: var(--border-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-light: var(--accent-light);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Comic Sans MS", "Chalkboard SE", "Bradley Hand", cursive, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Hide scrollbar for webkit browsers */

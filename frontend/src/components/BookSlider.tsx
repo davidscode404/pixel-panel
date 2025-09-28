@@ -233,7 +233,7 @@ export default function BookSlider() {
         {/* Navigation Arrows */}
         <button
           onClick={prevBook}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white hover:text-amber-200 transition-colors"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-foreground-inverse hover:text-accent-light transition-colors"
           aria-label="Previous book"
         >
           <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -243,7 +243,7 @@ export default function BookSlider() {
 
         <button
           onClick={nextBook}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white hover:text-amber-200 transition-colors"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-foreground-inverse hover:text-accent-light transition-colors"
           aria-label="Next book"
         >
           <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -341,7 +341,7 @@ export default function BookSlider() {
               onClick={() => goToBook(index)}
               className={`h-1 transition-all duration-300 ${
                 index === currentIndex
-                  ? 'w-8 bg-amber-200'
+                  ? 'w-8 bg-accent-light'
                   : 'w-4 bg-white/40 hover:bg-white/60'
               }`}
               aria-label={`Go to book ${index + 1}`}
@@ -360,7 +360,7 @@ export default function BookSlider() {
           />
           
           {/* Modal Content */}
-          <div className="relative bg-gray-600 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
+          <div className="relative bg-background-tertiary rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
             {/* Close Button */}
             <button
               onClick={closePopup}
@@ -447,23 +447,23 @@ export default function BookSlider() {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <span className="font-semibold text-gray-200">Title:</span>
+                        <span className="font-semibold text-foreground-secondary">Title:</span>
                         <p className="text-white">{selectedBook.title}</p>
                       </div>
                       <div>
-                        <span className="font-semibold text-gray-200">Author:</span>
+                        <span className="font-semibold text-foreground-secondary">Author:</span>
                         <p className="text-white">{selectedBook.author}</p>
                       </div>
                       <div>
-                        <span className="font-semibold text-gray-200">Genre:</span>
+                        <span className="font-semibold text-foreground-secondary">Genre:</span>
                         <p className="text-white">Featured Comic</p>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-gray-200 mb-2">Description:</h4>
-                    <p className="text-gray-300 leading-relaxed">
+                    <h4 className="font-semibold text-foreground-secondary mb-2">Description:</h4>
+                    <p className="text-foreground leading-relaxed">
                       Discover this amazing comic story filled with adventure, mystery, and unforgettable characters. 
                       Perfect for readers who love engaging narratives and beautiful artwork.
                     </p>

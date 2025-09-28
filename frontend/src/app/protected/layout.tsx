@@ -13,8 +13,6 @@ export default function ProtectedLayout({
   const { user, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
-
   useEffect(() => {
     if (!loading && !user) {
       const redirectUrl = encodeURIComponent(pathname)
@@ -24,8 +22,8 @@ export default function ProtectedLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800">
-        <div className="text-amber-50">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-foreground">Loading...</div>
       </div>
     )
   }
@@ -34,20 +32,10 @@ export default function ProtectedLayout({
     return null
   }
 
-  const toggleSidebar = () => {
-    setIsSidebarMinimized(!isSidebarMinimized)
-  }
-
   return (
-    <div className="h-screen bg-gradient-to-br from-stone-900 to-stone-800 flex overflow-hidden">
-      {/* Sidebar - Fixed */}
-      <SideBar 
-        isMinimized={isSidebarMinimized} 
-        onToggleMinimize={toggleSidebar}
-        onMinimize={() => setIsSidebarMinimized(true)}
-      />
+    <div className="h-screen bg-background flex overflow-hidden">
+      <SideBar />
       
-      {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 p-6 overflow-y-auto">
           {children}

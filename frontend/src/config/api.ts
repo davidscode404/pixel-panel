@@ -4,11 +4,11 @@ export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000', // Change this to 8000 or any other port as needed
   ENDPOINTS: {
     LOAD_COMIC: '/load-comic',
-    SAVE_PANEL: '/save-panel',
-    SAVE_COMIC: '/save-comic',
-    GENERATE: '/generate',
-    LIST_COMICS: '/list-comics',
-    RESET_CONTEXT: '/reset-context'
+    SAVE_COMIC: '/api/comics/save-comic',
+    GENERATE: '/api/comics/generate',
+    LIST_COMICS: '/api/comics/list-comics',
+    USER_COMICS: '/api/comics/user-comics',
+    PUBLIC_COMICS: '/api/comics/public-comics'
   }
 };
 
