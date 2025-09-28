@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import Modal from '@/components/ui/Modal'
+import { Modal } from '@/components/ui/Modal'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
