@@ -1,13 +1,8 @@
 from fastapi import APIRouter, HTTPException, Response
-import httpx
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
+router = APIRouter(prefix="/api/voice-over")
 
-router = APIRouter(prefix="/api/voice-over", tags=["voice-over"])
-
-@router.post("/generate")
+@router.post("/generate-voiceover")
 async def generate_voiceover(
     voiceover_text: str,
     voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
@@ -17,11 +12,16 @@ async def generate_voiceover(
     
     Args:
         voiceover_text (str): The text to convert to speech.
-        voice_id (str): The voice ID to use for generation.
     
     Returns:
-        Response: Audio file response containing the generated speech.
+        dict: A JSON response containing the base64-encoded audio data.
     """
+    from dotenv import load_dotenv
+    from elevenlabs.play import play
+    
+    import os
+    import httpx
+    
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
     if not ELEVENLABS_API_KEY:
         raise HTTPException(
@@ -53,6 +53,7 @@ async def generate_voiceover(
             response.raise_for_status()
             audio_bytes = response.content
 
+
         except httpx.HTTPStatusError as e:
             raise HTTPException(
                 status_code=e.response.status_code,
@@ -65,9 +66,9 @@ async def generate_voiceover(
             )
   
     return Response(
-        content=audio_bytes,
-        media_type="audio/mpeg",
-        headers={
-            "Content-Disposition": "inline; filename=voiceover.mp3"
-        }
-    )
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=voiceover.mp3"
+            }
+        )

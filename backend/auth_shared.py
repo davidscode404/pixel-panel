@@ -1,3 +1,4 @@
+# backend/auth_shared.py
 from fastapi import HTTPException, Request
 import os
 import httpx
@@ -56,12 +57,15 @@ async def get_current_user(request: Request) -> dict:
                 )
                 
                 if auth_response.status_code != 200:
+                    print(f"❌ Token verification failed with status: {auth_response.status_code}")
                     raise HTTPException(
                         status_code=401,
                         detail="Invalid or expired token"
                     )
                 
                 user_data = auth_response.json()
+                print(f"✅ User authenticated: {user_data.get('email', 'Unknown')}")
+                
                 return {
                     "id": user_data.get("id"),
                     "email": user_data.get("email"),

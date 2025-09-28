@@ -7,7 +7,7 @@ export default function ProtectedPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Redirect to explore page by default
+    // Redirect to explore page by default (preserving your UI)
     router.replace('/protected/explore')
   }, [router])
 

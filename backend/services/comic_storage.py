@@ -37,14 +37,19 @@ class ComicStorageService:
             base_panel_size = None
             for panel_data in panels_data:
                 panel_id = panel_data['id']
-                image_data = panel_data['largeCanvasData']
+                # Handle both old and new schema
+                image_data = panel_data.get('image_data') or panel_data.get('largeCanvasData')
                 
                 if image_data:
                     # Upload to Supabase Storage
                     storage_path = f"users/{user_id}/comics/{comic_id}/panel_{panel_id}.png"
                     
                     # Convert base64 to bytes
-                    image_bytes = base64.b64decode(image_data.split(',')[1])
+                    # Handle both data URL format and raw base64
+                    if image_data.startswith('data:'):
+                        image_bytes = base64.b64decode(image_data.split(',')[1])
+                    else:
+                        image_bytes = base64.b64decode(image_data)
                     
                     # Upload to storage
                     self.supabase.storage.from_(self.bucket_name).upload(
@@ -124,9 +129,27 @@ class ComicStorageService:
     async def get_user_comics(self, user_id: str) -> List[dict]:
         """Get all comics for a user"""
         response = self.supabase.table('comics').select("""
+            id, title, is_public, created_at, updated_at,
+            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at)
+        """).eq('user_id', user_id).order('created_at', desc=True).execute()
+        
+        return response.data
+    
+    async def get_public_comics(self) -> List[dict]:
+        """Get all public comics from all users"""
+        response = self.supabase.table('comics').select("""
+            id, title, user_id, is_public, created_at, updated_at,
+            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at)
+        """).eq('is_public', True).order('created_at', desc=True).execute()
+        
+        return response.data
+    
+    async def get_all_comics(self) -> List[dict]:
+        """Get all comics from all users for exploration"""
+        response = self.supabase.table('comics').select("""
             id, title, created_at, updated_at,
             comic_panels(id, panel_number, public_url)
-        """).eq('user_id', user_id).order('created_at', desc=True).execute()
+        """).order('created_at', desc=True).execute()
         
         return response.data
     

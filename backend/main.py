@@ -1,29 +1,33 @@
 from fastapi import HTTPException, FastAPI, UploadFile, File, Request, Response, Depends
 import uvicorn
-import asyncio
-from dotenv import load_dotenv
+import base64
+import PIL
+from PIL import Image
+from io import BytesIO
 import os
 import tempfile
+import json
+import asyncio
+import glob
+from typing import List, Optional
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from pydantic import BaseModel
 import sys
 import google.generativeai as genai
 from google.generativeai import types
-import json
-from typing import List, Optional
 from services.comic_generator import ComicArtGenerator
 from services.comic_storage import ComicStorageService
 from supabase import create_client, Client
 import jwt
-from auth_shared import get_current_user
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import the new API routers
 from api.comics import router as comics_router
 from api.voice_over import router as voice_over_router
-
-# Load environment variables from .env file
-load_dotenv()
 
 app = FastAPI(title="PixelPanel", version="1.0.0")
 
@@ -34,6 +38,7 @@ comic_storage_service = ComicStorageService()
 # Initialize Supabase client for JWT verification
 supabase_url = os.getenv('SUPABASE_URL')
 supabase_anon_key = os.getenv('SUPABASE_ANON_KEY')
+
 supabase: Client = create_client(supabase_url, supabase_anon_key)
 
 app.add_middleware(
@@ -54,230 +59,224 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "message": "API is running"}
 
-# Context tracking for comic generation (keeping for backwards compatibility)
+# Context tracking for comic generation (preserving existing functionality)
 comic_context = {
-    "panels": {},  # Store all generated panels: {panel_id: {"prompt": str, "image": str}}
-    "is_reset": True
+    "panels": [],
+    "current_panel": 0,
+    "total_panels": 0,
+    "story_prompt": "",
+    "user_id": None
 }
 
-def reset_comic_context():
-    """Reset the comic context when all panels are cleared"""
-    global comic_context
-    comic_context = {
-        "panels": {},
-        "is_reset": True
-    }
-    print("🔄 Comic context reset")
-
-def is_first_panel_generation(panel_id: int) -> bool:
-    """Check if this is the first panel being generated (panel 1)"""
-    return panel_id == 1
-
-def get_previous_panel_context(panel_id: int):
-    """Get the context from the previous panel"""
-    global comic_context
-    previous_panel_id = panel_id - 1
-    if previous_panel_id in comic_context["panels"]:
-        return comic_context["panels"][previous_panel_id]
-    return None
-
-# Legacy endpoints for backwards compatibility
-class ComicArtRequest(BaseModel):
-    text_prompt: str
-    reference_image: str = None  # Base64 encoded image data (optional)
-    panel_id: int = None  # Panel ID to track generation order
-
-@app.post("/generate")
-async def generate_comic_art(request: ComicArtRequest):
+# Preserve existing functionality - these endpoints are still used by the current UI
+@app.get("/load-comic/{comic_title}")
+async def load_comic(comic_title: str):
     """
-    Generate comic art from text prompt and optional reference image
-    Legacy endpoint - redirects to new API
+    Load a saved comic from the project directory
     """
     try:
-        # Handle context tracking
-        global comic_context
+        import glob
+        from urllib.parse import unquote
         
-        print(f"🔍 DEBUG: panel_id={request.panel_id}, is_reset={comic_context['is_reset']}, panels_count={len(comic_context['panels'])}")
+        # Decode URL-encoded comic title
+        decoded_title = unquote(comic_title)
+        print(f"Loading comic: '{comic_title}' -> decoded: '{decoded_title}'")
         
-        # For panels after the first, use previous panel as context
-        context_image_data = None
+        # Look for the comic directory
+        saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
+        comic_dir = os.path.join(saved_comics_dir, decoded_title)
         
-        if request.panel_id and not is_first_panel_generation(request.panel_id) and not comic_context["is_reset"]:
-            previous_context = get_previous_panel_context(request.panel_id)
-            if previous_context:
-                # Use the previous panel's prompt and image as context
-                context_prompt = f"Create the next scene using this context: {previous_context['prompt']}. {request.text_prompt}"
-                context_image_data = previous_context['image']
-                request.text_prompt = context_prompt
-                print(f"🎯 Using previous panel context for panel {request.panel_id}: {context_prompt[:100]}...")
-            else:
-                print(f"⚠️ No previous panel context available for panel {request.panel_id}")
-        else:
-            print(f"📝 Panel {request.panel_id} - no context used (first panel or reset)")
+        print(f"Looking for comic directory: {comic_dir}")
         
-        # Generate comic art using the service
-        if not comic_generator:
-            raise HTTPException(
-                status_code=500,
-                detail="Comic art generator not initialized"
-            )
+        if not os.path.exists(comic_dir):
+            raise HTTPException(status_code=404, detail=f"Comic '{decoded_title}' not found")
         
-        # Generate the comic art with context
-        image = comic_generator.generate_comic_art(request.text_prompt, request.reference_image, context_image_data)
+        # Find all panel images
+        panel_pattern = os.path.join(comic_dir, "panel_*.png")
+        panel_files = sorted(glob.glob(panel_pattern))
         
-        # Convert image to base64 for response
-        img_base64 = comic_generator.image_to_base64(image)
+        if not panel_files:
+            raise HTTPException(status_code=404, detail=f"No panels found for comic '{decoded_title}'")
         
-        # Store the generated panel data for future context
-        if request.panel_id:
-            comic_context["panels"][request.panel_id] = {
-                "prompt": request.text_prompt,
-                "image": img_base64
-            }
-            comic_context["is_reset"] = False
-            print(f"💾 Stored panel {request.panel_id} data for context (prompt: {request.text_prompt[:30]}...)")
+        panels = []
+        for i, panel_file in enumerate(panel_files):
+            try:
+                with open(panel_file, "rb") as f:
+                    image_data = f.read()
+                    img_base64 = base64.b64encode(image_data).decode('utf-8')
+                    panels.append({
+                        "panel_number": i + 1,
+                        "image_data": img_base64
+                    })
+            except Exception as e:
+                print(f"Error reading panel {panel_file}: {e}")
+                continue
         
         return {
-            'success': True,
-            'image_data': img_base64,
-            'message': 'Comic art generated successfully'
+            "title": decoded_title,
+            "panels": panels,
+            "panel_count": len(panels)
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"❌ Error in generate endpoint: {e}")
-        print(f"📋 Full traceback: {error_details}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error generating comic art: {str(e)}"
-        )
-
-@app.post("/auto-complete")
-async def auto_complete(
-    image_c1: UploadFile = File(...),
-    image_c2: UploadFile = None,
-    image_c3: UploadFile = None,
-    image_c4: UploadFile = None,
-    image_c5: UploadFile = None):
-    """
-    Auto-complete a comic panel based on the images provided
-    """
-    images = []
-    for image in [image_c1, image_c2, image_c3, image_c4, image_c5]:
-        if image is None:
-            continue
-        images.append(image)
-
-    # Generate a story summary from the images
-    google_api_key = os.getenv("GOOGLE_API_KEY")
-    if not google_api_key:
-        raise HTTPException(
-            status_code=500,
-            detail="GOOGLE_API_KEY environment variable not set"
-        )
-    genai.configure(api_key=google_api_key)
-
-    contents_for_gemini = []
-    for image in images:
-        contents_for_gemini.append(types.Part.from_bytes(
-            data=image.file.read(),
-            mime_type='image/png'
-        ))
-
-    contents_for_gemini.append(types.Part(text="Generate a story summary from the images"))
-
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content(contents_for_gemini)
-    print(response.text)
-    return {'story_summary': response.text}
-
-@app.post("/reset-context")
-async def reset_context():
-    """
-    Reset the comic context when all panels are cleared
-    """
-    try:
-        reset_comic_context()
-        return {
-            'success': True,
-            'message': 'Comic context reset successfully'
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-
-# Legacy endpoints that redirect to new API
-@app.post("/save-comic")
-async def save_comic(request: Request, current_user: dict = Depends(get_current_user)):
-    """Legacy endpoint - redirects to new API"""
-    try:
-        data = await request.json()
-        from api.comics import save_comic as new_save_comic
-        from schemas.comic import ComicRequest
-        
-        comic_request = ComicRequest(
-            comic_title=data.get('comic_title'),
-            panels_data=data.get('panels_data')
-        )
-        return await new_save_comic(comic_request, current_user)
-    except Exception as e:
-        print(f"❌ Error saving comic: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error loading comic: {e}")
+        raise HTTPException(status_code=500, detail=f"Error loading comic: {str(e)}")
 
 @app.get("/list-comics")
 async def list_comics():
-    """Legacy endpoint - redirects to new API"""
-    from api.comics import get_all_comics
-    return await get_all_comics()
+    """
+    List all available comics from the saved-comics directory
+    """
+    try:
+        saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
+        
+        if not os.path.exists(saved_comics_dir):
+            return {"comics": []}
+        
+        comics = []
+        for item in os.listdir(saved_comics_dir):
+            item_path = os.path.join(saved_comics_dir, item)
+            if os.path.isdir(item_path):
+                # Check if it has panel images
+                panel_pattern = os.path.join(item_path, "panel_*.png")
+                panel_files = glob.glob(panel_pattern)
+                
+                if panel_files:
+                    # Get the first panel as cover
+                    cover_image = None
+                    try:
+                        with open(sorted(panel_files)[0], "rb") as f:
+                            image_data = f.read()
+                            cover_image = base64.b64encode(image_data).decode('utf-8')
+                    except Exception as e:
+                        print(f"Error reading cover for {item}: {e}")
+                    
+                    comics.append({
+                        "title": item,
+                        "panel_count": len(panel_files),
+                        "has_cover": cover_image is not None,
+                        "cover_image": cover_image
+                    })
+        
+        return {"comics": comics}
+        
+    except Exception as e:
+        print(f"Error listing comics: {e}")
+        raise HTTPException(status_code=500, detail=f"Error listing comics: {str(e)}")
 
-@app.get("/my-comics")
-async def my_comics(current_user: dict = Depends(get_current_user)):
-    """Legacy endpoint - redirects to new API"""
-    from api.comics import get_user_comics
-    return await get_user_comics(current_user)
-
-@app.get("/load-comic/{comic_title}")
-async def load_comic(comic_title: str):
-    """Legacy endpoint - redirects to new API"""
-    from api.comics import load_comic as new_load_comic
-    return await new_load_comic(comic_title)
-
-@app.post("/save-panel")
-async def save_panel(request: Request, current_user: dict = Depends(get_current_user)):
-    """Legacy endpoint - redirects to new API"""
+# Preserve existing voice generation functionality
+@app.post("/generate-voice")
+async def generate_voice(request: Request):
+    """
+    Generate voice for comic panels using ElevenLabs API
+    """
     try:
         data = await request.json()
-        from api.comics import save_panel as new_save_panel
-        from schemas.comic import ComicRequest
+        text = data.get("text", "")
+        voice_id = data.get("voice_id", "21m00Tcm4TlvDq8ikWAM")  # Default voice
         
-        comic_request = ComicRequest(
-            comic_title=data.get('comic_title'),
-            panel_id=data.get('panel_id'),
-            image_data=data.get('image_data')
-        )
-        return await new_save_panel(comic_request, current_user)
+        if not text:
+            raise HTTPException(status_code=400, detail="Text is required")
+        
+        # ElevenLabs API configuration
+        elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not elevenlabs_api_key:
+            raise HTTPException(status_code=500, detail="ElevenLabs API key not configured")
+        
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": elevenlabs_api_key
+        }
+        
+        payload = {
+            "text": text,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.5
+            }
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="Voice generation failed")
+            
+            audio_data = response.content
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            return {
+                "audio_data": audio_base64,
+                "text": text,
+                "voice_id": voice_id
+            }
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error saving panel: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error generating voice: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating voice: {str(e)}")
 
-@app.post("/generate-voiceover")
-async def generate_voiceover(
-    voiceover_text: str,
-    voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
-):
-    """Legacy endpoint - redirects to new API"""
-    from api.voice_over import generate_voiceover as new_generate_voiceover
-    return await new_generate_voiceover(voiceover_text, voice_id)
-
-@app.post("/video-gen")
-def generate_video(prompt: str, image_path: str):
-    """Legacy video generation endpoint"""
-    # Note: This endpoint requires fal_client which is not currently installed
-    # Keeping as placeholder for future implementation
-    return {"message": "Video generation endpoint - requires fal_client setup"}
+# Legacy comic generation endpoint (preserving existing functionality)
+@app.post("/generate-comic")
+async def generate_comic(request: Request):
+    """
+    Generate a complete comic from a story prompt
+    """
+    try:
+        data = await request.json()
+        story_prompt = data.get("story_prompt", "")
+        num_panels = data.get("num_panels", 6)
+        user_id = data.get("user_id")
+        
+        if not story_prompt:
+            raise HTTPException(status_code=400, detail="Story prompt is required")
+        
+        # Initialize comic context
+        comic_context["story_prompt"] = story_prompt
+        comic_context["total_panels"] = num_panels
+        comic_context["current_panel"] = 0
+        comic_context["panels"] = []
+        comic_context["user_id"] = user_id
+        
+        # Generate panels
+        panels = []
+        for i in range(num_panels):
+            panel_prompt = f"Panel {i+1} of {num_panels}: {story_prompt}"
+            
+            # Generate comic art
+            image = comic_generator.generate_comic_art(panel_prompt)
+            img_base64 = comic_generator.image_to_base64(image)
+            
+            panels.append({
+                "panel_number": i + 1,
+                "image_data": img_base64,
+                "prompt": panel_prompt
+            })
+            
+            comic_context["panels"].append({
+                "panel_number": i + 1,
+                "image_data": img_base64,
+                "prompt": panel_prompt
+            })
+            comic_context["current_panel"] = i + 1
+        
+        return {
+            "title": story_prompt[:50] + "...",
+            "panels": panels,
+            "panel_count": len(panels)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error generating comic: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating comic: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
