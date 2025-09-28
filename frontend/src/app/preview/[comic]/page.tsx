@@ -219,13 +219,27 @@ export default function ComicPreview() {
               >
                 {/* Panel Image */}
                 <div className="relative aspect-[4/3] w-full">
-                  <Image
-                    src={panel.image_data}
-                    alt={`Panel ${panel.panel_number}`}
-                    fill
-                    className="object-cover rounded-lg"
-                    priority={index < 3} // Prioritize first 3 images
-                  />
+                  {panel.image_data.startsWith('data:') ? (
+                    <img
+                      src={panel.image_data}
+                      alt={`Panel ${panel.panel_number}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  ) : panel.image_data.startsWith('http') ? (
+                    <Image
+                      src={panel.image_data}
+                      alt={`Panel ${panel.panel_number}`}
+                      fill
+                      className="object-cover rounded-lg"
+                      priority={index < 3} // Prioritize first 3 images
+                    />
+                  ) : (
+                    <img
+                      src={`data:image/png;base64,${panel.image_data}`}
+                      alt={`Panel ${panel.panel_number}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  )}
                 </div>
                 
                 {/* Hover Effect Overlay */}
@@ -257,13 +271,27 @@ export default function ComicPreview() {
                 >
                   {/* Panel Image */}
                   <div className="relative aspect-[4/3] w-full">
-                    <Image
-                      src={comicData.panels[currentPanelIndex].image_data}
-                      alt={`Panel ${comicData.panels[currentPanelIndex].id}`}
-                      fill
-                      className="object-cover rounded-lg"
-                      priority
-                    />
+                    {comicData.panels[currentPanelIndex].image_data.startsWith('data:') ? (
+                      <img
+                        src={comicData.panels[currentPanelIndex].image_data}
+                        alt={`Panel ${comicData.panels[currentPanelIndex].panel_number}`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : comicData.panels[currentPanelIndex].image_data.startsWith('http') ? (
+                      <Image
+                        src={comicData.panels[currentPanelIndex].image_data}
+                        alt={`Panel ${comicData.panels[currentPanelIndex].panel_number}`}
+                        fill
+                        className="object-cover rounded-lg"
+                        priority
+                      />
+                    ) : (
+                      <img
+                        src={`data:image/png;base64,${comicData.panels[currentPanelIndex].image_data}`}
+                        alt={`Panel ${comicData.panels[currentPanelIndex].panel_number}`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    )}
                   </div>
                   
                   {/* Hover Effect Overlay */}
@@ -302,12 +330,26 @@ export default function ComicPreview() {
                       : 'hover:scale-105 opacity-70 hover:opacity-100'
                   }`}
                 >
-                  <Image
-                    src={panel.image_data}
-                    alt={`Panel ${index + 1} thumbnail`}
-                    fill
-                    className="object-cover"
-                  />
+                  {panel.image_data.startsWith('data:') ? (
+                    <img
+                      src={panel.image_data}
+                      alt={`Panel ${index + 1} thumbnail`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : panel.image_data.startsWith('http') ? (
+                    <Image
+                      src={panel.image_data}
+                      alt={`Panel ${index + 1} thumbnail`}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={`data:image/png;base64,${panel.image_data}`}
+                      alt={`Panel ${index + 1} thumbnail`}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </button>
               ))}
             </div>
@@ -366,24 +408,38 @@ export default function ComicPreview() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-amber-50 flex items-center gap-3">
                   <div className="w-8 h-8 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-stone-900 shadow-lg">
-                    {selectedPanel.id}
-                  </div>
-                  Panel {selectedPanel.id}
+                  {selectedPanel.panel_number}
+                </div>
+                Panel {selectedPanel.panel_number}
                 </h2>
                 <div className="text-stone-300 text-sm">
-                  {comicData.panels.findIndex(p => p.id === selectedPanel.id) + 1} of {comicData.panels.length}
+                  {comicData.panels.findIndex(p => p.panel_number === selectedPanel.panel_number) + 1} of {comicData.panels.length}
                 </div>
               </div>
 
               {/* Panel Image */}
               <div className="relative aspect-[4/3] w-full max-w-3xl mx-auto">
-                <Image
-                  src={selectedPanel.image_data}
-                  alt={`Panel ${selectedPanel.id}`}
-                  fill
-                  className="object-contain rounded-lg"
-                  priority
-                />
+                {selectedPanel.image_data.startsWith('data:') ? (
+                  <img
+                    src={selectedPanel.image_data}
+                    alt={`Panel ${selectedPanel.panel_number}`}
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                ) : selectedPanel.image_data.startsWith('http') ? (
+                  <Image
+                    src={selectedPanel.image_data}
+                    alt={`Panel ${selectedPanel.panel_number}`}
+                    fill
+                    className="object-contain rounded-lg"
+                    priority
+                  />
+                ) : (
+                  <img
+                    src={`data:image/png;base64,${selectedPanel.image_data}`}
+                    alt={`Panel ${selectedPanel.panel_number}`}
+                    className="w-full h-full object-contain rounded-lg"
+                  />
+                )}
               </div>
 
               {/* Navigation */}
