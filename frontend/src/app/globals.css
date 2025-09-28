@@ -14,16 +14,17 @@
   --foreground-secondary: #475569;
   --foreground-muted: #64748b;
   --foreground-inverse: #ffffff;
+  --foreground-on-accent: #ffffff;
   
   /* Border Colors */
   --border: #e2e8f0;
   --border-secondary: #cbd5e1;
   --border-muted: #f1f5f9;
   
-  /* Accent Colors (Ocean Blue) */
-  --accent: #0ea5e9;
-  --accent-hover: #0284c7;
-  --accent-light: #38bdf8;
+  /* Accent Colors (Amber/Orange) */
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-light: #fbbf24;
   
   /* Status Colors */
   --success: #10b981;
@@ -36,30 +37,31 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
-/* Dark Theme */
+/* Dark Theme - Original Stone/Amber Palette */
 .dark {
-  /* Background Colors */
-  --background: #0a0a0a;
-  --background-secondary: #1a1a1a;
-  --background-tertiary: #2a2a2a;
-  --background-card: #1a1a1a;
-  --background-sidebar: #1a1a1a;
+  /* Background Colors - Original stone palette */
+  --background: #1c1917; /* stone-900 */
+  --background-secondary: #292524; /* stone-800 */
+  --background-tertiary: #44403c; /* stone-700 */
+  --background-card: #44403c; /* stone-700 */
+  --background-sidebar: #292524; /* stone-800 with transparency */
   
-  /* Text Colors */
-  --foreground: #f5f5f5;
-  --foreground-secondary: #b3b3b3;
-  --foreground-muted: #808080;
-  --foreground-inverse: #0a0a0a;
+  /* Text Colors - Original amber/stone palette */
+  --foreground: #fef3c7; /* amber-100 */
+  --foreground-secondary: #d97706; /* amber-600 */
+  --foreground-muted: #a3a3a3; /* neutral-400 */
+  --foreground-inverse: #1c1917; /* stone-900 */
+  --foreground-on-accent: #ffffff;
   
-  /* Border Colors */
-  --border: #2a2a2a;
-  --border-secondary: #404040;
-  --border-muted: #1a1a1a;
+  /* Border Colors - Original stone palette */
+  --border: #57534e; /* stone-600 */
+  --border-secondary: #44403c; /* stone-700 */
+  --border-muted: #292524; /* stone-800 */
   
-  /* Accent Colors (Ocean Blue) - Same as light theme */
-  --accent: #0ea5e9;
-  --accent-hover: #0284c7;
-  --accent-light: #38bdf8;
+  /* Accent Colors - Original amber palette */
+  --accent: #d97706; /* amber-600 */
+  --accent-hover: #b45309; /* amber-700 */
+  --accent-light: #fbbf24; /* amber-400 */
   
   /* Status Colors */
   --success: #10b981;

@@ -6,10 +6,16 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { createClient } from '@/lib/supabase/client';
 
 interface ComicPanel {
-  id: number;
-  image_data: string;
+  id: string;
+  panel_number: number;
+  display_number: number;
+  public_url: string;
+  storage_path: string;
+  file_size: number;
+  created_at: string;
 }
 
 interface ComicData {
@@ -22,42 +28,114 @@ export default function ComicPreview() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const supabase = createClient();
   const [comicData, setComicData] = useState<ComicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPanel, setSelectedPanel] = useState<ComicPanel | null>(null);
+  const [selectedPanelIndex, setSelectedPanelIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'grid' | 'clickthrough'>('grid');
   const [currentPanelIndex, setCurrentPanelIndex] = useState(0);
 
-  const comicTitle = params.comic as string;
+  const comicId = params.comic as string;
 
   useEffect(() => {
-    if (comicTitle) {
+    if (comicId) {
       loadComic();
     }
-  }, [comicTitle]);
+  }, [comicId]);
 
   const loadComic = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const decodedTitle = decodeURIComponent(comicTitle);
-      console.log('Loading comic with title:', decodedTitle);
+      console.log('Loading comic with ID:', comicId);
       
-      const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.LOAD_COMIC}/${encodeURIComponent(decodedTitle)}`));
+      // First try to get the comic from public comics
+      let response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.PUBLIC_COMICS));
       
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error:', errorText);
-        throw new Error(`Failed to load comic: ${response.status} ${response.statusText}`);
+      if (response.ok) {
+        const publicData = await response.json();
+        console.log('Public comics data:', publicData);
+        
+        if (publicData.comics && Array.isArray(publicData.comics)) {
+          const comic = publicData.comics.find((c: any) => c.id === comicId);
+          if (comic) {
+            console.log('Found comic in public comics:', comic);
+            console.log('Comic ID:', comic.id, 'Looking for:', comicId);
+            console.log('All panels:', comic.panels || comic.comic_panels);
+            // Transform the database comic data to match the expected format
+            // Filter out cover (panel 0) and sort panels 1-6 for display
+            const allPanels = comic.panels || comic.comic_panels || [];
+            const panels = allPanels
+              .filter((panel: any) => panel.panel_number >= 1) // Only panels 1-6, exclude cover (0)
+              .sort((a: any, b: any) => a.panel_number - b.panel_number)
+              .map((panel: any, index: number) => ({
+                ...panel,
+                display_number: index + 1 // Display as 1, 2, 3, 4, 5, 6
+              }));
+            console.log('Filtered panels (1-6):', panels);
+            const transformedComic = {
+              success: true,
+              title: comic.title,
+              panels: panels
+            };
+            setComicData(transformedComic);
+            return;
+          }
+        }
       }
       
-      const data = await response.json();
-      console.log('Comic data received:', data);
-      setComicData(data);
+      // If not found in public comics and user is logged in, try user comics
+      if (user) {
+        console.log('Comic not found in public comics, trying user comics...');
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.access_token) {
+          response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_COMICS), {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            }
+          });
+          
+          if (response.ok) {
+            const userData = await response.json();
+            console.log('User comics data:', userData);
+            
+            if (userData.comics && Array.isArray(userData.comics)) {
+              const comic = userData.comics.find((c: any) => c.id === comicId);
+              if (comic) {
+                console.log('Found comic in user comics:', comic);
+                console.log('Comic ID:', comic.id, 'Looking for:', comicId);
+                console.log('All panels:', comic.panels || comic.comic_panels);
+                // Transform the database comic data to match the expected format
+                // Filter out cover (panel 0) and sort panels 1-6 for display
+                const allPanels = comic.panels || comic.comic_panels || [];
+                const panels = allPanels
+                  .filter((panel: any) => panel.panel_number >= 1) // Only panels 1-6, exclude cover (0)
+                  .sort((a: any, b: any) => a.panel_number - b.panel_number)
+                  .map((panel: any, index: number) => ({
+                    ...panel,
+                    display_number: index + 1 // Display as 1, 2, 3, 4, 5, 6
+                  }));
+                console.log('Filtered panels (1-6):', panels);
+                const transformedComic = {
+                  success: true,
+                  title: comic.title,
+                  panels: panels
+                };
+                setComicData(transformedComic);
+                return;
+              }
+            }
+          }
+        }
+      }
+      
+      // If not found in database, throw error
+      throw new Error(`Comic with ID "${comicId}" not found in database`);
+      
     } catch (err) {
       console.error('Error loading comic:', err);
       setError(err instanceof Error ? err.message : 'Failed to load comic');
@@ -66,17 +144,15 @@ export default function ComicPreview() {
     }
   };
 
-  const handlePanelClick = (panel: ComicPanel) => {
+  const handlePanelClick = (panel: ComicPanel, index: number) => {
     if (viewMode === 'grid') {
       // Switch to clickthrough view and set the clicked panel as current
-      if (comicData) {
-        const panelIndex = comicData.panels.findIndex(p => p.id === panel.id);
-        setCurrentPanelIndex(panelIndex);
-        setViewMode('clickthrough');
-      }
+      setCurrentPanelIndex(index);
+      setViewMode('clickthrough');
     } else {
       // In clickthrough mode, open the enlarged modal
       setSelectedPanel(panel);
+      setSelectedPanelIndex(index);
     }
   };
 
@@ -171,7 +247,7 @@ export default function ComicPreview() {
               </Link>
               <div className="h-6 w-px bg-stone-600"></div>
               <h1 className="text-xl font-bold text-amber-50">
-                {formatComicTitle(comicData?.title || comicTitle)}
+                {formatComicTitle(comicData?.title || comicId)}
               </h1>
             </div>
             
@@ -213,23 +289,32 @@ export default function ComicPreview() {
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {comicData.panels.map((panel, index) => (
               <div
-                key={panel.id}
-                className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
-                onClick={() => handlePanelClick(panel)}
+                key={`${panel.id}-${panel.panel_number}` || `panel-${index}`}
+                className="group relative bg-stone-800/60 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
+                onClick={() => handlePanelClick(panel, index)}
               >
                 {/* Panel Image */}
                 <div className="relative aspect-[4/3] w-full">
-                  <Image
-                    src={panel.image_data}
-                    alt={`Panel ${panel.id}`}
-                    fill
-                    className="object-cover rounded-lg"
-                    priority={index < 3} // Prioritize first 3 images
-                  />
+                  {panel.public_url ? (
+                    <Image
+                      src={panel.public_url}
+                      alt={`Panel ${panel.display_number}`}
+                      fill
+                      className="object-cover"
+                      priority={index < 3} // Prioritize first 3 images
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
+                      <div className="text-foreground-muted text-center">
+                        <div className="text-xl mb-1">🖼️</div>
+                        <div className="text-xs">No image</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Hover Effect Overlay */}
-                <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               </div>
             ))}
           </div>
@@ -252,22 +337,31 @@ export default function ComicPreview() {
               {/* Panel Container */}
               <div className="max-w-4xl w-full">
                 <div
-                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
-                  onClick={() => handlePanelClick(comicData.panels[currentPanelIndex])}
+                  className="group relative bg-stone-800/60 backdrop-blur-sm overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
+                  onClick={() => handlePanelClick(comicData.panels[currentPanelIndex], currentPanelIndex)}
                 >
                   {/* Panel Image */}
                   <div className="relative aspect-[4/3] w-full">
-                    <Image
-                      src={comicData.panels[currentPanelIndex].image_data}
-                      alt={`Panel ${comicData.panels[currentPanelIndex].id}`}
-                      fill
-                      className="object-cover rounded-lg"
-                      priority
-                    />
+                    {comicData.panels[currentPanelIndex].public_url ? (
+                      <Image
+                        src={comicData.panels[currentPanelIndex].public_url}
+                        alt={`Panel ${comicData.panels[currentPanelIndex].display_number}`}
+                        fill
+                        className="object-cover"
+                        priority
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
+                        <div className="text-foreground-muted text-center">
+                          <div className="text-xl mb-1">🖼️</div>
+                          <div className="text-xs">No image</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               </div>
 
@@ -294,20 +388,28 @@ export default function ComicPreview() {
             <div className="flex justify-center space-x-2 mb-8">
               {comicData.panels.map((panel, index) => (
                 <button
-                  key={panel.id}
+                  key={`${panel.id}-${panel.panel_number}` || `panel-${index}`}
                   onClick={() => goToPanel(index)}
-                  className={`relative w-16 h-12 rounded-lg overflow-hidden transition-all duration-200 ${
+                  className={`relative w-16 h-12 overflow-hidden transition-all duration-200 ${
                     index === currentPanelIndex
                       ? 'ring-2 ring-amber-400 scale-110'
                       : 'hover:scale-105 opacity-70 hover:opacity-100'
                   }`}
                 >
-                  <Image
-                    src={panel.image_data}
-                    alt={`Panel ${index + 1} thumbnail`}
-                    fill
-                    className="object-cover"
-                  />
+                  {panel.public_url ? (
+                    <Image
+                      src={panel.public_url}
+                      alt={`Panel ${index + 1} thumbnail`}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
+                      <div className="text-foreground-muted text-center">
+                        <div className="text-xs">No image</div>
+                      </div>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -366,33 +468,42 @@ export default function ComicPreview() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-amber-50 flex items-center gap-3">
                   <div className="w-8 h-8 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-stone-900 shadow-lg">
-                    {selectedPanel.id}
-                  </div>
-                  Panel {selectedPanel.id}
+                  {selectedPanel.display_number}
+                </div>
+                Panel {selectedPanel.display_number}
                 </h2>
                 <div className="text-stone-300 text-sm">
-                  {comicData.panels.findIndex(p => p.id === selectedPanel.id) + 1} of {comicData.panels.length}
+                  {selectedPanelIndex + 1} of {comicData.panels.length}
                 </div>
               </div>
 
               {/* Panel Image */}
               <div className="relative aspect-[4/3] w-full max-w-3xl mx-auto">
-                <Image
-                  src={selectedPanel.image_data}
-                  alt={`Panel ${selectedPanel.id}`}
-                  fill
-                  className="object-contain rounded-lg"
-                  priority
-                />
+                {selectedPanel.public_url ? (
+                  <Image
+                    src={selectedPanel.public_url}
+                        alt={`Panel ${selectedPanel.display_number}`}
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                ) : (
+                  <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
+                    <div className="text-foreground-muted text-center">
+                      <div className="text-xl mb-1">🖼️</div>
+                      <div className="text-xs">No image</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Navigation */}
               <div className="flex justify-center mt-6 space-x-4">
                 <button
                   onClick={() => {
-                    const currentIndex = comicData.panels.findIndex(p => p.id === selectedPanel.id);
-                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : comicData.panels.length - 1;
+                    const prevIndex = selectedPanelIndex > 0 ? selectedPanelIndex - 1 : comicData.panels.length - 1;
                     setSelectedPanel(comicData.panels[prevIndex]);
+                    setSelectedPanelIndex(prevIndex);
                   }}
                   className="flex items-center space-x-2 px-4 py-2 bg-stone-700/50 text-stone-200 rounded-lg hover:bg-stone-600/50 transition-colors"
                 >
@@ -404,9 +515,9 @@ export default function ComicPreview() {
 
                 <button
                   onClick={() => {
-                    const currentIndex = comicData.panels.findIndex(p => p.id === selectedPanel.id);
-                    const nextIndex = currentIndex < comicData.panels.length - 1 ? currentIndex + 1 : 0;
+                    const nextIndex = selectedPanelIndex < comicData.panels.length - 1 ? selectedPanelIndex + 1 : 0;
                     setSelectedPanel(comicData.panels[nextIndex]);
+                    setSelectedPanelIndex(nextIndex);
                   }}
                   className="flex items-center space-x-2 px-4 py-2 bg-stone-700/50 text-stone-200 rounded-lg hover:bg-stone-600/50 transition-colors"
                 >

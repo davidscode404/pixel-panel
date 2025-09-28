@@ -53,7 +53,6 @@ async def generate_voiceover(
             response.raise_for_status()
             audio_bytes = response.content
 
-
         except httpx.HTTPStatusError as e:
             raise HTTPException(
                 status_code=e.response.status_code,

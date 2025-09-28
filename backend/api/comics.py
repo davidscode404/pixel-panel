@@ -81,45 +81,46 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         print(f"🔍 DEBUG: Raw data keys: {list(raw_data.keys())}")
         print(f"🔍 DEBUG: Authenticated user: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'Unknown')})")
         
-        # Try to parse as ComicRequest to see validation errors
-        try:
-            request = ComicRequest(**raw_data)
-            print(f"✅ Successfully parsed as ComicRequest")
-        except Exception as validation_error:
-            print(f"❌ Validation error: {validation_error}")
-            print(f"📋 Expected schema: ComicRequest(title: str, panels: List[PanelData])")
-            print(f"📋 PanelData schema: PanelData(id: int, prompt: str, image_data: str, is_zoomed: bool)")
-            raise HTTPException(status_code=422, detail=f"Validation error: {str(validation_error)}")
+        # Handle both old and new frontend formats
+        comic_title = raw_data.get('title') or raw_data.get('comic_title')
+        panels_data = raw_data.get('panels') or raw_data.get('panels_data')
         
-        comic_title = request.title
-        panels_data = request.panels
+        if not comic_title:
+            raise HTTPException(status_code=422, detail="Missing required field: title or comic_title")
+        if not panels_data:
+            raise HTTPException(status_code=422, detail="Missing required field: panels or panels_data")
         
-        if not all([comic_title, panels_data]):
-            print(f"❌ Missing fields - comic_title: {comic_title}, panels_data: {bool(panels_data)}")
-            raise HTTPException(status_code=400, detail='Missing required fields')
+        print(f"✅ Extracted - comic_title: {comic_title}, panels_count: {len(panels_data)}")
         
-        # Convert Pydantic models to plain dicts for the storage layer
-        try:
-            panels_payload = [
-                {
-                    'id': p.id,
-                    # Support both keys downstream: image_data and largeCanvasData
-                    'image_data': p.image_data,
-                    'prompt': p.prompt,
-                    'is_zoomed': p.is_zoomed,
-                }
-                for p in panels_data
-            ]
-        except Exception as conv_err:
-            print(f"❌ Error converting PanelData to dicts: {conv_err}")
-            raise HTTPException(status_code=400, detail=f"Invalid panels data: {conv_err}")
+        # Normalize panel data to handle different frontend formats
+        normalized_panels = []
+        for panel in panels_data:
+            # Handle both old format (image_data) and new format (largeCanvasData)
+            image_data = panel.get('image_data') or panel.get('largeCanvasData')
+            if not image_data:
+                print(f"⚠️ Panel {panel.get('id')} missing image data")
+                continue
+                
+            normalized_panel = {
+                'id': panel.get('id', 1),
+                'prompt': panel.get('prompt', f"Panel {panel.get('id', 1)}"),
+                'image_data': image_data,
+                'is_zoomed': panel.get('is_zoomed', False)
+            }
+            normalized_panels.append(normalized_panel)
+        
+        if not normalized_panels:
+            raise HTTPException(status_code=400, detail="No valid panels with image data found")
+        
+        user_id = current_user.get('id')
+        print(f"🔍 DEBUG: User ID: {user_id}")
+        
+        # Use the normalized panels directly
+        panels_payload = normalized_panels
 
         print(f"🔍 DEBUG: Prepared panels_payload count: {len(panels_payload)}")
         if panels_payload:
             print(f"🔍 DEBUG: First panel keys: {list(panels_payload[0].keys())}")
-
-        # Use the authenticated user's ID
-        user_id = current_user.get('id')
 
         return await comic_storage_service.save_comic(user_id, comic_title, panels_payload)
     except HTTPException:
@@ -147,7 +148,6 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
         print(f"❌ Error fetching user comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/public-comics")
 async def get_public_comics():
     """
@@ -165,7 +165,6 @@ async def get_public_comics():
     except Exception as e:
         print(f"❌ Error fetching public comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/list-comics")
 async def list_comics():
