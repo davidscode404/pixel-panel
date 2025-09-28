@@ -3,14 +3,16 @@
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000', // Change this to 8000 or any other port as needed
   ENDPOINTS: {
-    LOAD_COMIC: '/load-comic',
-    SAVE_PANEL: '/save-panel',
-    SAVE_COMIC: '/save-comic',
-    GENERATE: '/generate',
-    LIST_COMICS: '/list-comics',
-    MY_COMICS: '/api/comics/user-comics',
+    LOAD_COMIC: '/load-comic',  // Legacy endpoint in main.py
+    SAVE_PANEL: '/save-panel',  // Legacy endpoint
+    SAVE_COMIC: '/api/comics/save-comic',  // New endpoint in comics API
+    GENERATE: '/api/comics/generate',  // New endpoint in comics API
+    LIST_COMICS: '/list-comics',  // Legacy endpoint in main.py
+    MY_COMICS: '/api/comics/user-comics',  // New endpoint in comics API
     USER_COMICS: '/api/comics/user-comics',  // Alias for MY_COMICS
-    RESET_CONTEXT: '/reset-context'
+    RESET_CONTEXT: '/reset-context',  // Legacy endpoint
+    GENERATE_VOICE: '/generate-voice',  // Legacy endpoint in main.py
+    GENERATE_COMIC: '/generate-comic'  // Legacy endpoint in main.py
   }
 };
 
