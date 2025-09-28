@@ -31,3 +31,22 @@ class ComicResponse(BaseModel):
     
     class Config:
         from_attributes = True  # Allows conversion from SQLAlchemy models
+
+class ComicArtRequest(BaseModel):
+    """Schema for comic art generation requests"""
+    text_prompt: str
+    reference_image: Optional[str] = None  # Base64 encoded image data
+    panel_id: Optional[int] = None
+    previous_panel_context: Optional['PanelContext'] = None
+
+class PanelContext(BaseModel):
+    """Schema for previous panel context"""
+    prompt: str
+    image_data: str
+
+class ComicRequest(BaseModel):
+    """Schema for comic operations (save, load, etc.)"""
+    comic_title: str
+    panels_data: Optional[List[PanelData]] = None
+    panel_id: Optional[int] = None
+    image_data: Optional[str] = None
