@@ -4,12 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-
-interface AuthContextType {
-  user: User | null
-  loading: boolean
-  signOut: () => Promise<void>
-}
+import type { AuthContextType } from '@/types'
 
 const AuthContext = createContext<AuthContextType>({
   user: null,

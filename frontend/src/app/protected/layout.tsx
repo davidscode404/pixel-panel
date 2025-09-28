@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useRouter, usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import SideBar from '@/components/ui/SideBar'
 
 export default function ProtectedLayout({
@@ -13,7 +13,6 @@ export default function ProtectedLayout({
   const { user, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
-
   useEffect(() => {
     if (!loading && !user) {
       const redirectUrl = encodeURIComponent(pathname)

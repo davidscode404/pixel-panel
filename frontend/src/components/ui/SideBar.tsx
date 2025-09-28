@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useState, useEffect } from 'react'
 
@@ -13,6 +13,7 @@ type Theme = 'light' | 'dark' | 'system'
 
 export default function SideBar({ className = '' }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, signOut } = useAuth()
   const [theme, setTheme] = useState<Theme>('system')
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false)
@@ -39,7 +40,7 @@ export default function SideBar({ className = '' }: SidebarProps) {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  // Close theme menu when clicking outside
+  // Handle click outside to close theme menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (isThemeMenuOpen) {
@@ -82,81 +83,56 @@ export default function SideBar({ className = '' }: SidebarProps) {
     }
   }
 
-  const navigation = [
-    {
-      name: 'Explore',
-      href: '/protected',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      )
-    },
-    {
-      name: 'Create Comic',
-      href: '/protected/create',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-      )
-    },
-    {
-      name: 'My Comics',
-      href: '/protected/comics',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      )
-    },
-    {
-      name: 'Profile',
-      href: '/protected/profile',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      )
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      router.push('/auth/login')
+    } catch (error) {
+      console.error('Error signing out:', error)
     }
+  }
+
+  const navItems = [
+    { href: '/protected', label: 'Explore', icon: '🔍' },
+    { href: '/protected/create', label: 'Create', icon: '✏️' },
+    { href: '/protected/comics', label: 'My Comics', icon: '📚' },
+    { href: '/protected/profile', label: 'Profile', icon: '👤' },
   ]
 
   return (
     <div className={`bg-background-sidebar backdrop-blur-sm border-r border-border h-screen w-64 flex flex-col ${className}`}>
       {/* Logo/Brand */}
-      <div className="p-6 border-b border-border flex-shrink-0">
+      <div className="p-6 border-b border-border">
         <Link href="/protected" className="flex items-center space-x-2">
-          <img 
-            src="/logo.png" 
-            alt="PixelPanel Logo" 
-            className="w-8 h-8 object-contain"
-          />
+          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
+            <span className="text-foreground-inverse font-bold text-lg">P</span>
+          </div>
           <span className="text-xl font-bold text-foreground">PixelPanel</span>
         </Link>
       </div>
 
-      {/* Navigation - Fixed height, no scroll */}
+      {/* Navigation */}
       <nav className="p-4 space-y-2 flex-1">
-        {navigation.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link
-              key={item.name}
+              key={item.href}
               href={item.href}
-              className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive
                   ? 'bg-accent text-foreground-inverse'
                   : 'text-foreground-secondary hover:text-foreground hover:bg-background-tertiary'
               }`}
             >
-              {item.icon}
-              <span>{item.name}</span>
+              <span className="text-lg">{item.icon}</span>
+              <span className="font-medium">{item.label}</span>
             </Link>
           )
         })}
       </nav>
 
-      {/* User Info & Sign Out - Fixed at bottom */}
+      {/* User Info & Actions */}
       <div className="p-4 border-t border-border flex-shrink-0">
         {/* Theme Toggle */}
         <div className="relative mb-4 theme-menu">
@@ -178,8 +154,8 @@ export default function SideBar({ className = '' }: SidebarProps) {
               <button
                 onClick={() => handleThemeChange('light')}
                 className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-t-lg transition-colors ${
-                  theme === 'light' 
-                    ? 'bg-accent text-foreground-inverse' 
+                  theme === 'light'
+                    ? 'bg-accent text-foreground-inverse'
                     : 'text-foreground-secondary hover:text-foreground hover:bg-background-tertiary'
                 }`}
               >
@@ -191,8 +167,8 @@ export default function SideBar({ className = '' }: SidebarProps) {
               <button
                 onClick={() => handleThemeChange('dark')}
                 className={`w-full flex items-center space-x-2 px-3 py-2 text-sm transition-colors ${
-                  theme === 'dark' 
-                    ? 'bg-accent text-foreground-inverse' 
+                  theme === 'dark'
+                    ? 'bg-accent text-foreground-inverse'
                     : 'text-foreground-secondary hover:text-foreground hover:bg-background-tertiary'
                 }`}
               >
@@ -204,8 +180,8 @@ export default function SideBar({ className = '' }: SidebarProps) {
               <button
                 onClick={() => handleThemeChange('system')}
                 className={`w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-b-lg transition-colors ${
-                  theme === 'system' 
-                    ? 'bg-accent text-foreground-inverse' 
+                  theme === 'system'
+                    ? 'bg-accent text-foreground-inverse'
                     : 'text-foreground-secondary hover:text-foreground hover:bg-background-tertiary'
                 }`}
               >
@@ -218,21 +194,24 @@ export default function SideBar({ className = '' }: SidebarProps) {
           )}
         </div>
 
+        {/* User Info */}
         <div className="flex items-center space-x-3 mb-3">
           <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
             <span className="text-foreground-inverse text-sm font-medium">
-              {user?.email?.charAt(0).toUpperCase()}
+              {user?.email?.charAt(0).toUpperCase() || 'U'}
             </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground-secondary truncate">
-              {user?.email}
+            <p className="text-sm font-medium text-foreground truncate">
+              {user?.email || 'User'}
             </p>
           </div>
         </div>
+
+        {/* Sign Out Button */}
         <button
-          onClick={signOut}
-          className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-foreground-muted hover:text-foreground hover:bg-background-tertiary rounded-lg transition-colors"
+          onClick={handleSignOut}
+          className="w-full flex items-center space-x-2 px-3 py-2 text-sm text-foreground-secondary hover:text-foreground hover:bg-background-tertiary rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

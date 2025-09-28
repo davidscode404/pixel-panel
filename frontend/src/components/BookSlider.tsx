@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import booksData from '../data/books.json';
-import { buildApiUrl, API_CONFIG } from '../config/api';
+import { buildApiUrl, API_CONFIG, cachedFetch } from '../config/api';
 
 interface Book {
   id: number | string; // Allow string for user comic titles
@@ -51,21 +51,15 @@ export default function BookSlider() {
     
     window.addEventListener('storage', handleStorageChange);
     
-    // Also refresh every 2 seconds to catch new saves
-    const interval = setInterval(() => {
-      loadComicsFromDB();
-    }, 2000);
-    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
     };
   }, []);
 
   const loadComicsFromDB = async () => {
     try {
       // Get list of saved comics from project directory
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
+      const response = await cachedFetch(buildApiUrl(API_CONFIG.ENDPOINTS.LIST_COMICS));
       if (response.ok) {
         const data = await response.json();
         const comics = data.comics;
@@ -182,15 +176,15 @@ export default function BookSlider() {
 
   const openBookPopup = async (book: Book) => {
     if (book.isUserComic) {
-      // For user comics, redirect to create page with comic title as URL parameter
+      // For user comics, redirect to preview page
       try {
         // Use the original title (with underscores) for the backend
         const originalTitle = book.id as string; // The ID contains the original title
         const encodedTitle = encodeURIComponent(originalTitle);
-        console.log(`Loading comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
+        console.log(`Previewing comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
         
-        // Redirect to create page with comic title as URL parameter
-        window.location.href = `/create?comic=${encodedTitle}`;
+        // Redirect to preview page
+        window.location.href = `/preview/${encodedTitle}`;
       } catch (error) {
         console.error('Error loading comic:', error);
         alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -7,8 +7,8 @@ import os
 import sys
 import base64
 import tempfile
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 from PIL import Image
 from io import BytesIO
 from dotenv import load_dotenv
@@ -24,7 +24,8 @@ class ComicArtGenerator:
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
         
-        self.client = genai.Client(api_key=self.api_key)
+        genai.configure(api_key=self.api_key)
+        self.client = genai
     
     def generate_comic_art(self, text_prompt, reference_image_data=None, context_image_data=None):
         """
@@ -168,10 +169,8 @@ class ComicArtGenerator:
         print("⏳ This may take 30-60 seconds...")
         
         try:
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash-image-preview",
-                contents=contents,
-            )
+            model = self.client.GenerativeModel("gemini-2.5-flash-image-preview")
+            response = model.generate_content(contents)
             
             print("✅ API request successful!")
             
