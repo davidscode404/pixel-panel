@@ -8,7 +8,6 @@ import sys
 import base64
 import tempfile
 import google.generativeai as genai
-from google.generativeai import types
 from PIL import Image
 from io import BytesIO
 from dotenv import load_dotenv
@@ -110,27 +109,27 @@ class ComicArtGenerator:
                 
                 # Create multimodal content with image and text
                 contents = [
-                    types.Part(
-                        inline_data=types.Blob(
-                            mime_type="image/png",
-                            data=img_bytes
-                        )
-                    ),
-                    types.Part(
-                        text=f"{system_prompt}\n\nText prompt: {text_prompt}"
-                    )
+                    {
+                        "inline_data": {
+                            "mime_type": "image/png",
+                            "data": base64.b64encode(img_bytes).decode('utf-8')
+                        }
+                    },
+                    {
+                        "text": f"{system_prompt}\n\nText prompt: {text_prompt}"
+                    }
                 ]
                 
                 # Add context image if available
                 if has_context:
                     try:
                         context_img_bytes = base64.b64decode(context_image_data)
-                        contents.insert(0, types.Part(
-                            inline_data=types.Blob(
-                                mime_type="image/png",
-                                data=context_img_bytes
-                            )
-                        ))
+                        contents.insert(0, {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": base64.b64encode(context_img_bytes).decode('utf-8')
+                            }
+                        })
                         print(f"🖼️ Added context image to generation (size: {len(context_img_bytes)} bytes)")
                     except Exception as e:
                         print(f"⚠️ Error processing context image: {e}")
@@ -146,15 +145,15 @@ class ComicArtGenerator:
                 try:
                     context_img_bytes = base64.b64decode(context_image_data)
                     contents = [
-                        types.Part(
-                            inline_data=types.Blob(
-                                mime_type="image/png",
-                                data=context_img_bytes
-                            )
-                        ),
-                        types.Part(
-                            text=f"{system_prompt}\n\nText prompt: {text_prompt}"
-                        )
+                        {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": base64.b64encode(context_img_bytes).decode('utf-8')
+                            }
+                        },
+                        {
+                            "text": f"{system_prompt}\n\nText prompt: {text_prompt}"
+                        }
                     ]
                     print(f"🔄 Generating comic art with context image only (size: {len(context_img_bytes)} bytes)...")
                 except Exception as e:
