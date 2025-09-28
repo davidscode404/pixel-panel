@@ -660,28 +660,8 @@ export default function CreatePage() {
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Calculate scaling to fit the canvas while maintaining aspect ratio
-            const canvasAspect = canvas.width / canvas.height;
-            const imgAspect = img.width / img.height;
-            
-            let drawWidth, drawHeight, offsetX, offsetY;
-            
-            if (imgAspect > canvasAspect) {
-              // Image is wider than canvas - fit to width
-              drawWidth = canvas.width;
-              drawHeight = canvas.width / imgAspect;
-              offsetX = 0;
-              offsetY = (canvas.height - drawHeight) / 2;
-            } else {
-              // Image is taller than canvas - fit to height
-              drawHeight = canvas.height;
-              drawWidth = canvas.height * imgAspect;
-              offsetX = (canvas.width - drawWidth) / 2;
-              offsetY = 0;
-            }
-            
-            // Draw the image centered and scaled to fit
-            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+            // Draw the image to fill the entire canvas (no gaps)
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
             // Save the new state
             saveCanvasState(panelId, true);
@@ -846,14 +826,15 @@ export default function CreatePage() {
                 <div
                   key={panel.id}
                   data-panel-id={panel.id}
-                  className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu"
+                  className="group relative bg-stone-800/60 backdrop-blur-sm cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu aspect-[4/3]"
                   onClick={() => handlePanelClick(panel.id)}
                 >
                   <canvas
                     ref={panel.canvasRef}
                     width={400}
                     height={300}
-                    className="w-full h-full rounded-lg pointer-events-none bg-white"
+                    className="w-full h-full pointer-events-none bg-white"
+                    style={{ width: '100%', height: '100%', display: 'block' }}
                   />
                   {/* Panel Number Overlay */}
                   <div className="absolute top-2 left-2 w-6 h-6 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-stone-900 shadow-lg group-hover:bg-amber-400/90 transition-colors duration-300">
@@ -872,7 +853,7 @@ export default function CreatePage() {
                     </svg>
                   </button>
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                 </div>
               ))}
             </div>
@@ -911,7 +892,8 @@ export default function CreatePage() {
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="rounded-xl bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
+                className="bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
+                style={{ width: '100%', height: '100%', display: 'block' }}
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
@@ -920,7 +902,7 @@ export default function CreatePage() {
             </div>
             
             {/* Combined Tools and Generate Section - Right Side */}
-            <div className="w-80 bg-stone-800/40 backdrop-blur-sm rounded-l-xl p-4 flex flex-col overflow-y-auto border border-amber-100/20">
+            <div className="w-80 bg-stone-800/40 backdrop-blur-sm p-4 flex flex-col overflow-y-auto border border-amber-100/20">
               {/* Generate Scene Section */}
               <div className="mb-6">
                 <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
