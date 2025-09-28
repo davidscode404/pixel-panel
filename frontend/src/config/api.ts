@@ -3,17 +3,20 @@
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000', // Change this to 8000 or any other port as needed
   ENDPOINTS: {
-    LOAD_COMIC: '/load-comic',  // Legacy endpoint in main.py
-    SAVE_PANEL: '/save-panel',  // Legacy endpoint
-    SAVE_COMIC: '/api/comics/save-comic',  // New endpoint in comics API
-    GENERATE: '/api/comics/generate',  // New endpoint in comics API
-    LIST_COMICS: '/list-comics',  // Legacy endpoint in main.py
-    MY_COMICS: '/api/comics/user-comics',  // New endpoint in comics API
+    // New modular API endpoints
+    GENERATE: '/api/comics/generate',
+    SAVE_COMIC: '/api/comics/save-comic',
+    MY_COMICS: '/api/comics/user-comics',
     USER_COMICS: '/api/comics/user-comics',  // Alias for MY_COMICS
-    PUBLIC_COMICS: '/api/comics/public-comics',  // New endpoint for public comics
-    RESET_CONTEXT: '/reset-context',  // Legacy endpoint
-    GENERATE_VOICE: '/generate-voice',  // Legacy endpoint in main.py
-    GENERATE_COMIC: '/generate-comic'  // Legacy endpoint in main.py
+    PUBLIC_COMICS: '/api/comics/public-comics',
+    LIST_COMICS: '/api/comics/list-comics',  // Now in comics API
+    GENERATE_VOICE: '/api/voice-over/generate-voiceover',
+    
+    // Legacy endpoints (still needed for compatibility)
+    LOAD_COMIC: '/load-comic',  // Legacy endpoint in main.py
+    SAVE_PANEL: '/save-panel',  // Legacy endpoint (if still needed)
+    RESET_CONTEXT: '/reset-context',  // Legacy endpoint (if still needed)
+    GENERATE_COMIC: '/generate-comic'  // Legacy endpoint (if still needed)
   }
 };
 

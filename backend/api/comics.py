@@ -148,7 +148,6 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
         print(f"❌ Error fetching user comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/public-comics")
 async def get_public_comics():
     """
@@ -166,7 +165,6 @@ async def get_public_comics():
     except Exception as e:
         print(f"❌ Error fetching public comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/list-comics")
 async def list_comics():
