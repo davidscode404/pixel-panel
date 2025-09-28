@@ -8,7 +8,7 @@ import { buildApiUrl, API_CONFIG } from '@/config/api';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 interface ComicPanel {
-  id: number;
+  panel_number: number;
   image_data: string;
 }
 
@@ -213,7 +213,7 @@ export default function ComicPreview() {
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {comicData.panels.map((panel, index) => (
               <div
-                key={panel.id}
+                key={panel.panel_number || index}
                 className="group relative bg-stone-800/60 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transition-all duration-300 transform-gpu border border-stone-700/50 cursor-pointer"
                 onClick={() => handlePanelClick(panel)}
               >
@@ -221,7 +221,7 @@ export default function ComicPreview() {
                 <div className="relative aspect-[4/3] w-full">
                   <Image
                     src={panel.image_data}
-                    alt={`Panel ${panel.id}`}
+                    alt={`Panel ${panel.panel_number}`}
                     fill
                     className="object-cover rounded-lg"
                     priority={index < 3} // Prioritize first 3 images
@@ -294,7 +294,7 @@ export default function ComicPreview() {
             <div className="flex justify-center space-x-2 mb-8">
               {comicData.panels.map((panel, index) => (
                 <button
-                  key={panel.id}
+                  key={panel.panel_number || index}
                   onClick={() => goToPanel(index)}
                   className={`relative w-16 h-12 rounded-lg overflow-hidden transition-all duration-200 ${
                     index === currentPanelIndex

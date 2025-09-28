@@ -105,6 +105,7 @@ async def load_comic(comic_title: str):
                     image_data = f.read()
                     img_base64 = base64.b64encode(image_data).decode('utf-8')
                     panels.append({
+                        "id": i + 1,
                         "panel_number": i + 1,
                         "image_data": img_base64
                     })
