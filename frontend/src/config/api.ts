@@ -10,6 +10,7 @@ export const API_CONFIG = {
     LIST_COMICS: '/list-comics',  // Legacy endpoint in main.py
     MY_COMICS: '/api/comics/user-comics',  // New endpoint in comics API
     USER_COMICS: '/api/comics/user-comics',  // Alias for MY_COMICS
+    PUBLIC_COMICS: '/api/comics/public-comics',  // New endpoint for public comics
     RESET_CONTEXT: '/reset-context',  // Legacy endpoint
     GENERATE_VOICE: '/generate-voice',  // Legacy endpoint in main.py
     GENERATE_COMIC: '/generate-comic'  // Legacy endpoint in main.py
