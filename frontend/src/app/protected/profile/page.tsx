@@ -49,7 +49,7 @@ export default function ProfilePage() {
             </label>
             <input
               type="text"
-              value={user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+              value={user?.user_metadata?.created_at ? new Date(user.user_metadata.created_at as string).toLocaleDateString() : 'Unknown'}
               disabled
               className="w-full px-3 py-2 border rounded-md"
               style={{

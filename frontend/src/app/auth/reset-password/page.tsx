@@ -15,7 +15,7 @@ export default function ResetPasswordPage() {
     try {
       // TODO: Implement password reset functionality
       setMessage('Password reset email sent! Check your inbox.')
-    } catch (error) {
+    } catch {
       setMessage('Error sending reset email. Please try again.')
     } finally {
       setIsLoading(false)

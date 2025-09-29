@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LoginForm() {
+function LoginFormContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,7 +31,7 @@ export default function LoginForm() {
       setMessage(error.message)
     } else {
       setMessage('Successfully signed in!')
-      // The redirect will be handled by the AuthProvider's auth state change listener
+      router.push(redirectTo)
     }
     setLoading(false)
   }
@@ -105,5 +105,13 @@ export default function LoginForm() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginForm() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginFormContent />
+    </Suspense>
   )
 }

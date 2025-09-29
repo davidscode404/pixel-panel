@@ -19,7 +19,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">1. Acceptance of Terms</h2>
               <div className="text-stone-300 space-y-4">
-                <p>By accessing and using PixelPanel AI Comics ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
+                <p>By accessing and using PixelPanel AI Comics (&ldquo;the Service&rdquo;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
               </div>
             </section>
 
@@ -139,9 +139,9 @@ export default function TermsOfService() {
                 
                 <h3 className="text-xl font-medium text-amber-300">Self-Service Cancellation</h3>
                 <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Log into your account and navigate to "Account Settings"</li>
-                  <li>Select "Subscription Management"</li>
-                  <li>Click "Cancel Subscription"</li>
+                  <li>Log into your account and navigate to &ldquo;Account Settings&rdquo;</li>
+                  <li>Select &ldquo;Subscription Management&rdquo;</li>
+                  <li>Click &ldquo;Cancel Subscription&rdquo;</li>
                   <li>Follow the confirmation prompts</li>
                   <li>Receive email confirmation of cancellation</li>
                 </ul>
@@ -190,7 +190,7 @@ export default function TermsOfService() {
               <div className="text-stone-300 space-y-4">
                 <p>To the maximum extent permitted by law:</p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
-                  <li>Our service is provided "as is" without warranties</li>
+                  <li>Our service is provided &ldquo;as is&rdquo; without warranties</li>
                   <li>We are not liable for indirect or consequential damages</li>
                   <li>Our total liability is limited to amounts paid by you</li>
                   <li>AI-generated content may not always meet expectations</li>

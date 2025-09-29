@@ -1,7 +1,7 @@
 // API Configuration
 // Change this port to easily switch between different backend servers
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000', // Change this to 8000 or any other port as needed
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000', // Use environment variable for production
   ENDPOINTS: {
     // New modular API endpoints
     GENERATE: '/api/comics/generate',
@@ -21,7 +21,7 @@ export const API_CONFIG = {
 };
 
 // Simple cache for API responses
-const apiCache = new Map<string, { data: any; timestamp: number }>();
+const apiCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_DURATION = 5000; // 5 seconds cache
 
 // Helper function to build full API URLs
@@ -60,7 +60,7 @@ const getAuthToken = (): string | null => {
           if (data?.access_token) {
             return data.access_token;
           }
-        } catch (e) {
+        } catch {
           continue;
         }
       }
@@ -75,7 +75,7 @@ const getAuthToken = (): string | null => {
           if (data?.access_token) {
             return data.access_token;
           }
-        } catch (e) {
+        } catch {
           continue;
         }
       }

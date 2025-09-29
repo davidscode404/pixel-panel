@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import booksData from '../data/books.json';
 import { buildApiUrl, API_CONFIG, cachedFetch } from '../config/api';
+import { ComicPanel } from '../types';
 
 interface Book {
   id: number | string; // Allow string for user comic titles
@@ -14,14 +14,14 @@ interface Book {
   gradient: string;
   image?: string; // Optional for user comics
   isUserComic?: boolean;
-  panels?: any[];
+  panels?: ComicPanel[];
 }
 
-interface SavedComic {
-  title: string;
-  date: string;
-  panels: any[];
-}
+// interface SavedComic {
+//   title: string;
+//   date: string;
+//   panels: ComicPanel[];
+// }
 
 // Helper function to format comic titles nicely
 const formatComicTitle = (title: string): string => {
@@ -66,7 +66,7 @@ export default function BookSlider() {
         console.log('Loaded comics from project directory:', comics);
         
         // Debug cover images
-        comics.forEach((comic: any) => {
+        comics.forEach((comic: { title: string; cover_image?: string }) => {
           if (comic.cover_image) {
             console.log(`Cover image found for ${comic.title}: ${comic.cover_image.substring(0, 50)}...`);
           } else {
@@ -76,7 +76,7 @@ export default function BookSlider() {
         
         if (comics.length > 0) {
           // Convert all user comics to Book objects
-          const userComics: Book[] = comics.map((comic: any, index: number) => ({
+          const userComics: Book[] = comics.map((comic: { title: string; cover_image?: string }) => ({
             id: comic.title,
             title: formatComicTitle(comic.title),
             author: 'You',
@@ -106,7 +106,7 @@ export default function BookSlider() {
           comicsToShow.forEach((userComic, index) => {
             const bookIndex = startIndex + index;
             if (bookIndex < updatedBooks.length) {
-              updatedBooks[bookIndex] = userComic as any; // Type assertion for mixed ID types
+              updatedBooks[bookIndex] = userComic as any;
             }
           });
           

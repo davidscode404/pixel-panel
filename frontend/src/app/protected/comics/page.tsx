@@ -34,13 +34,13 @@ export default function MyComicsPage() {
   const [loading, setLoading] = useState(true)
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
-  const [error, setError] = useState<string | null>(null)
+  const [error] = useState<string | null>(null)
 
   const supabase = createClient()
 
   // Function to get the session token for API requests
   const getAccessToken = async () => {
-    let { data: { session }, error } = await supabase.auth.getSession();
+    const { data: { session }, error } = await supabase.auth.getSession();
     console.log('🔍 DEBUG:getSession -> session:', session, 'error:', error);
 
     if (!session) {
@@ -71,7 +71,7 @@ export default function MyComicsPage() {
 
   const fetchUserAndComics = async () => {
     try {
-      setError(null)
+      // Clear any previous errors
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError) throw userError
@@ -107,7 +107,7 @@ export default function MyComicsPage() {
       }
     } catch (error) {
       console.error('Error:', error)
-      setError('An error occurred while loading your comics.')
+      console.error('Error loading comics:', error)
     } finally {
       setLoading(false)
     }

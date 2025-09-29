@@ -221,7 +221,7 @@ export default function ComicPreview() {
         <div className="text-center max-w-md mx-auto p-8">
           <div className="text-amber-400 text-6xl mb-4">📖</div>
           <h1 className="text-2xl font-bold text-amber-50 mb-4">No Comic Found</h1>
-          <p className="text-stone-200 mb-6">This comic doesn't exist or has no panels.</p>
+          <p className="text-stone-200 mb-6">This comic doesn&apos;t exist or has no panels.</p>
           <Link href="/">
             <button className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors">
               Back to Home
@@ -548,7 +548,7 @@ export default function ComicPreview() {
           <div className="bg-stone-800 border border-stone-600 rounded-lg p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-amber-50 mb-4">Delete Comic</h3>
             <p className="text-stone-200 mb-6">
-              Are you sure you want to delete "{formatComicTitle(comicData?.title || comicId)}"? 
+              Are you sure you want to delete &ldquo;{formatComicTitle(comicData?.title || comicId)}&rdquo;? 
               This action cannot be undone.
             </p>
             <div className="flex space-x-3">
