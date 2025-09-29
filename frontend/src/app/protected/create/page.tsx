@@ -36,7 +36,7 @@ export default function CreatePage() {
   // Function to get the session token for API requests
     const getAccessToken = async () => {
       // 1) Try to read current session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      let { data: { session }, error } = await supabase.auth.getSession();
       console.log('🔍 DEBUG:getSession -> session:', session, 'error:', error);
 
       // 2) If missing, try to refresh using stored refresh token

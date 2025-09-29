@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.comics import router as comics_router
 from api.voice_over import router as voice_over_router
+from api.stripe import router as stripe_router
 
 app = FastAPI(title="PixelPanel", version="1.0.0")
 
@@ -25,6 +26,7 @@ async def health_check():
 # Include the new API routers
 app.include_router(comics_router)
 app.include_router(voice_over_router)
+app.include_router(stripe_router)
 
 # Legacy endpoint, stores comics from local directory - needs to be updated to use the new database
 # TODO: Remove this endpoint

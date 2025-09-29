@@ -40,7 +40,7 @@ export default function MyComicsPage() {
 
   // Function to get the session token for API requests
   const getAccessToken = async () => {
-    const { data: { session }, error } = await supabase.auth.getSession();
+    let { data: { session }, error } = await supabase.auth.getSession();
     console.log('🔍 DEBUG:getSession -> session:', session, 'error:', error);
 
     if (!session) {
