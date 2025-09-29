@@ -1,6 +1,6 @@
 # backend/api/comics.py
 from fastapi import APIRouter, Depends, HTTPException, Request
-from schemas.comic import ComicArtRequest, ComicResponse, ComicRequest
+from schemas.comic import ComicArtRequest, ComicRequest
 from services.comic_storage import ComicStorageService
 from services.comic_generator import ComicArtGenerator
 from auth_shared import get_current_user

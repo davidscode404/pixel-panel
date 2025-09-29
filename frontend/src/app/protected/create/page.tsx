@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -20,6 +21,7 @@ interface Panel {
 
 export default function CreatePage() {
   const { user, loading } = useAuth();
+  const router = useRouter();
   
   const [panels, setPanels] = useState<Panel[]>([
     { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
@@ -482,73 +484,35 @@ export default function CreatePage() {
   };
 
   const createComic = async () => {
-    console.log('🔍 DEBUG: createComic called with comicTitle:', `"${comicTitle}"`);
-    console.log('🔍 DEBUG: comicTitle length:', comicTitle.length);
-    console.log('🔍 DEBUG: comicTitle type:', typeof comicTitle);
+    console.log('🔍 DEBUG: Proceeding to confirmation page');
 
-    // Ensure we have a valid title
-    if (!comicTitle || comicTitle.trim() === '') {
-      alert('Please enter a comic title before saving.');
+    // Check if any panels have content
+    const panelsWithData = panels.filter(panel => panel.largeCanvasData);
+    if (panelsWithData.length === 0) {
+      alert('Please create at least one panel before proceeding.');
       return;
     }
-
-    console.log('Starting to create comic:', comicTitle);
-
-    // Build payload for SAVE_COMIC (save all panels at once)
-    const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const panelsData = panels
-      .filter(panel => !!panel.largeCanvasData)
-      .map(panel => ({ 
-        id: panel.id, 
-        prompt: panel.prompt || `Panel ${panel.id}`, // Use panel prompt or default
-        image_data: panel.largeCanvasData, // This should be the base64 image data
-        is_zoomed: false // Default value
-      }));
-
-    if (panelsData.length === 0) {
-      alert('No panels have been drawn yet. Please draw something before saving.');
-      return;
-    }
-
-    const payload = {
-      title: safeTitle, // Changed from comic_title to title
-      panels: panelsData, // Changed from panels_data to panels
-    };
-
-    console.log('🔍 DEBUG: SAVE_COMIC payload:', payload);
 
     try {
-      // Get access token for API request
-      const accessToken = await getAccessToken();
-      console.log('✅ Got access token for save-comic request');
+      // Store panels data in sessionStorage for the confirmation page
+      const panelsData = panels
+        .filter(panel => !!panel.largeCanvasData)
+        .map(panel => ({ 
+          id: panel.id, 
+          prompt: panel.prompt || `Panel ${panel.id}`,
+          image_data: panel.largeCanvasData,
+          is_zoomed: false
+        }));
+
+      sessionStorage.setItem('comicPanelsData', JSON.stringify(panelsData));
+      sessionStorage.setItem('comicTitle', comicTitle || 'Untitled Comic');
       
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_COMIC), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log('🔍 DEBUG: Save comic response status:', response.status);
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({} as any));
-        console.log('❌ Save comic error response:', err);
-        throw new Error(err?.detail || err?.error || `Save comic failed with status ${response.status}`);
-      }
-
-      const result = await response.json().catch(() => ({} as any));
-      console.log('✅ SAVE_COMIC result:', result);
-
-      alert(`Comic "${comicTitle}" saved successfully!`);
-      // Only reset the title and editing state after successful save
-      setComicTitle('Untitled');
-      setIsEditing(false);
+      console.log('✅ Comic data stored in sessionStorage, navigating to confirmation');
+      router.push('/protected/confirm');
+      
     } catch (error) {
-      console.error('❌ Error saving comic:', error);
-      alert(`Failed to save comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Error preparing comic data:', error);
+      alert(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -787,7 +751,7 @@ export default function CreatePage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-                {isEditing ? 'Update Comic' : 'Create Comic'}
+                {isEditing ? 'Update Comic' : 'Continue to Publish'}
               </button>
             </div>
           </div>
