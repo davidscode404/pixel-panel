@@ -40,11 +40,9 @@ export function Modal({ children, onClose }: ModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div
         ref={modalRef}
-        className="relative max-w-full max-h-full overflow-hidden bg-background-card rounded-xl shadow-2xl"
+        className="relative max-w-full max-h-full overflow-hidden bg-background-card border-4 border-black"
       >
-        <div className="p-6">
-          {children}
-        </div>
+        {children}
       </div>
     </div>
   )

@@ -167,9 +167,9 @@ export default function ExplorePage() {
             const randomHeight = heights[index % heights.length]
             
             return (
-            <div 
-              key={comic.id} 
-              className={`group bg-background-card rounded-lg border-2 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer shadow-lg ${randomHeight}`}
+            <div
+              key={comic.id}
+              className={`group bg-background-card border-4 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer ${randomHeight}`}
               onClick={() => openModal(comic)}
             >
               {/* Image */}

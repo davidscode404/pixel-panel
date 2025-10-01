@@ -17,6 +17,7 @@ interface Panel {
   smallCanvasData: string | null; // base64 data URL for small canvas
   largeCanvasData: string | null; // base64 data URL for large canvas
   prompt?: string; // Optional prompt for the panel
+  isEnabled: boolean; // Whether the panel is unlocked for editing
 }
 
 export default function CreatePage() {
@@ -24,12 +25,12 @@ export default function CreatePage() {
   const router = useRouter();
   
   const [panels, setPanels] = useState<Panel[]>([
-    { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
-    { id: 2, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
-    { id: 3, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
-    { id: 4, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
-    { id: 5, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
-    { id: 6, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined },
+    { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: true },
+    { id: 2, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
+    { id: 3, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
+    { id: 4, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
+    { id: 5, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
+    { id: 6, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
   ]);
 
   // Function to get the session token for API requests
@@ -124,6 +125,13 @@ export default function CreatePage() {
             setIsEditing(true);
             
             if (comic.panels) {
+              // Find the highest panel number with content
+              const highestPanelWithContent = Math.max(
+                ...comic.panels
+                  .filter((p: any) => p.image_data)
+                  .map((p: any) => p.id)
+              );
+
               const updatedPanels = panels.map(panel => {
                 const savedPanel = comic.panels.find((p: any) => p.id === panel.id);
                 if (savedPanel && savedPanel.image_data) {
@@ -131,12 +139,17 @@ export default function CreatePage() {
                     ...panel,
                     smallCanvasData: savedPanel.image_data,
                     largeCanvasData: savedPanel.image_data,
-                    prompt: savedPanel.prompt || `Panel ${panel.id}`
+                    prompt: savedPanel.prompt || `Panel ${panel.id}`,
+                    isEnabled: true // Enable panels with content
                   };
                 }
-                return panel;
+                // Enable all panels up to and including the one after the last filled panel
+                return {
+                  ...panel,
+                  isEnabled: panel.id <= highestPanelWithContent + 1
+                };
               });
-              
+
               setPanels(updatedPanels);
               
               setTimeout(() => {
@@ -206,6 +219,11 @@ export default function CreatePage() {
         : p
     ));
 
+    // Enable the next panel if this panel now has content
+    if (dataURL && dataURL.length > 100) {
+      enableNextPanel(panelId);
+    }
+
     console.log(`✅ Canvas state saved for panel ${panelId} (${isLargeCanvas ? 'LARGE' : 'small'})`);
   };
 
@@ -228,9 +246,25 @@ export default function CreatePage() {
     img.src = dataURL;
   };
 
+  // Enable next panel when current panel has content
+  const enableNextPanel = (currentPanelId: number) => {
+    setPanels(prev => prev.map(p => {
+      // Enable the next panel if current panel has content
+      if (p.id === currentPanelId + 1) {
+        return { ...p, isEnabled: true };
+      }
+      return p;
+    }));
+  };
+
   const handlePanelClick = (panelId: number) => {
     const panel = panels.find(p => p.id === panelId);
-    
+
+    // Don't allow clicking disabled panels
+    if (!panel?.isEnabled) {
+      return;
+    }
+
     if (panel?.isZoomed) {
       saveCanvasState(panelId, true);
       updateSmallCanvasPreview(panelId);
@@ -423,30 +457,34 @@ export default function CreatePage() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Update panel data to reflect cleared state
-    setPanels(prev => prev.map(p => 
-      p.id === panelId 
-        ? { ...p, smallCanvasData: null, largeCanvasData: null, prompt: undefined }
-        : p
-    ));
-    
+
+    // Update panel data to reflect cleared state and disable subsequent panels
+    setPanels(prev => prev.map(p => {
+      if (p.id === panelId) {
+        return { ...p, smallCanvasData: null, largeCanvasData: null, prompt: undefined };
+      }
+      // Disable all panels after the cleared one
+      if (p.id > panelId) {
+        return { ...p, isEnabled: false };
+      }
+      return p;
+    }));
+
     // Panel cleared - frontend state is automatically updated
   };
 
-  const saveCurrentPanelAndNext = async (currentPanelId: number) => {
-    try {
-      // Save current panel's canvas state
-      saveCanvasState(currentPanelId, true);
-      updateSmallCanvasPreview(currentPanelId);
+  const goToNextPanel = (currentPanelId: number) => {
+    // Save current panel's state before navigating
+    saveCanvasState(currentPanelId, true);
+    updateSmallCanvasPreview(currentPanelId);
 
-      // Panel data is now managed entirely in React state
-      // No need to save individual panels - they'll be saved when the comic is finalized
+    // Navigate to next panel (or stay on panel 6 if it's the last)
+    const nextPanelId = currentPanelId < 6 ? currentPanelId + 1 : currentPanelId;
 
-      // Navigate to next panel (or loop back to panel 1 if we're at panel 6)
-      const nextPanelId = currentPanelId === 6 ? 1 : currentPanelId + 1;
-      
-      // Close current panel and open next panel
+    // Check if next panel is enabled
+    const nextPanel = panels.find(p => p.id === nextPanelId);
+    if (nextPanel && nextPanel.isEnabled) {
+      // Zoom out current panel and zoom into next panel
       setPanels(prev => prev.map(p => ({
         ...p,
         isZoomed: p.id === nextPanelId
@@ -456,10 +494,6 @@ export default function CreatePage() {
       setTimeout(() => {
         restoreCanvasState(nextPanelId, true);
       }, 100);
-
-    } catch (error) {
-      console.error('Error in saveCurrentPanelAndNext:', error);
-      alert(`Error saving panel: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -783,33 +817,47 @@ export default function CreatePage() {
                 <div
                   key={panel.id}
                   data-panel-id={panel.id}
-                  className="group relative bg-background-card backdrop-blur-sm rounded-lg cursor-pointer hover:bg-background-tertiary transition-all duration-300 shadow-2xl hover:shadow-accent/20 hover:scale-[1.02] transform-gpu border-2 border-black"
+                  className={`group relative bg-background-card backdrop-blur-sm transition-all duration-300 transform-gpu border-4 ${
+                    panel.isEnabled
+                      ? 'cursor-pointer hover:bg-background-tertiary hover:scale-[1.02] border-black'
+                      : 'cursor-not-allowed opacity-40 border-gray-400'
+                  }`}
                   onClick={() => handlePanelClick(panel.id)}
                 >
                   <canvas
                     ref={panel.canvasRef}
                     width={400}
                     height={300}
-                    className="w-full h-full rounded-lg pointer-events-none bg-white"
+                    className="w-full h-full pointer-events-none bg-white"
                   />
                   {/* Panel Number Overlay */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-foreground-inverse shadow-lg group-hover:bg-accent-light transition-colors duration-300">
+                  <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm flex items-center justify-center text-xs font-bold text-foreground-inverse group-hover:bg-accent-light transition-colors duration-300 border-2 border-black">
                     {panel.id}
                   </div>
+
+                  {/* Simple overlay for disabled panels */}
+                  {!panel.isEnabled && (
+                    <div className="absolute inset-0 bg-white/60 pointer-events-none" />
+                  )}
+
                   {/* Trash Icon Overlay */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearPanel(panel.id);
-                    }}
-                    className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-white shadow-lg hover:bg-red-600/90 transition-colors duration-300 opacity-0 group-hover:opacity-100"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  {panel.isEnabled && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearPanel(panel.id);
+                      }}
+                      className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-600/90 transition-colors duration-300 opacity-0 group-hover:opacity-100 border-2 border-black"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                   {/* Hover Effect Overlay */}
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent/10 to-accent-light/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  {panel.isEnabled && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent-light/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                  )}
                 </div>
               ))}
             </div>
@@ -834,163 +882,108 @@ export default function CreatePage() {
               Back to Canvas
             </button>
             <h2 className="text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-3">
-              <div className="w-8 h-8 bg-accent backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-foreground-inverse shadow-lg">
+              <div className="w-8 h-8 bg-accent backdrop-blur-sm flex items-center justify-center text-sm font-bold text-foreground-inverse border-2 border-black">
                 {zoomedPanel.id}
               </div>
               Panel {zoomedPanel.id}
             </h2>
           </div>
           
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden">
             {/* Canvas Area */}
-            <div className="flex-1 flex items-center justify-center p-4 min-w-0">
+            <div className="flex-1 flex items-center justify-center p-4 min-w-0 min-h-0">
               <canvas
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="rounded-xl bg-background-card shadow-2xl shadow-accent/10 max-w-full max-h-full border-2 border-black"
+                className="bg-background-card max-w-full max-h-full w-auto h-auto border-4 border-black"
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
                 onMouseLeave={() => handleMouseUp(zoomedPanel.id)}
               />
             </div>
-            
-            {/* Combined Tools and Generate Section - Right Side */}
-            <div className="w-80 bg-background-secondary backdrop-blur-sm rounded-l-xl p-4 flex flex-col overflow-y-auto border border-border">
-              {/* Generate Scene Section */}
-              <div className="mb-6">
-                <h3 className="text-base font-bold text-foreground drop-shadow-lg mb-3">
-                  Generate Scene
-                </h3>
-                <div className="flex flex-col gap-3">
-                  <textarea
-                    value={textPrompt}
-                    onChange={(e) => setTextPrompt(e.target.value)}
-                    placeholder="Describe the scene you want to generate..."
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background-secondary backdrop-blur-sm text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent resize-none shadow-lg text-sm"
-                    rows={3}
-                  />
-                  <button
-                    onClick={() => generateComicArt(zoomedPanel.id)}
-                    disabled={isGenerating || !textPrompt.trim()}
-                    className="group w-full rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-accent backdrop-blur-sm text-white hover:bg-accent-hover hover:border-accent/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-background-muted disabled:hover:scale-100 disabled:hover:shadow-xl"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Generate Scene
-                      </>
-                    )}
-                  </button>
-                </div>
+
+            {/* Combined Tools and Generate Section - Bottom */}
+            <div className="bg-background-secondary p-4 flex flex-col gap-4 items-center">
+              {/* Figma-style Toolbar */}
+              <div className="bg-gray-800 rounded-xl px-3 py-2 flex items-center gap-1 shadow-lg">
+                <button
+                  onClick={() => handleToolChange('pen')}
+                  className={`p-2.5 rounded-lg transition-all ${
+                    currentTool === 'pen'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                  title="Pen"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleToolChange('eraser')}
+                  className={`p-2.5 rounded-lg transition-all ${
+                    currentTool === 'eraser'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                  title="Eraser"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 01-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0M4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l3.53-3.53-6.36-6.36-3.54 3.53c-.78.79-.78 2.05 0 2.83z"/>
+                  </svg>
+                </button>
+
+                <div className="w-px h-6 bg-gray-600 mx-1"></div>
+
+                <input
+                  type="color"
+                  value={currentColor}
+                  onChange={(e) => setCurrentColor(e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border-2 border-gray-600"
+                  title="Color"
+                />
+
+                <div className="w-px h-6 bg-gray-600 mx-1"></div>
+
+                <button
+                  onClick={() => clearPanel(zoomedPanel.id)}
+                  className="p-2.5 rounded-lg text-gray-300 hover:bg-gray-700 transition-all"
+                  title="Clear"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-foreground drop-shadow-lg mb-3">
-                  Drawing Tools
-                </h3>
-                
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-foreground-secondary mb-2 block">Tools</label>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleToolChange('pen')}
-                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
-                        currentTool === 'pen' 
-                          ? 'bg-accent text-foreground-inverse shadow-lg border border-accent/50' 
-                          : 'bg-background-secondary text-foreground border border-border hover:bg-background-tertiary hover:border-border-secondary'
-                      }`}
-                    >
-                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                      Pen
-                    </button>
-                    <button
-                      onClick={() => handleToolChange('eraser')}
-                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
-                        currentTool === 'eraser' 
-                          ? 'bg-accent text-foreground-inverse shadow-lg border border-accent/50' 
-                          : 'bg-background-secondary text-foreground border border-border hover:bg-background-tertiary hover:border-border-secondary'
-                      }`}
-                    >
-                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      Eraser
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Brush Size */}
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-foreground-secondary mb-2 block">Brush Size</label>
-                  <div className="flex items-center space-x-2 bg-background-secondary rounded-lg px-3 py-2 border border-border">
-                    <input
-                      type="range"
-                      min="1"
-                      max="20"
-                      value={brushSize}
-                      onChange={(e) => setBrushSize(Number(e.target.value))}
-                      className="flex-1 accent-amber-500"
-                    />
-                    <span className="text-xs font-bold text-foreground w-6 text-center">{brushSize}</span>
-                  </div>
-                </div>
-                
-                {/* Color Picker */}
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-foreground-secondary mb-2 block">Color</label>
-                  <div className="flex items-center space-x-2 bg-background-secondary rounded-lg px-3 py-2 border border-border">
-                    <input
-                      type="color"
-                      value={currentColor}
-                      onChange={(e) => setCurrentColor(e.target.value)}
-                      className="w-8 h-8 rounded border border-border bg-background-card cursor-pointer"
-                    />
-                    <span className="text-xs text-foreground-secondary">Current color</span>
-                  </div>
-                </div>
-
-                {/* Save & Next Panel Button */}
-                <div className="mb-4">
-                  <button
-                    onClick={() => saveCurrentPanelAndNext(zoomedPanel.id)}
-                    className="group w-full rounded-lg border border-solid border-green-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-green-600/80 backdrop-blur-sm text-white hover:bg-green-500/90 hover:border-green-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              {/* Generate Scene Section */}
+              <div className="w-full max-w-2xl relative">
+                <textarea
+                  value={textPrompt}
+                  onChange={(e) => setTextPrompt(e.target.value)}
+                  placeholder="Describe the scene..."
+                  className="w-full px-4 py-3 pr-12 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
+                  rows={3}
+                />
+                <button
+                  onClick={() => generateComicArt(zoomedPanel.id)}
+                  disabled={isGenerating || !textPrompt.trim()}
+                  className="absolute bottom-3 right-3 p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  title="Generate"
+                >
+                  {isGenerating ? (
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Save & Next Panel
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.996.996 0 00-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 000-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
                     </svg>
-                  </button>
-                </div>
-
-                {/* Clear Panel Button */}
-                <div>
-                  <button
-                    onClick={() => clearPanel(zoomedPanel.id)}
-                    className="group w-full rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-background-secondary backdrop-blur-sm text-foreground hover:bg-background-tertiary hover:border-accent/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Clear Panel
-                  </button>
-                </div>
+                  )}
+                </button>
               </div>
             </div>
           </div>

@@ -247,7 +247,7 @@ export default function MyComicsPage() {
               return (
               <div
                 key={comic.id}
-                className="group relative bg-background-card rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02] border-2 border-black shadow-lg"
+                className="group relative bg-background-card overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02] border-4 border-black"
                 onClick={() => openModal(comic)}
               >
                 {/* Image */}
@@ -327,6 +327,7 @@ export default function MyComicsPage() {
             comic={selectedComic}
             isOpen={showModal}
             onClose={closeModal}
+            showVisibilityToggle={true}
           />
         )}
       </div>

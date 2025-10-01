@@ -173,6 +173,37 @@ async def get_public_comics():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.patch("/{comic_id}/visibility")
+async def update_comic_visibility(comic_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    """
+    Update comic visibility (public/private)
+    Requires authentication via JWT token
+    """
+    try:
+        user_id = current_user.get('id')
+        raw_data = await request.json()
+        is_public = raw_data.get('is_public', False)
+
+        print(f"🔍 DEBUG: Updating comic {comic_id} visibility to {is_public} for user {user_id}")
+
+        # Update comic visibility in database
+        response = comic_storage_service.supabase.table('comics').update({
+            'is_public': is_public
+        }).eq('id', comic_id).eq('user_id', user_id).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail='Comic not found or unauthorized')
+
+        print(f"✅ Updated comic {comic_id} visibility to {is_public}")
+        return {'success': True, 'is_public': is_public}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating comic visibility: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/list-comics")
 async def list_comics():
     """
