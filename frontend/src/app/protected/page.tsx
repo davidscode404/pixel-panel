@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { API_CONFIG, buildApiUrl } from '@/config/api';
+import ComicDetailModal from '@/components/ComicDetailModal';
 
 interface ComicPanel {
   id: string;
@@ -11,6 +12,8 @@ interface ComicPanel {
   storage_path: string;
   file_size: number;
   created_at: string;
+  narration?: string;
+  audio_url?: string;
 }
 
 interface Comic {
@@ -30,6 +33,7 @@ export default function ExplorePage() {
   const [selectedComic, setSelectedComic] = useState<Comic | null>(null);
   const [imageLoading, setImageLoading] = useState<{[key: string]: boolean}>({});
   const [imageErrors, setImageErrors] = useState<{[key: string]: boolean}>({});
+  const [showModal, setShowModal] = useState(false);
 
   // Fetch public comics on component mount
   useEffect(() => {
@@ -81,9 +85,11 @@ export default function ExplorePage() {
 
   const openModal = (comic: Comic) => {
     setSelectedComic(comic);
+    setShowModal(true);
   };
 
   const closeModal = () => {
+    setShowModal(false);
     setSelectedComic(null);
   };
 
@@ -223,57 +229,12 @@ export default function ExplorePage() {
 
         {/* Modal for viewing comic details */}
         {selectedComic && (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={closeModal}>
-            <div className="bg-background-card rounded-xl max-w-4xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-foreground">{selectedComic.title}</h2>
-                  <button 
-                    onClick={closeModal}
-                    className="text-foreground-muted hover:text-foreground text-2xl font-bold"
-                  >
-                    ×
-                  </button>
-                </div>
-
-              {/* Comic panels grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {selectedComic.panels
-                  .filter(panel => panel.panel_number !== 0) // Exclude panel 0 (comic_full.png)
-                  .sort((a, b) => a.panel_number - b.panel_number)
-                  .map((panel) => (
-                  <div key={panel.id} className="relative bg-background-tertiary rounded-lg overflow-hidden border-2 border-black shadow-lg">
-                    {imageErrors[`${selectedComic.id}-${panel.id}`] ? (
-                      <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
-                        <div className="text-foreground-muted text-center">
-                          <div className="text-2xl mb-1">🖼️</div>
-                          <div className="text-sm">Image not available</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <Image
-                        src={panel.public_url}
-                        alt={`Panel ${panel.panel_number}`}
-                        width={300}
-                        height={192}
-                        className="w-full h-48 object-cover"
-                        onError={() => handleImageError(`${selectedComic.id}-${panel.id}`)}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Comic metadata */}
-              <div className="mt-6 pt-4 border-t border-border">
-                <div className="text-center text-sm text-foreground-secondary">
-                  <span>Created: {new Date(selectedComic.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          <ComicDetailModal
+            comic={selectedComic}
+            isOpen={showModal}
+            onClose={closeModal}
+          />
+        )}
     </div>
   );
 }

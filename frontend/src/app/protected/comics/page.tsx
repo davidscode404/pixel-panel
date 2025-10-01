@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
-import { Modal } from '@/components/ui/Modal'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
+import ComicDetailModal from '@/components/ComicDetailModal'
 
 interface Panel {
   id: string
@@ -173,15 +173,6 @@ export default function MyComicsPage() {
     }
   }
 
-  const stopAudio = () => {
-    if (audioElement) {
-      audioElement.pause()
-      audioElement.currentTime = 0
-      setAudioElement(null)
-    }
-    setPlayingAudio(null)
-  }
-
   // Cleanup audio on unmount
   useEffect(() => {
     return () => {
@@ -331,80 +322,12 @@ export default function MyComicsPage() {
         )}
 
         {/* Modal for viewing comic details */}
-        {showModal && selectedComic && (
-          <Modal onClose={closeModal}>
-            <div className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-foreground">{selectedComic.title}</h2>
-                <button
-                  onClick={closeModal}
-                  className="text-foreground-muted hover:text-foreground text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedComic.panels
-                  .filter(panel => panel.panel_number > 0)
-                  .sort((a, b) => a.panel_number - b.panel_number)
-                  .map((panel) => (
-                  <div key={panel.id} className="bg-background-tertiary rounded-lg overflow-hidden border-2 border-black shadow-lg">
-                    {imageErrors[`${selectedComic.id}-${panel.id}`] ? (
-                      <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
-                        <div className="text-foreground-muted text-center">
-                          <div className="text-2xl mb-2">🖼️</div>
-                          <div className="text-sm">Image not available</div>
-                        </div>
-                      </div>
-                    ) : (
-                       <Image
-                          src={panel.public_url}
-                          alt={`Panel ${panel.panel_number}`}
-                          width={400}
-                          height={192}
-                          className="w-full h-48 object-contain bg-white"
-                          onLoad={() => handleImageLoad(`${selectedComic.id}-${panel.id}`)}
-                          onError={() => handleImageError(`${selectedComic.id}-${panel.id}`)}
-                          onLoadStart={() => handleImageLoadStart(`${selectedComic.id}-${panel.id}`)}
-                        />
-                    )}
-                    <div className="p-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-foreground text-sm font-medium">Panel {panel.panel_number}</p>
-                        {panel.audio_url && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              playAudio(`${selectedComic.id}-panel-${panel.id}`, panel.audio_url);
-                            }}
-                            className="bg-accent hover:bg-accent-hover text-white rounded-full p-1.5 transition-all duration-200 hover:scale-110"
-                            aria-label={playingAudio === `${selectedComic.id}-panel-${panel.id}` ? "Pause audio" : "Play audio"}
-                          >
-                            {playingAudio === `${selectedComic.id}-panel-${panel.id}` ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                              </svg>
-                            ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M8 5v14l11-7z" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-6 pt-4 border-t border-border">
-                <div className="text-center text-sm text-foreground-secondary">
-                  <span>Created: {new Date(selectedComic.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
-                </div>
-              </div>
-            </div>
-          </Modal>
+        {selectedComic && (
+          <ComicDetailModal
+            comic={selectedComic}
+            isOpen={showModal}
+            onClose={closeModal}
+          />
         )}
       </div>
     </div>
