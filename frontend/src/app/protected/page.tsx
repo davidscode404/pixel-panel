@@ -159,21 +159,18 @@ export default function ExplorePage() {
           <p className="text-foreground-secondary">Be the first to share your comic with the community!</p>
         </div>
       ) : (
-        <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-3 gap-4 space-y-4 w-full">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 w-full">
           {comics.map((comic, index) => {
             console.log('Rendering public comic:', comic.title, 'Panels:', comic.panels?.length || 0);
-            // Create varying heights for comic-like layout - made taller for wider cards
-            const heights = ['h-64', 'h-80', 'h-72', 'h-96', 'h-56', 'h-[400px]']
-            const randomHeight = heights[index % heights.length]
-            
+
             return (
             <div
               key={comic.id}
-              className={`group bg-background-card border-4 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer ${randomHeight}`}
+              className="group bg-background-card border-4 border-black overflow-hidden hover:border-accent transition-colors relative cursor-pointer"
               onClick={() => openModal(comic)}
             >
               {/* Image */}
-              <div className="relative w-full h-full">
+              <div className="relative w-full aspect-[3/4]">
                 {imageLoading[`${comic.id}-preview`] && (
                   <div className="absolute inset-0 bg-background-tertiary flex items-center justify-center z-10">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>

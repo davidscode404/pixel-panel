@@ -1,12 +1,14 @@
 # backend/api/comics.py
 from fastapi import APIRouter, Depends, HTTPException, Request
-from schemas.comic import ComicArtRequest, ComicRequest
+from schemas.comic import ComicArtRequest, ComicRequest, ThumbnailRequest
 from services.comic_storage import ComicStorageService
 from services.comic_generator import ComicArtGenerator
 from auth_shared import get_current_user
 import json
 import base64
 import os
+from PIL import Image
+import io
 
 router = APIRouter(prefix="/api/comics", tags=["comics"])
 
@@ -68,6 +70,53 @@ async def generate_comic_art(request: ComicArtRequest):
             detail=f"Error generating comic art: {str(e)}"
         )
 
+@router.post("/generate-thumbnail")
+async def generate_thumbnail(request: ThumbnailRequest):
+    """
+    Generate a thumbnail image based on comic prompts
+    Returns a 3:4 aspect ratio image suitable for comic book covers
+    """
+    try:
+        # Combine all prompts into a single prompt for thumbnail generation
+        combined_prompt = f"Comic book cover art featuring: {', '.join(request.prompts[:3])}"  # Use first 3 prompts
+        print(f"🔍 DEBUG: Generating thumbnail with prompt: {combined_prompt}")
+
+        # Generate comic art using the service
+        if not comic_generator:
+            raise HTTPException(
+                status_code=500,
+                detail="Comic art generator not initialized"
+            )
+
+        # Generate the thumbnail
+        image = comic_generator.generate_comic_art(combined_prompt, None, None)
+
+        # Resize to 3:4 aspect ratio (e.g., 600x800)
+        target_width = 600
+        target_height = 800
+        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+        # Convert image to base64 for response
+        img_base64 = comic_generator.image_to_base64(image)
+
+        print(f"✅ Generated thumbnail successfully")
+
+        return {
+            'success': True,
+            'thumbnail_data': img_base64,
+            'message': 'Thumbnail generated successfully'
+        }
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Error in generate thumbnail endpoint: {e}")
+        print(f"📋 Full traceback: {error_details}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating thumbnail: {str(e)}"
+        )
+
 @router.post("/save-comic")
 async def save_comic(raw_request: Request, current_user: dict = Depends(get_current_user)):
     """
@@ -127,7 +176,10 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         # Use the authenticated user's ID
         user_id = current_user.get('id')
 
-        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload)
+        # Get thumbnail data if provided
+        thumbnail_data = request.thumbnail_data
+
+        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload, thumbnail_data)
     except HTTPException:
         raise
     except Exception as e:

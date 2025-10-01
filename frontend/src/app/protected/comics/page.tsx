@@ -251,7 +251,7 @@ export default function MyComicsPage() {
                 onClick={() => openModal(comic)}
               >
                 {/* Image */}
-                <div className="relative w-full aspect-[4/3]">
+                <div className="relative w-full aspect-[3/4]">
                   {imageLoading[`${comic.id}-preview`] && (
                     <div className="absolute inset-0 bg-background-tertiary flex items-center justify-center z-10">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>

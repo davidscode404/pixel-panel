@@ -36,22 +36,21 @@ export default function ConfirmComicPage() {
   const [generatingNarrations, setGeneratingNarrations] = useState(false);
   const [narrationsGenerated, setNarrationsGenerated] = useState(false);
 
+  // Thumbnail states
+  const [thumbnailData, setThumbnailData] = useState<string | null>(null);
+  const [generatingThumbnail, setGeneratingThumbnail] = useState(false);
+
   // Load comic data from sessionStorage
   useEffect(() => {
     try {
       const storedPanelsData = sessionStorage.getItem('comicPanelsData');
-      const storedTitle = sessionStorage.getItem('comicTitle');
-      
+
       if (storedPanelsData) {
         const panels = JSON.parse(storedPanelsData);
         setPanelsData(panels);
       } else {
         setError('No comic data found. Please go back to create a comic.');
         return;
-      }
-      
-      if (storedTitle) {
-        setTitle(storedTitle);
       }
     } catch (error) {
       console.error('Error loading comic data:', error);
@@ -121,6 +120,48 @@ export default function ConfirmComicPage() {
       setError('Failed to generate narrations. Please try again.');
     } finally {
       setGeneratingNarrations(false);
+    }
+  };
+
+  const generateThumbnail = async () => {
+    if (panelsData.length === 0) return;
+
+    setGeneratingThumbnail(true);
+    setError(null);
+
+    try {
+      // Collect prompts from all panels
+      const prompts = panelsData.map(panel => panel.prompt);
+
+      console.log('🎨 Generating thumbnail with prompts:', prompts);
+
+      const response = await fetch(buildApiUrl('/api/comics/generate-thumbnail'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompts }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate thumbnail: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.thumbnail_data) {
+        // Store thumbnail data with data URL prefix for display
+        const thumbnailDataUrl = `data:image/png;base64,${result.thumbnail_data}`;
+        setThumbnailData(thumbnailDataUrl);
+        console.log('✅ Thumbnail generated successfully');
+      } else {
+        throw new Error('Invalid response from thumbnail generation');
+      }
+    } catch (error) {
+      console.error('Error generating thumbnail:', error);
+      setError('Failed to generate thumbnail. Please try again.');
+    } finally {
+      setGeneratingThumbnail(false);
     }
   };
 
@@ -198,7 +239,8 @@ export default function ConfirmComicPage() {
         description: description.trim(),
         is_public: isPublic,
         tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-        panels: panelsWithAudio
+        panels: panelsWithAudio,
+        thumbnail_data: thumbnailData  // Include thumbnail if generated
       };
 
       console.log('🔍 DEBUG: Saving comic with payload (audio included)');
@@ -222,7 +264,6 @@ export default function ConfirmComicPage() {
 
       // Clear sessionStorage
       sessionStorage.removeItem('comicPanelsData');
-      sessionStorage.removeItem('comicTitle');
 
       // Redirect to success page or comics list
       router.push('/protected/comics');
@@ -263,8 +304,6 @@ export default function ConfirmComicPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-2 text-sm text-foreground-muted mb-4">
-            <Link href="/protected" className="hover:text-foreground transition-colors">Explore</Link>
-            <span>›</span>
             <Link href="/protected/create" className="hover:text-foreground transition-colors">Create</Link>
             <span>›</span>
             <span className="text-foreground">Publish Comic</span>
@@ -281,9 +320,14 @@ export default function ConfirmComicPage() {
               
               {/* Comic Title Display */}
               <div className="bg-background-tertiary rounded-lg p-4 mb-6 border-2 border-black">
-                <h3 className="text-2xl font-bold text-foreground text-center">
-                  {title || 'Untitled Comic'}
-                </h3>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Untitled Comic"
+                  className="w-full text-2xl font-bold text-foreground text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1"
+                  maxLength={100}
+                />
               </div>
 
               {/* Panels Preview */}
@@ -318,9 +362,17 @@ export default function ConfirmComicPage() {
                         Panel {panel.id} Narration:
                       </div>
                       {panel.narration ? (
-                        <div className="text-sm text-foreground bg-background-secondary rounded p-3 border border-border">
-                          {panel.narration}
-                        </div>
+                        <textarea
+                          value={panel.narration}
+                          onChange={(e) => {
+                            const updatedPanels = panelsData.map(p =>
+                              p.id === panel.id ? { ...p, narration: e.target.value } : p
+                            );
+                            setPanelsData(updatedPanels);
+                          }}
+                          className="w-full text-sm text-foreground bg-background-secondary rounded p-3 border border-border focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none"
+                          rows={3}
+                        />
                       ) : (
                         <div className="text-sm text-foreground-muted italic">
                           No narration generated yet
@@ -331,13 +383,6 @@ export default function ConfirmComicPage() {
                 ))}
               </div>
 
-              {/* Panel count */}
-              <div className="mt-4 text-center">
-                <p className="text-sm text-foreground-secondary">
-                  {panelsData.length} panel{panelsData.length !== 1 ? 's' : ''} ready to publish
-                </p>
-              </div>
-
               {/* Auto-generation status */}
               {generatingNarrations && (
                 <div className="mt-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
@@ -345,26 +390,11 @@ export default function ConfirmComicPage() {
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
                     <div>
                       <p className="text-sm font-medium text-foreground">Generating narrations...</p>
-                      <p className="text-xs text-foreground-secondary">AI is creating engaging stories for each panel</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Narration completion status */}
-              {narrationsGenerated && !generatingNarrations && (
-                <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Narrations generated successfully!</p>
-                      <p className="text-xs text-foreground-secondary">Review them below or regenerate if needed</p>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Regenerate Narrations Button (only shown after generation) */}
               {narrationsGenerated && (
@@ -379,6 +409,45 @@ export default function ConfirmComicPage() {
                     </svg>
                     <span>Regenerate Narrations</span>
                   </button>
+                </div>
+              )}
+
+              {/* Generate Thumbnail Button */}
+              <div className="mt-4">
+                <button
+                  onClick={generateThumbnail}
+                  disabled={generatingThumbnail || panelsData.length === 0}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-foreground-inverse rounded-lg transition-colors font-medium"
+                >
+                  {generatingThumbnail ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
+                      <span>Generating Thumbnail...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span>{thumbnailData ? 'Regenerate Thumbnail' : 'Generate Thumbnail'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Thumbnail Preview */}
+              {thumbnailData && (
+                <div className="mt-4 p-4 bg-background-tertiary rounded-lg border-2 border-border">
+                  <p className="text-sm font-medium text-foreground-secondary mb-2">Generated Thumbnail:</p>
+                  <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border-2 border-black">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={thumbnailData}
+                      alt="Comic Thumbnail"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-foreground-muted mt-2">This thumbnail will be used for displaying your comic</p>
                 </div>
               )}
             </div>
@@ -405,40 +474,6 @@ export default function ConfirmComicPage() {
                     placeholder="Enter comic title..."
                     maxLength={100}
                   />
-                  <p className="text-xs text-foreground-muted mt-1">{title.length}/100 characters</p>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label htmlFor="description" className="block text-sm font-medium text-foreground-secondary mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background-secondary text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none"
-                    placeholder="Describe your comic story..."
-                    maxLength={500}
-                  />
-                  <p className="text-xs text-foreground-muted mt-1">{description.length}/500 characters</p>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label htmlFor="tags" className="block text-sm font-medium text-foreground-secondary mb-2">
-                    Tags
-                  </label>
-                  <input
-                    type="text"
-                    id="tags"
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background-secondary text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-                    placeholder="adventure, comedy, action (comma separated)"
-                  />
-                  <p className="text-xs text-foreground-muted mt-1">Separate tags with commas</p>
                 </div>
 
                 {/* Visibility */}

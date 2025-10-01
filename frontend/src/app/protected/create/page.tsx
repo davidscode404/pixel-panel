@@ -88,7 +88,6 @@ export default function CreatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [comicTitle, setComicTitle] = useState('Untitled');
   const [isEditing, setIsEditing] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
@@ -543,8 +542,7 @@ export default function CreatePage() {
         }));
 
       sessionStorage.setItem('comicPanelsData', JSON.stringify(panelsData));
-      sessionStorage.setItem('comicTitle', comicTitle || 'Untitled Comic');
-      
+
       console.log('✅ Comic data stored in sessionStorage, navigating to confirmation');
       router.push('/protected/confirm');
       
@@ -750,24 +748,6 @@ export default function CreatePage() {
     }
   };
 
-  const handleTitleClick = () => {
-    setIsEditingTitle(true);
-  };
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setComicTitle(e.target.value);
-  };
-
-  const handleTitleBlur = () => {
-    setIsEditingTitle(false);
-  };
-
-  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      setIsEditingTitle(false);
-    }
-  };
-
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
   return (
@@ -775,28 +755,7 @@ export default function CreatePage() {
       {!zoomedPanel ? (
         // Comic Canvas View
         <div className="h-full flex flex-col">
-          <div className="flex-shrink-0 p-4 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              {isEditingTitle ? (
-                <input
-                  type="text"
-                  value={comicTitle}
-                  onChange={handleTitleChange}
-                  onBlur={handleTitleBlur}
-                  onKeyDown={handleTitleKeyDown}
-                  className="text-2xl font-bold text-foreground bg-transparent border-b-2 border-accent focus:outline-none focus:border-accent-light"
-                  autoFocus
-                />
-              ) : (
-                <h1 
-                  className="text-2xl font-bold text-foreground drop-shadow-lg cursor-pointer hover:text-accent-light transition-colors"
-                  onClick={handleTitleClick}
-                >
-                  {comicTitle}
-                </h1>
-              )}
-              
-            </div>
+          <div className="flex-shrink-0 p-4 flex justify-end items-center">
             {/* Action Buttons - Right Side */}
             <div className="flex items-center gap-2">
               <button
@@ -907,13 +866,13 @@ export default function CreatePage() {
             {/* Combined Tools and Generate Section - Bottom */}
             <div className="bg-background-secondary p-4 flex flex-col gap-4 items-center">
               {/* Figma-style Toolbar */}
-              <div className="bg-gray-800 rounded-xl px-3 py-2 flex items-center gap-1 shadow-lg">
+              <div className="bg-background-card rounded-xl px-3 py-2 flex items-center gap-1 shadow-lg border-2 border-border">
                 <button
                   onClick={() => handleToolChange('pen')}
                   className={`p-2.5 rounded-lg transition-all ${
                     currentTool === 'pen'
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-300 hover:bg-gray-700'
+                      ? 'bg-accent text-foreground-inverse'
+                      : 'text-foreground hover:bg-background-tertiary'
                   }`}
                   title="Pen"
                 >
@@ -925,8 +884,8 @@ export default function CreatePage() {
                   onClick={() => handleToolChange('eraser')}
                   className={`p-2.5 rounded-lg transition-all ${
                     currentTool === 'eraser'
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-300 hover:bg-gray-700'
+                      ? 'bg-accent text-foreground-inverse'
+                      : 'text-foreground hover:bg-background-tertiary'
                   }`}
                   title="Eraser"
                 >
@@ -935,21 +894,21 @@ export default function CreatePage() {
                   </svg>
                 </button>
 
-                <div className="w-px h-6 bg-gray-600 mx-1"></div>
+                <div className="w-px h-6 bg-border mx-1"></div>
 
                 <input
                   type="color"
                   value={currentColor}
                   onChange={(e) => setCurrentColor(e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-2 border-gray-600"
+                  className="w-8 h-8 rounded cursor-pointer border-2 border-border"
                   title="Color"
                 />
 
-                <div className="w-px h-6 bg-gray-600 mx-1"></div>
+                <div className="w-px h-6 bg-border mx-1"></div>
 
                 <button
                   onClick={() => clearPanel(zoomedPanel.id)}
-                  className="p-2.5 rounded-lg text-gray-300 hover:bg-gray-700 transition-all"
+                  className="p-2.5 rounded-lg text-foreground hover:bg-background-tertiary transition-all"
                   title="Clear"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -959,18 +918,18 @@ export default function CreatePage() {
               </div>
 
               {/* Generate Scene Section */}
-              <div className="w-full max-w-2xl relative">
+              <div className="w-full max-w-2xl flex items-center gap-3 bg-background-card rounded-lg border-2 border-border p-3">
                 <textarea
                   value={textPrompt}
                   onChange={(e) => setTextPrompt(e.target.value)}
                   placeholder="Describe the scene..."
-                  className="w-full px-4 py-3 pr-12 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm"
+                  className="flex-1 bg-transparent text-foreground placeholder-foreground-muted focus:outline-none resize-none text-sm leading-relaxed min-h-[60px]"
                   rows={3}
                 />
                 <button
                   onClick={() => generateComicArt(zoomedPanel.id)}
                   disabled={isGenerating || !textPrompt.trim()}
-                  className="absolute bottom-3 right-3 p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-all disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  className="flex p-2.5 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-all disabled:bg-background-muted disabled:cursor-not-allowed flex items-center justify-center"
                   title="Generate"
                 >
                   {isGenerating ? (
