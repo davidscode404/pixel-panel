@@ -192,17 +192,21 @@ export default function CreatePage() {
 
     const canvas = panel.canvasRef.current;
     const dataURL = canvas.toDataURL();
-    
-    console.log(`Saving ${isLargeCanvas ? 'large' : 'small'} canvas data for panel ${panelId}:`, dataURL.substring(0, 50) + '...');
-    
-    setPanels(prev => prev.map(p => 
-      p.id === panelId 
-        ? { 
-            ...p, 
-            [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL 
-          } 
+
+    console.log(`💾 Saving ${isLargeCanvas ? 'LARGE' : 'small'} canvas data for panel ${panelId}`);
+    console.log(`   - Data URL length: ${dataURL.length}`);
+    console.log(`   - Data preview: ${dataURL.substring(0, 50)}...`);
+
+    setPanels(prev => prev.map(p =>
+      p.id === panelId
+        ? {
+            ...p,
+            [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL
+          }
         : p
     ));
+
+    console.log(`✅ Canvas state saved for panel ${panelId} (${isLargeCanvas ? 'LARGE' : 'small'})`);
   };
 
   const restoreCanvasState = (panelId: number, isLargeCanvas: boolean = false) => {
@@ -571,15 +575,26 @@ export default function CreatePage() {
       
       // Get previous panel for continuity (if exists)
       const previousPanel = panelId > 1 ? panels.find(p => p.id === panelId - 1) : null;
+      console.log(`🔍 Previous panel (${panelId - 1}):`, {
+        exists: !!previousPanel,
+        hasLargeCanvasData: !!previousPanel?.largeCanvasData,
+        hasPrompt: !!previousPanel?.prompt,
+        largeCanvasDataLength: previousPanel?.largeCanvasData?.length
+      });
+
       const previousPanelContext = previousPanel && previousPanel.largeCanvasData && previousPanel.prompt ? {
         prompt: previousPanel.prompt,
         image_data: previousPanel.largeCanvasData.split(',')[1] // Remove data:image/png;base64, prefix
       } : null;
-      
+
       // Call backend API
       console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
       if (previousPanelContext) {
         console.log(`🎯 Using previous panel context from panel ${panelId - 1}`);
+        console.log(`   - Previous prompt: ${previousPanelContext.prompt}`);
+        console.log(`   - Context image size: ${previousPanelContext.image_data.length} bytes`);
+      } else {
+        console.log(`⚠️ No previous panel context available for panel ${panelId}`);
       }
       
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
@@ -628,10 +643,16 @@ export default function CreatePage() {
             
             // Draw the image centered and scaled to fit
             ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-            
+
             // Save the new state
             saveCanvasState(panelId, true);
             updateSmallCanvasPreview(panelId);
+
+            // Save the prompt for this panel (important for context in next panels)
+            setPanels(prev => prev.map(p =>
+              p.id === panelId ? { ...p, prompt: textPrompt } : p
+            ));
+            console.log(`💾 Saved prompt for panel ${panelId}: "${textPrompt}"`);
           }
         };
         img.src = `data:image/png;base64,${result.image_data}`;

@@ -15,6 +15,8 @@ interface Panel {
   public_url: string
   file_size: number
   created_at: string
+  narration?: string
+  audio_url?: string
 }
 
 interface Comic {
@@ -36,6 +38,8 @@ export default function MyComicsPage() {
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [error, setError] = useState<string | null>(null)
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null)
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
 
   const supabase = createClient()
 
@@ -142,6 +146,52 @@ export default function MyComicsPage() {
     setImageErrors(prev => ({ ...prev, [imageId]: false }))
   }
 
+  const playAudio = (comicId: string, audioUrl: string) => {
+    // Stop any currently playing audio
+    if (audioElement) {
+      audioElement.pause()
+      audioElement.currentTime = 0
+    }
+
+    // If clicking the same audio that's playing, stop it
+    if (playingAudio === comicId) {
+      setPlayingAudio(null)
+      setAudioElement(null)
+      return
+    }
+
+    // Create and play new audio
+    const audio = new Audio(audioUrl)
+    audio.play()
+    setAudioElement(audio)
+    setPlayingAudio(comicId)
+
+    // Reset state when audio ends
+    audio.onended = () => {
+      setPlayingAudio(null)
+      setAudioElement(null)
+    }
+  }
+
+  const stopAudio = () => {
+    if (audioElement) {
+      audioElement.pause()
+      audioElement.currentTime = 0
+      setAudioElement(null)
+    }
+    setPlayingAudio(null)
+  }
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioElement) {
+        audioElement.pause()
+        audioElement.currentTime = 0
+      }
+    }
+  }, [audioElement])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -198,9 +248,14 @@ export default function MyComicsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {comics.map((comic) => {
               console.log('Rendering comic:', comic.title, 'Panels:', comic.panels?.length || 0);
+              // Find first panel with audio
+              const audioPanel = comic.panels.find(p => p.audio_url);
+              const hasAudio = !!audioPanel;
+              const isPlaying = playingAudio === comic.id;
+
               return (
-              <div 
-                key={comic.id} 
+              <div
+                key={comic.id}
                 className="group relative bg-background-card rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02] border-2 border-black shadow-lg"
                 onClick={() => openModal(comic)}
               >
@@ -234,6 +289,30 @@ export default function MyComicsPage() {
                         onError={() => handleImageError(`${comic.id}-preview`)}
                         onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
                       />
+                  )}
+
+                  {/* Play button overlay */}
+                  {hasAudio && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (audioPanel?.audio_url) {
+                          playAudio(comic.id, audioPanel.audio_url);
+                        }
+                      }}
+                      className="absolute top-2 right-2 z-20 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 transition-all duration-200 hover:scale-110"
+                      aria-label={isPlaying ? "Pause audio" : "Play audio"}
+                    >
+                      {isPlaying ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
                   )}
                 </div>
 
@@ -291,7 +370,29 @@ export default function MyComicsPage() {
                         />
                     )}
                     <div className="p-3">
-                      <p className="text-foreground text-sm font-medium">Panel {panel.panel_number}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-foreground text-sm font-medium">Panel {panel.panel_number}</p>
+                        {panel.audio_url && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playAudio(`${selectedComic.id}-panel-${panel.id}`, panel.audio_url);
+                            }}
+                            className="bg-accent hover:bg-accent-hover text-white rounded-full p-1.5 transition-all duration-200 hover:scale-110"
+                            aria-label={playingAudio === `${selectedComic.id}-panel-${panel.id}` ? "Pause audio" : "Play audio"}
+                          >
+                            {playingAudio === `${selectedComic.id}-panel-${panel.id}` ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

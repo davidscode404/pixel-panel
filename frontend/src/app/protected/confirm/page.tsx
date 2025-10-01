@@ -14,6 +14,7 @@ interface PanelData {
   prompt: string;
   image_data: string;
   is_zoomed: boolean;
+  narration?: string;
 }
 
 export default function ConfirmComicPage() {
@@ -30,6 +31,10 @@ export default function ConfirmComicPage() {
   const [panelsData, setPanelsData] = useState<PanelData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Narration states
+  const [generatingNarrations, setGeneratingNarrations] = useState(false);
+  const [narrationsGenerated, setNarrationsGenerated] = useState(false);
 
   // Load comic data from sessionStorage
   useEffect(() => {
@@ -54,12 +59,117 @@ export default function ConfirmComicPage() {
     }
   }, []);
 
+  // Auto-generate narrations when panels are loaded
+  useEffect(() => {
+    if (panelsData.length > 0 && !narrationsGenerated && !generatingNarrations) {
+      console.log('Auto-generating narrations for panels...');
+      generateNarrations();
+    }
+  }, [panelsData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const getAccessToken = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) {
       throw new Error('Authentication required');
     }
     return session.access_token;
+  };
+
+  const generateNarrations = async () => {
+    if (panelsData.length === 0) return;
+    
+    setGeneratingNarrations(true);
+    setError(null);
+    
+    try {
+      const updatedPanels = await Promise.all(
+        panelsData.map(async (panel) => {
+          try {
+            const response = await fetch(buildApiUrl('/api/voice-over/generate-story'), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ story: panel.prompt }),
+            });
+            
+            if (!response.ok) {
+              throw new Error(`Failed to generate narration for panel ${panel.id}`);
+            }
+            
+            const narrationData = await response.json();
+            const narration = narrationData.narration || narrationData.story || `Narration for: ${panel.prompt}`;
+            
+            return {
+              ...panel,
+              narration: narration
+            };
+          } catch (error) {
+            console.error(`Error generating narration for panel ${panel.id}:`, error);
+            return {
+              ...panel,
+              narration: `Narration for: ${panel.prompt}`
+            };
+          }
+        })
+      );
+      
+      setPanelsData(updatedPanels);
+      setNarrationsGenerated(true);
+    } catch (error) {
+      console.error('Error generating narrations:', error);
+      setError('Failed to generate narrations. Please try again.');
+    } finally {
+      setGeneratingNarrations(false);
+    }
+  };
+
+  const generateAudioForPanels = async () => {
+    console.log('🎵 Generating audio for all panels...');
+    console.log('🔍 Panels to process:', panelsData.map(p => ({ id: p.id, hasNarration: !!p.narration })));
+
+    const updatedPanels = await Promise.all(
+      panelsData.map(async (panel) => {
+        // Skip if no narration
+        if (!panel.narration) {
+          console.log(`⚠️ Panel ${panel.id} has no narration, skipping audio generation`);
+          return panel;
+        }
+
+        try {
+          console.log(`🎤 Generating audio for panel ${panel.id} with narration: "${panel.narration.substring(0, 50)}..."`);
+
+          const url = new URL(buildApiUrl('/api/voice-over/generate-voiceover'));
+          url.searchParams.append('narration', panel.narration);
+
+          const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            console.warn(`❌ Failed to generate audio for panel ${panel.id}: ${response.status} ${response.statusText}`);
+            return panel;
+          }
+
+          const audioData = await response.json();
+          console.log(`✅ Audio generated for panel ${panel.id}, size: ${audioData.audio?.length || 0} bytes`);
+
+          return {
+            ...panel,
+            audio_data: audioData.audio
+          };
+        } catch (error) {
+          console.error(`❌ Error generating audio for panel ${panel.id}:`, error);
+          return panel;
+        }
+      })
+    );
+
+    console.log('🔍 Updated panels with audio:', updatedPanels.map(p => ({ id: p.id, hasAudio: !!p.audio_data, audioSize: p.audio_data?.length })));
+    return updatedPanels;
   };
 
   const handleSaveComic = async () => {
@@ -79,15 +189,19 @@ export default function ConfirmComicPage() {
     try {
       const accessToken = await getAccessToken();
       
+      // Generate audio for all panels with narrations
+      console.log('🎵 Generating audio for panels...');
+      const panelsWithAudio = await generateAudioForPanels();
+      
       const payload = {
         title: title.trim(),
         description: description.trim(),
         is_public: isPublic,
         tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-        panels: panelsData
+        panels: panelsWithAudio
       };
 
-      console.log('🔍 DEBUG: Saving comic with payload:', payload);
+      console.log('🔍 DEBUG: Saving comic with payload (audio included)');
 
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_COMIC), {
         method: 'POST',
@@ -173,27 +287,46 @@ export default function ConfirmComicPage() {
               </div>
 
               {/* Panels Preview */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 {panelsData.map((panel) => (
                   <div 
                     key={panel.id}
-                    className="aspect-[4/3] bg-background-tertiary rounded-lg border-2 border-black overflow-hidden"
+                    className="bg-background-tertiary rounded-lg border-2 border-black overflow-hidden"
                   >
-                    {panel.image_data ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={panel.image_data}
-                        alt={`Panel ${panel.id}`}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-foreground-muted">
-                        <div className="text-center">
-                          <div className="text-4xl mb-2">🖼️</div>
-                          <div className="text-sm">Panel {panel.id}</div>
+                    {/* Panel Image */}
+                    <div className="aspect-[4/3] bg-background-tertiary overflow-hidden">
+                      {panel.image_data ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={panel.image_data}
+                          alt={`Panel ${panel.id}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-foreground-muted">
+                          <div className="text-center">
+                            <div className="text-4xl mb-2">🖼️</div>
+                            <div className="text-sm">Panel {panel.id}</div>
+                          </div>
                         </div>
+                      )}
+                    </div>
+                    
+                    {/* Panel Narration */}
+                    <div className="p-4 border-t border-border">
+                      <div className="text-sm font-medium text-foreground-secondary mb-2">
+                        Panel {panel.id} Narration:
                       </div>
-                    )}
+                      {panel.narration ? (
+                        <div className="text-sm text-foreground bg-background-secondary rounded p-3 border border-border">
+                          {panel.narration}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-foreground-muted italic">
+                          No narration generated yet
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -204,6 +337,50 @@ export default function ConfirmComicPage() {
                   {panelsData.length} panel{panelsData.length !== 1 ? 's' : ''} ready to publish
                 </p>
               </div>
+
+              {/* Auto-generation status */}
+              {generatingNarrations && (
+                <div className="mt-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Generating narrations...</p>
+                      <p className="text-xs text-foreground-secondary">AI is creating engaging stories for each panel</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Narration completion status */}
+              {narrationsGenerated && !generatingNarrations && (
+                <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Narrations generated successfully!</p>
+                      <p className="text-xs text-foreground-secondary">Review them below or regenerate if needed</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Regenerate Narrations Button (only shown after generation) */}
+              {narrationsGenerated && (
+                <div className="mt-4">
+                  <button
+                    onClick={generateNarrations}
+                    disabled={generatingNarrations}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-background-secondary hover:bg-background-tertiary disabled:opacity-50 text-foreground rounded-lg transition-colors font-medium border border-border"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Regenerate Narrations</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -314,7 +491,7 @@ export default function ConfirmComicPage() {
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
-                      <span>Publishing...</span>
+                      <span>Publishing (generating audio)...</span>
                     </>
                   ) : (
                     <>

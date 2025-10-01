@@ -107,6 +107,8 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
                     'image_data': p.image_data,
                     'prompt': p.prompt,
                     'is_zoomed': p.is_zoomed,
+                    'narration': getattr(p, 'narration', None),
+                    'audio_data': getattr(p, 'audio_data', None)
                 }
                 for p in panels_data
             ]
@@ -117,6 +119,10 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         print(f"🔍 DEBUG: Prepared panels_payload count: {len(panels_payload)}")
         if panels_payload:
             print(f"🔍 DEBUG: First panel keys: {list(panels_payload[0].keys())}")
+            print(f"🔍 DEBUG: First panel has narration: {bool(panels_payload[0].get('narration'))}")
+            print(f"🔍 DEBUG: First panel has audio_data: {bool(panels_payload[0].get('audio_data'))}")
+            if panels_payload[0].get('audio_data'):
+                print(f"🔍 DEBUG: First panel audio_data length: {len(panels_payload[0]['audio_data'])}")
 
         # Use the authenticated user's ID
         user_id = current_user.get('id')

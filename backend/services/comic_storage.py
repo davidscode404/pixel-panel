@@ -60,14 +60,43 @@ class ComicStorageService:
                     
                     # Get public URL
                     public_url = self.supabase.storage.from_(self.bucket_name).get_public_url(storage_path)
-                    
+
+                    # Handle audio if available
+                    audio_url = None
+                    narration = panel_data.get('narration')
+                    audio_data = panel_data.get('audio_data')
+
+                    if audio_data:
+                        audio_storage_path = f"users/{user_id}/comics/{comic_id}/audio/panel_{panel_id}.mp3"
+
+                        try:
+                            # Convert base64 to bytes
+                            audio_bytes = base64.b64decode(audio_data)
+
+                            # Upload audio to storage with upsert to allow overwriting
+                            self.supabase.storage.from_(self.bucket_name).upload(
+                                path=audio_storage_path,
+                                file=audio_bytes,
+                                file_options={"content-type": "audio/mpeg", "upsert": "true"}
+                            )
+
+                            # Get public URL for audio
+                            audio_url = self.supabase.storage.from_(self.bucket_name).get_public_url(audio_storage_path)
+                            print(f"🎵 Audio uploaded for panel {panel_id}: {audio_url}")
+                        except Exception as audio_err:
+                            print(f"⚠️ Failed to upload audio for panel {panel_id}: {audio_err}")
+                            import traceback
+                            traceback.print_exc()
+
                     # Save panel metadata to database
                     self.supabase.table('comic_panels').insert({
                         'comic_id': comic_id,
                         'panel_number': panel_id,
                         'storage_path': storage_path,
                         'public_url': public_url,
-                        'file_size': len(image_bytes)
+                        'file_size': len(image_bytes),
+                        'narration': narration,
+                        'audio_url': audio_url
                     }).execute()
 
                     # Keep PIL image for composite

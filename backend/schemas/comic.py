@@ -8,6 +8,8 @@ class PanelData(BaseModel):
     prompt: str
     image_data: str
     is_zoomed: bool = False
+    narration: Optional[str] = None
+    audio_data: Optional[str] = None  # Base64 encoded audio
 
 class PreviousPanelContext(BaseModel):
     """Context from the previous panel for continuity"""
