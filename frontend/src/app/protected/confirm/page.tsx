@@ -383,7 +383,6 @@ export default function ConfirmComicPage() {
                 ))}
               </div>
 
-              {/* Auto-generation status */}
               {generatingNarrations && (
                 <div className="mt-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
                   <div className="flex items-center space-x-3">
