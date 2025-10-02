@@ -37,7 +37,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-stone-900 to-stone-800">
+    <div className="min-h-screen flex flex-col animated-gradient">
       <div className="flex-1 p-8 sm:p-12">
         {/* Auth buttons in top right */}
         <div className="absolute top-4 right-4 flex gap-2">
