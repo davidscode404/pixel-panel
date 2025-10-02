@@ -8,6 +8,8 @@ class PanelData(BaseModel):
     prompt: str
     image_data: str
     is_zoomed: bool = False
+    narration: Optional[str] = None
+    audio_data: Optional[str] = None  # Base64 encoded audio
 
 class PreviousPanelContext(BaseModel):
     """Context from the previous panel for continuity"""
@@ -23,6 +25,10 @@ class ComicArtRequest(BaseModel):
 class ComicRequest(BaseModel):
     title: str
     panels: List[PanelData]
+    thumbnail_data: Optional[str] = None  # Base64 encoded thumbnail image
+
+class ThumbnailRequest(BaseModel):
+    prompts: List[str]  # List of prompts to generate thumbnail from
 
 class ComicCreate(BaseModel):
     """Schema for creating a new comic (API request)"""

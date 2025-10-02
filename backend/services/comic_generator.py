@@ -7,6 +7,7 @@ import os
 import sys
 import base64
 import tempfile
+import io
 import google.generativeai as genai
 from PIL import Image
 from io import BytesIO
@@ -114,30 +115,23 @@ class ComicArtGenerator:
                 reference_image.save(img_buffer, format='PNG')
                 img_bytes = img_buffer.getvalue()
                 print(f"📦 Reference image size: {len(img_bytes)} bytes")
-                
+
                 # Create multimodal content with image and text
-                contents = [
-                    {
-                        "inline_data": {
-                            "mime_type": "image/png",
-                            "data": base64.b64encode(img_bytes).decode('utf-8')
-                        }
-                    },
-                    {
-                        "text": f"{system_prompt}\n\nText prompt: {text_prompt}"
-                    }
+                # Convert image bytes to PIL Image for the API
+                img = Image.open(io.BytesIO(img_bytes))
+
+                # Create the prompt with image
+                prompt_parts = [
+                    img,
+                    f"{system_prompt}\n\nText prompt: {text_prompt}"
                 ]
-                
+
                 # Add context image if available
                 if has_context:
                     try:
                         context_img_bytes = base64.b64decode(context_image_data)
-                        contents.insert(0, {
-                            "inline_data": {
-                                "mime_type": "image/png",
-                                "data": base64.b64encode(context_img_bytes).decode('utf-8')
-                            }
-                        })
+                        context_img = Image.open(io.BytesIO(context_img_bytes))
+                        prompt_parts.insert(0, context_img)
                         print(f"🖼️ Added context image to generation (size: {len(context_img_bytes)} bytes)")
                     except Exception as e:
                         print(f"⚠️ Error processing context image: {e}")
@@ -152,32 +146,26 @@ class ComicArtGenerator:
                 # Context-only generation (no reference sketch)
                 try:
                     context_img_bytes = base64.b64decode(context_image_data)
-                    contents = [
-                        {
-                            "inline_data": {
-                                "mime_type": "image/png",
-                                "data": base64.b64encode(context_img_bytes).decode('utf-8')
-                            }
-                        },
-                        {
-                            "text": f"{system_prompt}\n\nText prompt: {text_prompt}"
-                        }
+                    context_img = Image.open(io.BytesIO(context_img_bytes))
+                    prompt_parts = [
+                        context_img,
+                        f"{system_prompt}\n\nText prompt: {text_prompt}"
                     ]
                     print(f"🔄 Generating comic art with context image only (size: {len(context_img_bytes)} bytes)...")
                 except Exception as e:
                     print(f"⚠️ Error processing context image: {e}")
-                    contents = f"{system_prompt}\n\nText prompt: {text_prompt}"
+                    prompt_parts = f"{system_prompt}\n\nText prompt: {text_prompt}"
                     print("🔄 Generating comic art from text prompt (context failed)...")
             else:
                 # Text-only generation
-                contents = f"{system_prompt}\n\nText prompt: {text_prompt}"
+                prompt_parts = f"{system_prompt}\n\nText prompt: {text_prompt}"
                 print("🔄 Generating comic art from text prompt...")
         
         print("⏳ This may take 30-60 seconds...")
         
         try:
             model = self.client.GenerativeModel("gemini-2.5-flash-image-preview")
-            response = model.generate_content(contents)
+            response = model.generate_content(prompt_parts)
             
             print("✅ API request successful!")
             

@@ -1,12 +1,14 @@
 # backend/api/comics.py
 from fastapi import APIRouter, Depends, HTTPException, Request
-from schemas.comic import ComicArtRequest, ComicResponse, ComicRequest
+from schemas.comic import ComicArtRequest, ComicRequest, ThumbnailRequest
 from services.comic_storage import ComicStorageService
 from services.comic_generator import ComicArtGenerator
 from auth_shared import get_current_user
 import json
 import base64
 import os
+from PIL import Image
+import io
 
 router = APIRouter(prefix="/api/comics", tags=["comics"])
 
@@ -68,6 +70,53 @@ async def generate_comic_art(request: ComicArtRequest):
             detail=f"Error generating comic art: {str(e)}"
         )
 
+@router.post("/generate-thumbnail")
+async def generate_thumbnail(request: ThumbnailRequest):
+    """
+    Generate a thumbnail image based on comic prompts
+    Returns a 3:4 aspect ratio image suitable for comic book covers
+    """
+    try:
+        # Combine all prompts into a single prompt for thumbnail generation
+        combined_prompt = f"Comic book cover art featuring: {', '.join(request.prompts[:3])}"  # Use first 3 prompts
+        print(f"🔍 DEBUG: Generating thumbnail with prompt: {combined_prompt}")
+
+        # Generate comic art using the service
+        if not comic_generator:
+            raise HTTPException(
+                status_code=500,
+                detail="Comic art generator not initialized"
+            )
+
+        # Generate the thumbnail
+        image = comic_generator.generate_comic_art(combined_prompt, None, None)
+
+        # Resize to 3:4 aspect ratio (e.g., 600x800)
+        target_width = 600
+        target_height = 800
+        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+        # Convert image to base64 for response
+        img_base64 = comic_generator.image_to_base64(image)
+
+        print(f"✅ Generated thumbnail successfully")
+
+        return {
+            'success': True,
+            'thumbnail_data': img_base64,
+            'message': 'Thumbnail generated successfully'
+        }
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Error in generate thumbnail endpoint: {e}")
+        print(f"📋 Full traceback: {error_details}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating thumbnail: {str(e)}"
+        )
+
 @router.post("/save-comic")
 async def save_comic(raw_request: Request, current_user: dict = Depends(get_current_user)):
     """
@@ -91,38 +140,39 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
             raise HTTPException(status_code=422, detail="Missing required field: panels or panels_data")
         
         print(f"✅ Extracted - comic_title: {comic_title}, panels_count: {len(panels_data)}")
-        
-        # Normalize panel data to handle different frontend formats
-        normalized_panels = []
-        for panel in panels_data:
-            # Handle both old format (image_data) and new format (largeCanvasData)
-            image_data = panel.get('image_data') or panel.get('largeCanvasData')
-            if not image_data:
-                print(f"⚠️ Panel {panel.get('id')} missing image data")
-                continue
-                
-            normalized_panel = {
-                'id': panel.get('id', 1),
-                'prompt': panel.get('prompt', f"Panel {panel.get('id', 1)}"),
-                'image_data': image_data,
-                'is_zoomed': panel.get('is_zoomed', False)
-            }
-            normalized_panels.append(normalized_panel)
-        
-        if not normalized_panels:
-            raise HTTPException(status_code=400, detail="No valid panels with image data found")
-        
-        user_id = current_user.get('id')
-        print(f"🔍 DEBUG: User ID: {user_id}")
-        
-        # Use the normalized panels directly
-        panels_payload = normalized_panels
+
+        # Convert Pydantic models to plain dicts for the storage layer, supporting voice-over features
+        try:
+            panels_payload = [
+                {
+                    'id': p.id if hasattr(p, 'id') else p.get('id', 1),
+                    'image_data': p.image_data if hasattr(p, 'image_data') else (p.get('image_data') or p.get('largeCanvasData')),
+                    'prompt': p.prompt if hasattr(p, 'prompt') else p.get('prompt', f"Panel {p.get('id', 1)}"),
+                    'is_zoomed': p.is_zoomed if hasattr(p, 'is_zoomed') else p.get('is_zoomed', False),
+                    'narration': getattr(p, 'narration', None) if hasattr(p, 'narration') else p.get('narration'),
+                    'audio_data': getattr(p, 'audio_data', None) if hasattr(p, 'audio_data') else p.get('audio_data')
+                }
+                for p in panels_data
+            ]
+        except Exception as conv_err:
+            print(f"❌ Error converting panel data to dicts: {conv_err}")
+            raise HTTPException(status_code=400, detail=f"Invalid panels data: {conv_err}")
 
         print(f"🔍 DEBUG: Prepared panels_payload count: {len(panels_payload)}")
         if panels_payload:
             print(f"🔍 DEBUG: First panel keys: {list(panels_payload[0].keys())}")
+            print(f"🔍 DEBUG: First panel has narration: {bool(panels_payload[0].get('narration'))}")
+            print(f"🔍 DEBUG: First panel has audio_data: {bool(panels_payload[0].get('audio_data'))}")
+            if panels_payload[0].get('audio_data'):
+                print(f"🔍 DEBUG: First panel audio_data length: {len(panels_payload[0]['audio_data'])}")
 
-        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload)
+        # Use the authenticated user's ID
+        user_id = current_user.get('id')
+
+        # Get thumbnail data if provided
+        thumbnail_data = raw_data.get('thumbnail_data')
+
+        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload, thumbnail_data)
     except HTTPException:
         raise
     except Exception as e:
@@ -164,6 +214,36 @@ async def get_public_comics():
         
     except Exception as e:
         print(f"❌ Error fetching public comics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/{comic_id}/visibility")
+async def update_comic_visibility(comic_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    """
+    Update comic visibility (public/private)
+    Requires authentication via JWT token
+    """
+    try:
+        user_id = current_user.get('id')
+        raw_data = await request.json()
+        is_public = raw_data.get('is_public', False)
+
+        print(f"🔍 DEBUG: Updating comic {comic_id} visibility to {is_public} for user {user_id}")
+
+        # Update comic visibility in database
+        response = comic_storage_service.supabase.table('comics').update({
+            'is_public': is_public
+        }).eq('id', comic_id).eq('user_id', user_id).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail='Comic not found or unauthorized')
+
+        print(f"✅ Updated comic {comic_id} visibility to {is_public}")
+        return {'success': True, 'is_public': is_public}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating comic visibility: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/list-comics")

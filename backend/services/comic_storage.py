@@ -17,7 +17,7 @@ class ComicStorageService:
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
         self.bucket_name = "PixelPanel"
     
-    async def save_comic(self, user_id: str, comic_title: str, panels_data: List[dict]) -> str:
+    async def save_comic(self, user_id: str, comic_title: str, panels_data: List[dict], thumbnail_data: Optional[str] = None) -> str:
         """
         Save a complete comic with all panels
         Returns the comic_id and composite public URL
@@ -60,14 +60,43 @@ class ComicStorageService:
                     
                     # Get public URL
                     public_url = self.supabase.storage.from_(self.bucket_name).get_public_url(storage_path)
-                    
+
+                    # Handle audio if available
+                    audio_url = None
+                    narration = panel_data.get('narration')
+                    audio_data = panel_data.get('audio_data')
+
+                    if audio_data:
+                        audio_storage_path = f"users/{user_id}/comics/{comic_id}/audio/panel_{panel_id}.mp3"
+
+                        try:
+                            # Convert base64 to bytes
+                            audio_bytes = base64.b64decode(audio_data)
+
+                            # Upload audio to storage with upsert to allow overwriting
+                            self.supabase.storage.from_(self.bucket_name).upload(
+                                path=audio_storage_path,
+                                file=audio_bytes,
+                                file_options={"content-type": "audio/mpeg", "upsert": "true"}
+                            )
+
+                            # Get public URL for audio
+                            audio_url = self.supabase.storage.from_(self.bucket_name).get_public_url(audio_storage_path)
+                            print(f"🎵 Audio uploaded for panel {panel_id}: {audio_url}")
+                        except Exception as audio_err:
+                            print(f"⚠️ Failed to upload audio for panel {panel_id}: {audio_err}")
+                            import traceback
+                            traceback.print_exc()
+
                     # Save panel metadata to database
                     self.supabase.table('comic_panels').insert({
                         'comic_id': comic_id,
                         'panel_number': panel_id,
                         'storage_path': storage_path,
                         'public_url': public_url,
-                        'file_size': len(image_bytes)
+                        'file_size': len(image_bytes),
+                        'narration': narration,
+                        'audio_url': audio_url
                     }).execute()
 
                     # Keep PIL image for composite
@@ -82,9 +111,20 @@ class ComicStorageService:
                     except Exception as pil_err:
                         print(f"Warning: failed to open panel {panel_id} for composite: {pil_err}")
             
-            # 3. Create composite image (grid: 2 columns, rows as needed)
+            # 3. Create thumbnail/composite image
             composite_public_url: Optional[str] = None
-            if panel_images:
+            thumbnail_bytes = None
+
+            # Use custom thumbnail if provided, otherwise create composite
+            if thumbnail_data:
+                print(f"📸 Using custom thumbnail")
+                # Handle both data URL format and raw base64
+                if thumbnail_data.startswith('data:'):
+                    thumbnail_bytes = base64.b64decode(thumbnail_data.split(',')[1])
+                else:
+                    thumbnail_bytes = base64.b64decode(thumbnail_data)
+            elif panel_images:
+                print(f"📸 Creating composite thumbnail from panels")
                 # Sort by panel number to place in order
                 panel_images.sort(key=lambda t: t[0])
                 _, first_img = panel_images[0]
@@ -100,24 +140,25 @@ class ComicStorageService:
                 # Save composite to bytes
                 buf = BytesIO()
                 composite.save(buf, format="PNG")
-                composite_bytes = buf.getvalue()
+                thumbnail_bytes = buf.getvalue()
 
-                # Upload composite
-                composite_path = f"users/{user_id}/comics/{comic_id}/comic_full.png"
+            if thumbnail_bytes:
+                # Upload thumbnail/composite
+                composite_path = f"users/{user_id}/comics/{comic_id}/thumbnail.png"
                 self.supabase.storage.from_(self.bucket_name).upload(
                     path=composite_path,
-                    file=composite_bytes,
+                    file=thumbnail_bytes,
                     file_options={"content-type": "image/png", "upsert": "true"}
                 )
                 composite_public_url = self.supabase.storage.from_(self.bucket_name).get_public_url(composite_path)
 
-                # Store composite as a special panel_number 0 record
+                # Store thumbnail as a special panel_number 0 record
                 self.supabase.table('comic_panels').insert({
                     'comic_id': comic_id,
                     'panel_number': 0,
                     'storage_path': composite_path,
                     'public_url': composite_public_url,
-                    'file_size': len(composite_bytes)
+                    'file_size': len(thumbnail_bytes)
                 }).execute()
             
             return {"comic_id": comic_id, "composite_public_url": composite_public_url}
@@ -130,7 +171,7 @@ class ComicStorageService:
         """Get all comics for a user"""
         response = self.supabase.table('comics').select("""
             id, title, is_public, created_at, updated_at,
-            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at)
+            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at, narration, audio_url)
         """).eq('user_id', user_id).order('created_at', desc=True).execute()
         
         return response.data
@@ -139,7 +180,7 @@ class ComicStorageService:
         """Get all public comics from all users"""
         response = self.supabase.table('comics').select("""
             id, title, user_id, is_public, created_at, updated_at,
-            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at)
+            comic_panels(id, panel_number, public_url, storage_path, file_size, created_at, narration, audio_url)
         """).eq('is_public', True).order('created_at', desc=True).execute()
         
         return response.data

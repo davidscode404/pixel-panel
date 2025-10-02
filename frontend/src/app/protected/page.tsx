@@ -9,11 +9,11 @@ export default function ProtectedPage() {
   useEffect(() => {
     // Check localStorage for the last visited page
     const lastVisitedPage = localStorage.getItem('lastVisitedPage')
-    
+
     // If user was on a specific page, redirect back to it
     if (lastVisitedPage && lastVisitedPage !== '/protected') {
       router.replace(lastVisitedPage)
-    } 
+    }
     // Default to explore page for new users or direct navigation
     else {
       router.replace('/protected/explore')

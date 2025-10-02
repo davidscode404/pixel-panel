@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import ComicDetailModal from '@/components/ComicDetailModal'
 
 interface Panel {
   id: string
@@ -15,6 +15,8 @@ interface Panel {
   public_url: string
   file_size: number
   created_at: string
+  narration?: string
+  audio_url?: string
 }
 
 interface Comic {
@@ -28,13 +30,16 @@ interface Comic {
 }
 
 export default function MyComicsPage() {
-  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [comics, setComics] = useState<Comic[]>([])
   const [loading, setLoading] = useState(true)
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
-  const [error] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null)
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
+  const [selectedComic, setSelectedComic] = useState<Comic | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   const supabase = createClient()
 
@@ -132,6 +137,43 @@ export default function MyComicsPage() {
     setImageErrors(prev => ({ ...prev, [imageId]: false }))
   }
 
+  const playAudio = (comicId: string, audioUrl: string) => {
+    // Stop any currently playing audio
+    if (audioElement) {
+      audioElement.pause()
+      audioElement.currentTime = 0
+    }
+
+    // If clicking the same audio that's playing, stop it
+    if (playingAudio === comicId) {
+      setPlayingAudio(null)
+      setAudioElement(null)
+      return
+    }
+
+    // Create and play new audio
+    const audio = new Audio(audioUrl)
+    audio.play()
+    setAudioElement(audio)
+    setPlayingAudio(comicId)
+
+    // Reset state when audio ends
+    audio.onended = () => {
+      setPlayingAudio(null)
+      setAudioElement(null)
+    }
+  }
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioElement) {
+        audioElement.pause()
+        audioElement.currentTime = 0
+      }
+    }
+  }, [audioElement])
+
   const formatComicTitle = (title: string | undefined): string => {
     if (!title) return 'Unknown Comic';
     return title
@@ -139,6 +181,16 @@ export default function MyComicsPage() {
       .split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
+  };
+
+  const openModal = (comic: Comic) => {
+    setSelectedComic(comic);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedComic(null);
   };
 
 
@@ -182,8 +234,8 @@ export default function MyComicsPage() {
   }
 
   return (
-    <div className="w-full h-full px-2">
-      <div className="max-w-7xl mx-auto">
+    <div className="w-full h-full overflow-auto">
+      <div className="max-w-7xl mx-auto px-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>My Comics</h1>
           <p style={{ color: 'var(--foreground-secondary)' }}>
@@ -216,32 +268,22 @@ export default function MyComicsPage() {
             </div>
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-1 space-y-1 w-full">
+          <div className="columns-2 md:columns-5 lg:columns-5 xl:columns-5 gap-6 space-y-6 w-full">
             {comics.map((comic, index) => {
               console.log('Rendering comic:', comic.title, 'Panels:', comic.panels?.length || 0);
-              
-              // Create varying heights for comic-like layout (same as explore page)
-              const heights = ['h-48', 'h-64', 'h-56', 'h-72', 'h-40', 'h-80'];
-              const randomHeight = heights[index % heights.length];
-              
+              // Find first panel with audio
+              const audioPanel = comic.panels.find(p => p.audio_url);
+              const hasAudio = !!audioPanel;
+              const isPlaying = playingAudio === comic.id;
+
               return (
-              <div 
-                key={comic.id} 
-                className={`group border overflow-hidden transition-colors relative break-inside-avoid mb-1 ${randomHeight} cursor-pointer`}
-                style={{
-                  backgroundColor: 'var(--background-card)',
-                  borderColor: 'var(--border)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--accent)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)'
-                }}
-                onClick={() => router.push(`/preview/${comic.id}`)}
+              <div
+                key={comic.id}
+                className="group relative bg-background-card overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02] border-4 border-black"
+                onClick={() => openModal(comic)}
               >
                 {/* Image */}
-                <div className="relative w-full aspect-[4/3]">
+                <div className="relative w-full aspect-[3/4]">
                   {imageLoading[`${comic.id}-preview`] && (
                     <div className="absolute inset-0 bg-background-tertiary flex items-center justify-center z-10">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
@@ -276,7 +318,7 @@ export default function MyComicsPage() {
                         );
                       } else {
                         return (
-                          <img
+                          <Image
                             src={imageUrl}
                             alt={formatComicTitle(comic.title)}
                             className="w-full h-full object-cover"
@@ -287,6 +329,30 @@ export default function MyComicsPage() {
                         );
                       }
                     })()
+                  )}
+
+                  {/* Play button overlay */}
+                  {hasAudio && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (audioPanel?.audio_url) {
+                          playAudio(comic.id, audioPanel.audio_url);
+                        }
+                      }}
+                      className="absolute top-2 right-2 z-20 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 transition-all duration-200 hover:scale-110"
+                      aria-label={isPlaying ? "Pause audio" : "Play audio"}
+                    >
+                      {isPlaying ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </button>
                   )}
                 </div>
 
@@ -304,7 +370,15 @@ export default function MyComicsPage() {
           </div>
         )}
 
-
+        {/* Modal for viewing comic details */}
+        {selectedComic && (
+          <ComicDetailModal
+            comic={selectedComic}
+            isOpen={showModal}
+            onClose={closeModal}
+            showVisibilityToggle={true}
+          />
+        )}
       </div>
     </div>
   )

@@ -37,8 +37,8 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800">
-      <div className="max-w-md w-full space-y-8 p-8">
+    <div className="min-h-screen flex items-center justify-center animated-gradient">
+      <div className="max-w-md w-full space-y-8 p-8 bg-background/80 backdrop-blur-sm rounded-lg shadow-lg">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-foreground mb-2">Sign Up</h2>
           <p className="text-foreground-secondary">Join PixelPanel today</p>
