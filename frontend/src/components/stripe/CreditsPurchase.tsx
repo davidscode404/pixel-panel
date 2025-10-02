@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { createClient } from '@/lib/supabase/client';
+import { buildApiUrl, API_CONFIG } from '@/config/api';
 
 interface CreditsPurchaseProps {
   onSuccess?: () => void;
@@ -19,6 +20,7 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
   const [selectedPackage, setSelectedPackage] = useState(CREDIT_PACKAGES[1]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   
   const stripe = useStripe();
   const elements = useElements();
@@ -35,17 +37,23 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
     setError(null);
 
     try {
-      // Get current user
+      // Get current user and session
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('Please sign in to purchase credits');
       }
 
-      // Create payment intent on your backend
-      const response = await fetch('/api/stripe/create-payment-intent', {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      // Create payment intent on FastAPI backend
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.CREATE_PAYMENT_INTENT), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           packageId: selectedPackage.id,
@@ -71,81 +79,138 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
       }
 
       // Success!
-      onSuccess?.();
+      setSuccess(true);
+      setError(null);
+      
+      // Wait a moment before calling onSuccess to show the success message
+      setTimeout(() => {
+        onSuccess?.();
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed');
+      setSuccess(false);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-stone-800 rounded-lg">
-      <h2 className="text-2xl font-bold text-amber-50 mb-6">Purchase Credits</h2>
-      
-      {/* Credit Packages */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        {CREDIT_PACKAGES.map((pkg) => (
-          <button
-            key={pkg.id}
-            onClick={() => setSelectedPackage(pkg)}
-            className={`p-3 rounded-lg border-2 transition-colors ${
-              selectedPackage.id === pkg.id
-                ? 'border-amber-500 bg-amber-500/10'
-                : 'border-stone-600 hover:border-stone-500'
-            } ${pkg.popular ? 'ring-2 ring-amber-500' : ''}`}
-          >
-            {pkg.popular && (
-              <div className="text-xs text-amber-400 font-semibold mb-1">POPULAR</div>
-            )}
-            <div className="text-white font-semibold">{pkg.name}</div>
-            <div className="text-amber-400 font-bold">${pkg.price}</div>
-            <div className="text-xs text-stone-400">{pkg.credits} credits</div>
-          </button>
-        ))}
-      </div>
-
-      {/* Payment Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="p-4 bg-stone-700 rounded-lg">
-          <label className="block text-sm font-medium text-stone-300 mb-2">
-            Card Information
-          </label>
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#ffffff',
-                  '::placeholder': {
-                    color: '#a78bfa',
-                  },
-                },
-                invalid: {
-                  color: '#ef4444',
-                },
-              },
-            }}
-          />
+    <div className="max-w-2xl mx-auto">
+      <div className="p-8 rounded-lg border" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>
+            Purchase Credits
+          </h2>
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: 'var(--success)', color: 'white' }}>
+            <span>Secure Payment</span>
+          </div>
+        </div>
+        
+        {/* Credit Packages */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {CREDIT_PACKAGES.map((pkg) => (
+            <button
+              key={pkg.id}
+              onClick={() => setSelectedPackage(pkg)}
+              className="relative p-4 rounded-lg border-2 transition-all hover:shadow-lg"
+              style={{
+                borderColor: selectedPackage.id === pkg.id ? 'var(--accent)' : 'var(--border)',
+                backgroundColor: selectedPackage.id === pkg.id ? 'var(--background-secondary)' : 'var(--background)',
+              }}
+            >
+              {pkg.popular && (
+                <div 
+                  className="absolute -top-2 left-1/2 transform -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: 'var(--accent)', color: 'var(--foreground-on-accent)' }}
+                >
+                  POPULAR
+                </div>
+              )}
+              <div className="text-center">
+                <div className="font-bold text-lg mb-1" style={{ color: 'var(--foreground)' }}>
+                  {pkg.name}
+                </div>
+                <div className="text-2xl font-bold mb-1" style={{ color: 'var(--accent)' }}>
+                  ${pkg.price}
+                </div>
+                <div className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
+                  ${(pkg.price / pkg.credits).toFixed(2)} per credit
+                </div>
+              </div>
+            </button>
+          ))}
         </div>
 
-        {error && (
-          <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded-lg">
-            {error}
+        {/* Payment Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border)' }}>
+            <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--foreground)' }}>
+              Card Information
+            </label>
+            <div className="p-3 rounded border" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
+              <CardElement
+                options={{
+                  style: {
+                    base: {
+                      fontSize: '16px',
+                      color: '#0f172a', // Will work in light mode
+                      '::placeholder': {
+                        color: '#64748b',
+                      },
+                    },
+                    invalid: {
+                      color: '#ef4444',
+                    },
+                  },
+                  hidePostalCode: true,
+                }}
+              />
+            </div>
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={!stripe || loading}
-          className="w-full bg-amber-600 text-white py-3 px-4 rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Processing...' : `Pay $${selectedPackage.price}`}
-        </button>
-      </form>
+          {success && (
+            <div className="p-3 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'var(--success)', color: 'var(--success)' }}>
+              <div className="text-sm font-semibold">
+                Payment successful! Your credits will be added shortly.
+              </div>
+            </div>
+          )}
 
-      <div className="mt-4 text-xs text-stone-400 text-center">
-        Secure payment powered by Stripe
+          {error && !success && (
+            <div className="p-3 rounded-lg border" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--error)', color: 'var(--error)' }}>
+              <div className="text-sm">{error}</div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={!stripe || loading || success}
+            className="w-full py-4 px-6 rounded-lg font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{
+              backgroundColor: 'var(--accent)',
+              color: 'var(--foreground-on-accent)',
+            }}
+          >
+            {loading ? (
+              'Processing...'
+            ) : success ? (
+              'Payment Successful!'
+            ) : (
+              `Pay $${selectedPackage.price} - Get ${selectedPackage.credits} Credits`
+            )}
+          </button>
+        </form>
+
+        {/* Security Badges */}
+        <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-center gap-6 text-xs" style={{ color: 'var(--foreground-muted)' }}>
+            <span>SSL Encrypted</span>
+            <span>•</span>
+            <span>PCI Compliant</span>
+            <span>•</span>
+            <span>Powered by Stripe</span>
+          </div>
+        </div>
       </div>
     </div>
   );

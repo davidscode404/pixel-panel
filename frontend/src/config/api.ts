@@ -12,6 +12,9 @@ export const API_CONFIG = {
     LIST_COMICS: '/api/comics/list-comics',  // New endpoint for saved-comics directory
     GENERATE_VOICE: '/api/voice-over/generate-voiceover',
     
+    // Stripe endpoints
+    CREATE_PAYMENT_INTENT: '/create-payment-intent',
+    
     // Legacy endpoints (still needed for compatibility)
     LOAD_COMIC: '/load-comic',  // Legacy endpoint in main.py
     SAVE_PANEL: '/save-panel',  // Legacy endpoint (if still needed)
@@ -19,6 +22,9 @@ export const API_CONFIG = {
     GENERATE_COMIC: '/generate-comic'  // Legacy endpoint (if still needed)
   }
 };
+
+// Export BASE_URL for direct use
+export const API_URL = API_CONFIG.BASE_URL;
 
 // Simple cache for API responses
 const apiCache = new Map<string, { data: unknown; timestamp: number }>();
