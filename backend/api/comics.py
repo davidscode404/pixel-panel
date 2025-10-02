@@ -229,6 +229,36 @@ async def update_comic_visibility(comic_id: str, request: Request, current_user:
 
         print(f"🔍 DEBUG: Updating comic {comic_id} visibility to {is_public} for user {user_id}")
 
+        # If trying to make public, validate that comic is complete
+        if is_public:
+            # Get comic data to validate completeness
+            comic_response = comic_storage_service.supabase.table('comics').select("""
+                id, title, user_id, is_public, created_at, updated_at,
+                comic_panels(id, panel_number, public_url, storage_path, file_size, created_at, narration, audio_url)
+            """).eq('id', comic_id).eq('user_id', user_id).execute()
+            
+            if not comic_response.data:
+                raise HTTPException(status_code=404, detail='Comic not found or unauthorized')
+            
+            comic_data = comic_response.data[0]
+            panels = comic_data.get('comic_panels', [])
+            
+            # Validate comic completeness
+            has_title = comic_data.get('title') and comic_data.get('title').strip()
+            has_narrations = all(
+                panel.get('narration') and panel.get('narration').strip() 
+                for panel in panels 
+                if panel.get('panel_number', 0) > 0  # Exclude panel 0 (thumbnail)
+            )
+            has_thumbnail = any(panel.get('panel_number') == 0 for panel in panels)
+            
+            if not has_title:
+                raise HTTPException(status_code=400, detail='Cannot publish: Comic title is required')
+            if not has_narrations:
+                raise HTTPException(status_code=400, detail='Cannot publish: All panels must have narrations')
+            if not has_thumbnail:
+                raise HTTPException(status_code=400, detail='Cannot publish: Comic thumbnail is required')
+
         # Update comic visibility in database
         response = comic_storage_service.supabase.table('comics').update({
             'is_public': is_public

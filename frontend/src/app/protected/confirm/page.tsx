@@ -97,7 +97,13 @@ export default function ConfirmComicPage() {
             }
             
             const narrationData = await response.json();
-            const narration = narrationData.narration || narrationData.story || `Narration for: ${panel.prompt}`;
+            let narration = narrationData.story || narrationData.narration || `Narration for: ${panel.prompt}`;
+            
+            // Ensure narration is a string, not an object
+            if (typeof narration !== 'string') {
+              console.warn(`Narration for panel ${panel.id} is not a string:`, narration);
+              narration = `Narration for: ${panel.prompt}`;
+            }
             
             return {
               ...panel,
