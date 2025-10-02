@@ -7,16 +7,7 @@ import Link from 'next/link';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { createClient } from '@/lib/supabase/client';
-
-interface ComicPanel {
-  id: string;
-  panel_number: number;
-  display_number: number;
-  public_url: string;
-  storage_path: string;
-  file_size: number;
-  created_at: string;
-}
+import type { ComicPanel } from '@/types';
 
 interface ComicData {
   success: boolean;
@@ -66,21 +57,15 @@ export default function ComicPreview() {
       setLoading(true);
       setError(null);
       
-      console.log('Loading comic with ID:', comicId);
-      
       // First try to get the comic from public comics
       let response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.PUBLIC_COMICS));
       
       if (response.ok) {
         const publicData = await response.json();
-        console.log('Public comics data:', publicData);
         
         if (publicData.comics && Array.isArray(publicData.comics)) {
           const comic = publicData.comics.find((c: any) => c.id === comicId);
           if (comic) {
-            console.log('Found comic in public comics:', comic);
-            console.log('Comic ID:', comic.id, 'Looking for:', comicId);
-            console.log('All panels:', comic.panels || comic.comic_panels);
             // Transform the database comic data to match the expected format
             // Filter out cover (panel 0) and sort panels 1-6 for display
             const allPanels = comic.panels || comic.comic_panels || [];
@@ -91,7 +76,6 @@ export default function ComicPreview() {
                 ...panel,
                 display_number: index + 1 // Display as 1, 2, 3, 4, 5, 6
               }));
-            console.log('Filtered panels (1-6):', panels);
             const transformedComic = {
               success: true,
               title: comic.title,
@@ -105,7 +89,6 @@ export default function ComicPreview() {
       
       // If not found in public comics and user is logged in, try user comics
       if (user) {
-        console.log('Comic not found in public comics, trying user comics...');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.access_token) {
@@ -117,14 +100,10 @@ export default function ComicPreview() {
           
           if (response.ok) {
             const userData = await response.json();
-            console.log('User comics data:', userData);
             
             if (userData.comics && Array.isArray(userData.comics)) {
               const comic = userData.comics.find((c: any) => c.id === comicId);
               if (comic) {
-                console.log('Found comic in user comics:', comic);
-                console.log('Comic ID:', comic.id, 'Looking for:', comicId);
-                console.log('All panels:', comic.panels || comic.comic_panels);
                 // Transform the database comic data to match the expected format
                 // Filter out cover (panel 0) and sort panels 1-6 for display
                 const allPanels = comic.panels || comic.comic_panels || [];
@@ -135,7 +114,6 @@ export default function ComicPreview() {
                     ...panel,
                     display_number: index + 1 // Display as 1, 2, 3, 4, 5, 6
                   }));
-                console.log('Filtered panels (1-6):', panels);
                 const transformedComic = {
                   success: true,
                   title: comic.title,

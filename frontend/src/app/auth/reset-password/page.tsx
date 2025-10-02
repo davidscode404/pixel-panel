@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 
 export default function ResetPasswordPage() {
@@ -27,7 +28,18 @@ export default function ResetPasswordPage() {
       <div className="max-w-md w-full mx-4">
         <div className="bg-stone-800/50 backdrop-blur-sm rounded-lg shadow-xl p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-amber-50 mb-2">Reset Password</h1>
+            <div className="flex flex-col items-center gap-2 mb-4">
+              <Image
+                src="/logo.png"
+                alt="PixelPanel Logo"
+                width={64}
+                height={64}
+                className="object-contain"
+                priority
+              />
+              <h1 className="text-3xl font-bold text-orange-500">PixelPanel</h1>
+            </div>
+            <h2 className="text-2xl font-bold text-amber-50 mb-2">Reset Password</h2>
             <p className="text-stone-300">Enter your email to receive a reset link</p>
           </div>
 

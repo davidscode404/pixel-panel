@@ -7,11 +7,14 @@ import os
 import base64
 import httpx
 import asyncio
+import logging
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class AudioGenerator:
     """
@@ -58,7 +61,7 @@ class AudioGenerator:
                 response.raise_for_status()
                 return response.json()
             except httpx.HTTPError as e:
-                print(f"❌ Error fetching voices: {e}")
+                logger.error(f"Error fetching voices: {e}", exc_info=True)
                 raise
     
     async def generate_audio(
@@ -106,8 +109,8 @@ class AudioGenerator:
             "output_format": output_format
         }
         
-        print(f"🎵 Generating audio for text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
-        print(f"🎤 Using voice ID: {voice_id}")
+        logger.info(f"Generating audio for text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+        logger.debug(f"Using voice ID: {voice_id}")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
@@ -115,17 +118,17 @@ class AudioGenerator:
                 response.raise_for_status()
                 
                 audio_data = response.content
-                print(f"✅ Audio generated successfully ({len(audio_data)} bytes)")
+                logger.info(f"Audio generated successfully ({len(audio_data)} bytes)")
                 return audio_data
                 
             except httpx.HTTPStatusError as e:
-                print(f"❌ HTTP Error {e.response.status_code}: {e.response.text}")
+                logger.error(f"HTTP Error {e.response.status_code}: {e.response.text}", exc_info=True)
                 raise
             except httpx.TimeoutException:
-                print("❌ Request timed out")
+                logger.error("Request timed out", exc_info=True)
                 raise
             except Exception as e:
-                print(f"❌ Unexpected error: {e}")
+                logger.error(f"Unexpected error: {e}", exc_info=True)
                 raise
     
     async def generate_audio_base64(
@@ -158,7 +161,7 @@ class AudioGenerator:
         )
         
         base64_audio = base64.b64encode(audio_data).decode('utf-8')
-        print(f"✅ Audio converted to base64 ({len(base64_audio)} characters)")
+        logger.debug(f"Audio converted to base64 ({len(base64_audio)} characters)")
         return base64_audio
     
     async def save_audio_file(
@@ -198,7 +201,7 @@ class AudioGenerator:
         with open(output_path, 'wb') as audio_file:
             audio_file.write(audio_data)
         
-        print(f"💾 Audio saved to: {output_path}")
+        logger.info(f"Audio saved to: {output_path}")
         return output_path
     
     def get_voice_presets(self) -> Dict[str, Dict[str, Any]]:
@@ -293,16 +296,16 @@ if __name__ == "__main__":
             # Test basic text-to-speech
             test_text = "Hello! This is a test of the ElevenLabs text-to-speech integration for PixelPanel comics."
             
-            print("🎵 Testing audio generation...")
+            logger.info("Testing audio generation...")
             
             # Generate audio and save to file
             output_path = "test_audio.mp3"
             saved_path = await save_speech_file(test_text, output_path)
-            print(f"✅ Test audio saved to: {saved_path}")
+            logger.info(f"Test audio saved to: {saved_path}")
             
             # Test base64 generation
             base64_audio = await generate_speech_base64(test_text)
-            print(f"✅ Base64 audio generated ({len(base64_audio)} characters)")
+            logger.info(f"Base64 audio generated ({len(base64_audio)} characters)")
             
             # Test with different voice settings
             dramatic_settings = audio_generator.get_voice_presets()["dramatic"]
@@ -313,10 +316,10 @@ if __name__ == "__main__":
             
             with open("dramatic_test.mp3", "wb") as f:
                 f.write(dramatic_audio)
-            print("✅ Dramatic voice test completed")
+            logger.info("Dramatic voice test completed")
             
         except Exception as e:
-            print(f"❌ Test failed: {e}")
+            logger.error(f"Test failed: {e}", exc_info=True)
     
     # Run the test
     asyncio.run(test_audio_generation())

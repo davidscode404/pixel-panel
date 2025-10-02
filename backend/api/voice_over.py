@@ -3,10 +3,13 @@ from services.audio_generator import AudioGenerator
 import google.generativeai as genai
 import os
 import json
+import logging
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 # Configure Google Generative AI
 api_key = os.getenv("GOOGLE_API_KEY")
@@ -34,7 +37,7 @@ async def generate_story(story: str):
         response = model.generate_content(prompt)
 
         story_content = response.text
-        print(f"✅ Generated story ({len(story_content)} chars): {story_content[:100]}..." if len(story_content) > 100 else f"✅ Generated story: {story_content}")
+        logger.info(f"Generated story ({len(story_content)} chars): {story_content[:100]}..." if len(story_content) > 100 else f"Generated story: {story_content}")
 
         if story_content.startswith("```json"):
             story_content = story_content.replace("```json", "").replace("```", "").strip()
@@ -47,7 +50,7 @@ async def generate_story(story: str):
             return json_response
 
     except Exception as e:
-        print(f"Error generating story: {e}")
+        logger.error(f"Error generating story: {e}", exc_info=True)
         fallback_response = json.dumps({
             "story": f"Once upon a time, there was a story about: {story}",
             "error": "Failed to generate custom story"
@@ -64,10 +67,10 @@ async def generate_story_endpoint(story: str = Body(..., embed=True)):
     # Parse the result to ensure it's valid JSON
     try:
         parsed_result = json.loads(result)
-        print(f"🔍 DEBUG: Parsed story result: {parsed_result}")
+        logger.debug(f"Parsed story result: {parsed_result}")
         return parsed_result
     except json.JSONDecodeError:
-        print(f"🔍 DEBUG: JSON decode error, returning as story: {result}")
+        logger.debug(f"JSON decode error, returning as story: {result}")
         return {"story": result}
 
 @router.post("/generate-voiceover")
@@ -76,12 +79,10 @@ async def generate_narration(narration: str):
     Generate voice narration
     """
     try:
-        print(f"🎤 Generating audio for narration ({len(narration)} chars)...")
+        logger.info(f"Generating audio for narration ({len(narration)} chars)...")
         audio_data = await audio_generator.generate_audio_base64(narration)
-        print(f"✅ Audio generated, base64 length: {len(audio_data)} chars")
+        logger.info(f"Audio generated, base64 length: {len(audio_data)} chars")
         return {"audio": audio_data}
     except Exception as e:
-        print(f"❌ Error generating voiceover: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error generating voiceover: {e}", exc_info=True)
         return {"error": str(e), "audio": None}

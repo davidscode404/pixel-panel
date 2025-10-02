@@ -1,11 +1,24 @@
 from fastapi import HTTPException, FastAPI
 import uvicorn
+import logging
+import sys
 
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.comics import router as comics_router
 from api.voice_over import router as voice_over_router
 from api.stripe import router as stripe_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="PixelPanel", version="1.0.0")
 
@@ -43,13 +56,13 @@ async def load_comic(comic_title: str):
         
         # Decode URL-encoded comic title
         decoded_title = unquote(comic_title)
-        print(f"Loading comic: '{comic_title}' -> decoded: '{decoded_title}'")
+        logger.info(f"Loading comic: '{comic_title}' -> decoded: '{decoded_title}'")
         
         # Look for the comic directory
         saved_comics_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved-comics')
         comic_dir = os.path.join(saved_comics_dir, decoded_title)
         
-        print(f"Looking for comic directory: {comic_dir}")
+        logger.debug(f"Looking for comic directory: {comic_dir}")
         
         if not os.path.exists(comic_dir):
             # List available comics for debugging
@@ -57,7 +70,7 @@ async def load_comic(comic_title: str):
             if os.path.exists(saved_comics_dir):
                 available_comics = [d for d in os.listdir(saved_comics_dir) 
                                   if os.path.isdir(os.path.join(saved_comics_dir, d))]
-            print(f"Available comics: {available_comics}")
+            logger.warning(f"Comic not found. Available comics: {available_comics}")
             raise HTTPException(status_code=404, detail=f'Comic not found. Available: {available_comics}')
         
         # Load all panel images
@@ -81,7 +94,7 @@ async def load_comic(comic_title: str):
         }
 
     except Exception as e:
-        print(f"❌ Error loading comic: {e}")
+        logger.error(f"Error loading comic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

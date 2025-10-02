@@ -136,13 +136,13 @@ html {
 .animated-gradient {
   background: linear-gradient(
     -45deg,
-    #e0f2fe,
-    #dbeafe,
-    #bfdbfe,
-    #bae6fd,
-    #a5d8ff,
-    #93c5fd
+    #1c1917,
+    #292524,
+    #1c1917,
+    #44403c,
+    #292524,
+    #78350f
   );
   background-size: 400% 400%;
-  animation: gradientShift 20s ease infinite;
+  animation: gradientShift 45s ease infinite;
 }

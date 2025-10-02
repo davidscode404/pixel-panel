@@ -6,28 +6,7 @@ import { User } from '@supabase/supabase-js'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
 import ComicDetailModal from '@/components/ComicDetailModal'
-
-interface Panel {
-  id: string
-  comic_id: string
-  panel_number: number
-  storage_path: string
-  public_url: string
-  file_size: number
-  created_at: string
-  narration?: string
-  audio_url?: string
-}
-
-interface Comic {
-  id: string
-  title: string
-  user_id: string
-  is_public: boolean
-  created_at: string
-  updated_at: string
-  panels: Panel[]
-}
+import type { Comic } from '@/types'
 
 export default function MyComicsPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -46,19 +25,14 @@ export default function MyComicsPage() {
   // Function to get the session token for API requests
   const getAccessToken = async () => {
     let { data: { session }, error } = await supabase.auth.getSession();
-    console.log('🔍 DEBUG:getSession -> session:', session, 'error:', error);
 
     if (!session) {
-      console.log('ℹ️ No session returned. Attempting refreshSession...');
       const refreshRes = await supabase.auth.refreshSession();
-      console.log('🔍 DEBUG:refreshSession ->', refreshRes);
       session = refreshRes.data.session ?? null;
     }
 
     if (!session) {
-      console.log('ℹ️ No session after refresh. Attempting getUser as fallback...');
       const { data: userData, error: userErr } = await supabase.auth.getUser();
-      console.log('🔍 DEBUG:getUser ->', userData, userErr);
       if (userData?.user && !userErr) {
         // If getUser succeeds, try getSession one more time
         const { data: { session: finalSession } } = await supabase.auth.getSession();
@@ -70,7 +44,6 @@ export default function MyComicsPage() {
       throw new Error('No valid session found');
     }
 
-    console.log('✅ Successfully obtained access token');
     return session.access_token;
   };
 
@@ -270,7 +243,6 @@ export default function MyComicsPage() {
         ) : (
           <div className="columns-2 md:columns-5 lg:columns-5 xl:columns-5 gap-6 space-y-6 w-full">
             {comics.map((comic, index) => {
-              console.log('Rendering comic:', comic.title, 'Panels:', comic.panels?.length || 0);
               // Find first panel with audio
               const audioPanel = comic.panels.find(p => p.audio_url);
               const hasAudio = !!audioPanel;

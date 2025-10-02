@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link';
+import Image from 'next/image';
 import BookSlider from '../components/BookSlider';
 import Footer from '@/components/ui/Footer';
 import { useAuth } from '@/components/auth/AuthProvider';
@@ -41,12 +42,12 @@ export default function Home() {
         {/* Auth buttons in top right */}
         <div className="absolute top-4 right-4 flex gap-2">
           <Link href="/auth/login">
-            <button className="px-4 py-2 text-sm bg-background-secondary/50 text-foreground-secondary rounded-md hover:bg-background-secondary/70 transition-colors border border-border">
+            <button className="px-4 py-2 text-sm bg-stone-700/50 text-stone-200 rounded-md hover:bg-stone-600/50 transition-colors border border-stone-600">
               Sign In
             </button>
           </Link>
           <Link href="/auth/signup">
-            <button className="px-4 py-2 text-sm bg-accent text-white rounded-md hover:bg-accent-hover transition-colors">
+            <button className="px-4 py-2 text-sm bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors">
               Sign Up
             </button>
           </Link>
@@ -54,15 +55,20 @@ export default function Home() {
 
         <main className="flex flex-col items-center gap-12">
           <div className="text-center max-w-2xl">
-            <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mb-6 text-foreground drop-shadow-2xl flex items-center justify-center gap-4">
-              <img
+            <div className="flex justify-center items-center gap-2 mb-6">
+              <Image
                 src="/logo.png"
                 alt="PixelPanel Logo"
-                className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+                width={72}
+                height={72}
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain flex-shrink-0"
+                priority
               />
-              PixelPanel
-            </h1>
-            <p className="text-base sm:text-lg text-foreground-secondary drop-shadow-lg">
+              <h1 className="text-4xl sm:text-6xl font-bold text-orange-500 drop-shadow-2xl leading-none m-0">
+                PixelPanel
+              </h1>
+            </div>
+            <p className="text-base sm:text-lg text-stone-300 drop-shadow-lg">
               Generate your comic story via voice with our AI-powered comic generator agent.
               Simply speak your ideas and watch them come to life!
             </p>
@@ -71,7 +77,7 @@ export default function Home() {
           {/* Create Comic button */}
           <div className="flex justify-center">
             <Link href="/auth/login">
-              <button className="group rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-background-secondary/40 backdrop-blur-sm text-foreground hover:bg-background-secondary/60 hover:border-accent/50 font-medium text-base h-12 px-8 shadow-xl hover:shadow-2xl hover:scale-105">
+              <button className="group rounded-lg border border-solid border-orange-500/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-orange-500/50 font-medium text-base h-12 px-8 shadow-xl hover:shadow-2xl hover:scale-105">
                 Create Your Comic
                 <svg
                   className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"

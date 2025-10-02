@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useState, useEffect } from 'react'
@@ -154,19 +155,22 @@ export default function SideBar({
       style={{ borderColor: 'var(--border)' }}>
          <Link 
            href="/protected/explore" 
-           className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'space-x-2'}`}
+           className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'gap-2'}`}
            onClick={(e) => {
              e.stopPropagation()
              localStorage.setItem('lastVisitedPage', '/protected/explore')
            }}
          >
-           <svg className="w-8 h-8 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--accent)' }}>
-             <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
-           </svg>
-          <span className={`text-xl font-bold transition-all duration-300 whitespace-nowrap ${
+           <Image 
+             src="/logo.png" 
+             alt="PixelPanel Logo" 
+             width={32} 
+             height={32} 
+             className="flex-shrink-0 object-contain"
+           />
+          <span className={`text-xl font-bold transition-all duration-300 whitespace-nowrap text-orange-500 leading-none ${
             isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
-          }`}
-          style={{ color: 'var(--foreground)' }}>
+          }`}>
             PixelPanel
           </span>
          </Link>
@@ -197,9 +201,7 @@ export default function SideBar({
         {navigation.map((item) => {
           const isActive = pathname === item.href
           const handleClick = () => {
-            console.log(`🔧 Handle click for: ${item.name}`)
             if (item.onClick) {
-              console.log(`🔧 Executing onClick handler for: ${item.name}`)
               item.onClick()
             }
           }
@@ -209,7 +211,6 @@ export default function SideBar({
               key={item.name}
               href={item.href}
               onClick={(e) => {
-                console.log(`🔍 Sidebar clicked: ${item.name} -> ${item.href}`)
                 e.preventDefault()
                 e.stopPropagation()
                 
@@ -217,7 +218,6 @@ export default function SideBar({
                 
                 // Navigate with delay to allow minimize to complete
                 setTimeout(() => {
-                  console.log(`🚀 Navigating to: ${item.href}`)
                   // Save the current page to localStorage before navigating
                   localStorage.setItem('lastVisitedPage', item.href)
                   router.push(item.href)

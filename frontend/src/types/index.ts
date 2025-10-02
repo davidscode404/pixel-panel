@@ -1,6 +1,9 @@
 /**
  * Type definitions for the PixelPanel application
+ * Centralized type definitions to avoid duplication across files
  */
+
+import React from 'react';
 
 // User types - compatible with Supabase User
 export interface User {
@@ -9,22 +12,52 @@ export interface User {
   user_metadata?: Record<string, unknown>;
 }
 
-// Comic types
+// Comic Panel types - Unified interface for all panel variations
 export interface ComicPanel {
-  id: number;
-  image_data: string;
+  // Database fields
+  id: string | number;
+  panel_number: number;
+  public_url: string;
+  storage_path?: string;
+  file_size?: number;
+  created_at?: string;
+  comic_id?: string;
+  
+  // Content fields
+  narration?: string;
+  audio_url?: string;
   prompt?: string;
+  image_data?: string;
+  
+  // Creation/editing fields
+  is_zoomed?: boolean;
+  isZoomed?: boolean; // Alternative naming for compatibility
+  isEnabled?: boolean;
+  
+  // Canvas references (for create page)
+  canvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  smallCanvasData?: string | null;
+  largeCanvasData?: string | null;
+  
+  // Display fields (for preview page)
+  display_number?: number;
 }
 
+// Comic types - Unified interface for all comic variations
 export interface Comic {
-  id?: string;
+  id: string;
   title: string;
-  panels: ComicPanel[];
-  created_at?: string;
-  updated_at?: string;
-  is_public?: boolean;
   user_id?: string;
+  is_public?: boolean;
+  created_at: string;
+  updated_at?: string;
+  panels: ComicPanel[];
+  comic_panels?: ComicPanel[]; // Alternative field name for API responses
 }
+
+// Type aliases for specific use cases
+export type PanelData = ComicPanel; // For confirm page
+export type Panel = ComicPanel; // Generic alias
 
 export interface ComicListItem {
   title: string;

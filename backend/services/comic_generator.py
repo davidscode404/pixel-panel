@@ -8,6 +8,7 @@ import sys
 import base64
 import tempfile
 import io
+import logging
 import google.generativeai as genai
 from PIL import Image
 from io import BytesIO
@@ -16,6 +17,8 @@ import json
 
 # Load environment variables
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class ComicArtGenerator:
     def __init__(self):
@@ -51,10 +54,10 @@ class ComicArtGenerator:
                     temp_file.write(image_data)
                     reference_image_path = temp_file.name
                 
-                print(f"Processing reference image in memory...")
+                logger.debug("Processing reference image in memory...")
                 
             except Exception as e:
-                print(f"Error processing reference image: {e}")
+                logger.error(f"Error processing reference image: {e}", exc_info=True)
                 reference_image_path = None
         
         try:
@@ -65,7 +68,7 @@ class ComicArtGenerator:
             # Clean up temporary reference image file
             if reference_image_path and os.path.exists(reference_image_path):
                 os.unlink(reference_image_path)
-                print(f"Cleaned up temporary reference image file")
+                logger.debug("Cleaned up temporary reference image file")
     
     def _generate_art(self, text_prompt, reference_image_path=None, context_image_data=None):
         """
@@ -73,12 +76,12 @@ class ComicArtGenerator:
         """
         # Determine if we have context (subsequent panel generation)
         has_context = context_image_data is not None
-        print(f"🔍 ComicArtGenerator: has_context={has_context}, context_size={len(context_image_data) if context_image_data else 0}")
+        logger.debug(f"ComicArtGenerator: has_context={has_context}, context_size={len(context_image_data) if context_image_data else 0}")
         
         if has_context:
-            print(f"🎨 Using context-aware generation with previous panel image")
+            logger.info("Using context-aware generation with previous panel image")
         else:
-            print(f"🎨 Using standard generation without context")
+            logger.info("Using standard generation without context")
         
         if has_context:
             system_prompt = (
@@ -108,13 +111,13 @@ class ComicArtGenerator:
             # Load image from file
             try:
                 reference_image = Image.open(reference_image_path)
-                print(f"📸 Loaded reference image: {reference_image.size} pixels")
+                logger.debug(f"Loaded reference image: {reference_image.size} pixels")
                 
                 # Convert to bytes for API
                 img_buffer = BytesIO()
                 reference_image.save(img_buffer, format='PNG')
                 img_bytes = img_buffer.getvalue()
-                print(f"📦 Reference image size: {len(img_bytes)} bytes")
+                logger.debug(f"Reference image size: {len(img_bytes)} bytes")
 
                 # Create multimodal content with image and text
                 # Convert image bytes to PIL Image for the API
@@ -132,11 +135,11 @@ class ComicArtGenerator:
                         context_img_bytes = base64.b64decode(context_image_data)
                         context_img = Image.open(io.BytesIO(context_img_bytes))
                         prompt_parts.insert(0, context_img)
-                        print(f"🖼️ Added context image to generation (size: {len(context_img_bytes)} bytes)")
+                        logger.debug(f"Added context image to generation (size: {len(context_img_bytes)} bytes)")
                     except Exception as e:
-                        print(f"⚠️ Error processing context image: {e}")
+                        logger.warning(f"Error processing context image: {e}", exc_info=True)
                 
-                print("🔄 Generating comic art with reference sketch...")
+                logger.info("Generating comic art with reference sketch...")
                 
             except Exception as e:
                 raise Exception(f"Error processing reference image: {e}")
@@ -151,23 +154,23 @@ class ComicArtGenerator:
                         context_img,
                         f"{system_prompt}\n\nText prompt: {text_prompt}"
                     ]
-                    print(f"🔄 Generating comic art with context image only (size: {len(context_img_bytes)} bytes)...")
+                    logger.info(f"Generating comic art with context image only (size: {len(context_img_bytes)} bytes)...")
                 except Exception as e:
-                    print(f"⚠️ Error processing context image: {e}")
+                    logger.warning(f"Error processing context image: {e}", exc_info=True)
                     prompt_parts = f"{system_prompt}\n\nText prompt: {text_prompt}"
-                    print("🔄 Generating comic art from text prompt (context failed)...")
+                    logger.info("Generating comic art from text prompt (context failed)...")
             else:
                 # Text-only generation
                 prompt_parts = f"{system_prompt}\n\nText prompt: {text_prompt}"
-                print("🔄 Generating comic art from text prompt...")
+                logger.info("Generating comic art from text prompt...")
         
-        print("⏳ This may take 30-60 seconds...")
+        logger.info("This may take 30-60 seconds...")
         
         try:
             model = self.client.GenerativeModel("gemini-2.5-flash-image-preview")
             response = model.generate_content(prompt_parts)
             
-            print("✅ API request successful!")
+            logger.info("API request successful!")
             
             # Process response
             for part in response.candidates[0].content.parts:
@@ -178,10 +181,7 @@ class ComicArtGenerator:
             raise Exception("No image data found in response")
             
         except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"❌ Error in ComicArtGenerator._generate_art: {e}")
-            print(f"📋 Full traceback: {error_details}")
+            logger.error(f"Error in ComicArtGenerator._generate_art: {e}", exc_info=True)
             raise Exception(f"Error generating comic art: {e}")
     
     def image_to_base64(self, image: Image.Image) -> str:
@@ -201,21 +201,21 @@ class ComicArtGenerator:
         """
         os.makedirs('generated_images', exist_ok=True)
         image.save(filename)
-        print(f"💾 Saved image: {filename}")
+        logger.info(f"Saved image: {filename}")
 
 def main():
     """Main CLI interface"""
     if len(sys.argv) < 2:
-        print("🎨 Comic Art Generator")
-        print("=====================")
-        print()
-        print("Usage: python comic_art_generator.py <text_prompt> [reference_image_path]")
-        print()
-        print("Examples:")
-        print("  python comic_art_generator.py 'a superhero flying through the city'")
-        print("  python comic_art_generator.py 'a dramatic fight scene' sketch.png")
-        print()
-        print("Generate comic art from text prompts and reference sketches!")
+        logger.info("Comic Art Generator")
+        logger.info("=====================")
+        logger.info("")
+        logger.info("Usage: python comic_art_generator.py <text_prompt> [reference_image_path]")
+        logger.info("")
+        logger.info("Examples:")
+        logger.info("  python comic_art_generator.py 'a superhero flying through the city'")
+        logger.info("  python comic_art_generator.py 'a dramatic fight scene' sketch.png")
+        logger.info("")
+        logger.info("Generate comic art from text prompts and reference sketches!")
         return 1
     
     text_prompt = sys.argv[1]
@@ -227,8 +227,8 @@ def main():
         
         # Check if reference image exists
         if reference_image_path and not os.path.exists(reference_image_path):
-            print(f"⚠️ Reference image not found: {reference_image_path}")
-            print("Proceeding with text-only generation...")
+            logger.warning(f"Reference image not found: {reference_image_path}")
+            logger.info("Proceeding with text-only generation...")
             reference_image_path = None
         
         # Generate comic art
@@ -240,12 +240,12 @@ def main():
         output_filename = f"generated_images/comic_{safe_prompt}.png"
         generator.save_image(image, output_filename)
         
-        print("✅ Comic art generation completed!")
+        logger.info("Comic art generation completed!")
         
         return 0
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        logger.error(f"Error: {e}", exc_info=True)
         return 1
 
 if __name__ == "__main__":

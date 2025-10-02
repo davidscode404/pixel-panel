@@ -7,8 +7,11 @@ from auth_shared import get_current_user
 import json
 import base64
 import os
+import logging
 from PIL import Image
 import io
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/comics", tags=["comics"])
 
@@ -26,7 +29,7 @@ async def generate_comic_art(request: ComicArtRequest):
         panel_id = request.panel_id
         previous_panel_context = request.previous_panel_context
         
-        print(f"🔍 DEBUG: panel_id={panel_id}, has_previous_context={previous_panel_context is not None}")
+        logger.debug(f"panel_id={panel_id}, has_previous_context={previous_panel_context is not None}")
         
         context_image_data = None
         
@@ -34,9 +37,9 @@ async def generate_comic_art(request: ComicArtRequest):
             context_prompt = f"Create the next scene using this context: {previous_panel_context.prompt}. {text_prompt}"
             context_image_data = previous_panel_context.image_data
             text_prompt = context_prompt
-            print(f"🎯 Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
+            logger.info(f"Using previous panel context for panel {panel_id}: {context_prompt[:100]}...")
         else:
-            print(f"📝 Panel {panel_id} - no context used (first panel or no previous context provided)")
+            logger.info(f"Panel {panel_id} - no context used (first panel or no previous context provided)")
         
         # Generate comic art using the service
         if not comic_generator:
@@ -52,7 +55,7 @@ async def generate_comic_art(request: ComicArtRequest):
         img_base64 = comic_generator.image_to_base64(image)
         
         # No need to store context - frontend handles continuity
-        print(f"✅ Generated panel {panel_id} successfully")
+        logger.info(f"Generated panel {panel_id} successfully")
         
         return {
             'success': True,
@@ -61,10 +64,7 @@ async def generate_comic_art(request: ComicArtRequest):
         }
         
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"❌ Error in generate endpoint: {e}")
-        print(f"📋 Full traceback: {error_details}")
+        logger.error(f"Error in generate endpoint: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error generating comic art: {str(e)}"
@@ -79,7 +79,7 @@ async def generate_thumbnail(request: ThumbnailRequest):
     try:
         # Combine all prompts into a single prompt for thumbnail generation
         combined_prompt = f"Comic book cover art featuring: {', '.join(request.prompts[:3])}"  # Use first 3 prompts
-        print(f"🔍 DEBUG: Generating thumbnail with prompt: {combined_prompt}")
+        logger.debug(f"Generating thumbnail with prompt: {combined_prompt}")
 
         # Generate comic art using the service
         if not comic_generator:
@@ -99,7 +99,7 @@ async def generate_thumbnail(request: ThumbnailRequest):
         # Convert image to base64 for response
         img_base64 = comic_generator.image_to_base64(image)
 
-        print(f"✅ Generated thumbnail successfully")
+        logger.info("Generated thumbnail successfully")
 
         return {
             'success': True,
@@ -108,10 +108,7 @@ async def generate_thumbnail(request: ThumbnailRequest):
         }
 
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"❌ Error in generate thumbnail endpoint: {e}")
-        print(f"📋 Full traceback: {error_details}")
+        logger.error(f"Error in generate thumbnail endpoint: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error generating thumbnail: {str(e)}"
@@ -126,9 +123,9 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
     try:
         # First, let's see the raw request data
         raw_data = await raw_request.json()
-        print(f"🔍 DEBUG: Raw request data: {json.dumps(raw_data, indent=2)}")
-        print(f"🔍 DEBUG: Raw data keys: {list(raw_data.keys())}")
-        print(f"🔍 DEBUG: Authenticated user: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'Unknown')})")
+        logger.debug(f"Raw request data: {json.dumps(raw_data, indent=2)}")
+        logger.debug(f"Raw data keys: {list(raw_data.keys())}")
+        logger.info(f"Authenticated user: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'Unknown')})")
         
         # Handle both old and new frontend formats
         comic_title = raw_data.get('title') or raw_data.get('comic_title')
@@ -139,7 +136,7 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         if not panels_data:
             raise HTTPException(status_code=422, detail="Missing required field: panels or panels_data")
         
-        print(f"✅ Extracted - comic_title: {comic_title}, panels_count: {len(panels_data)}")
+        logger.info(f"Extracted - comic_title: {comic_title}, panels_count: {len(panels_data)}")
 
         # Convert Pydantic models to plain dicts for the storage layer, supporting voice-over features
         try:
@@ -155,16 +152,16 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
                 for p in panels_data
             ]
         except Exception as conv_err:
-            print(f"❌ Error converting panel data to dicts: {conv_err}")
+            logger.error(f"Error converting panel data to dicts: {conv_err}", exc_info=True)
             raise HTTPException(status_code=400, detail=f"Invalid panels data: {conv_err}")
 
-        print(f"🔍 DEBUG: Prepared panels_payload count: {len(panels_payload)}")
+        logger.debug(f"Prepared panels_payload count: {len(panels_payload)}")
         if panels_payload:
-            print(f"🔍 DEBUG: First panel keys: {list(panels_payload[0].keys())}")
-            print(f"🔍 DEBUG: First panel has narration: {bool(panels_payload[0].get('narration'))}")
-            print(f"🔍 DEBUG: First panel has audio_data: {bool(panels_payload[0].get('audio_data'))}")
+            logger.debug(f"First panel keys: {list(panels_payload[0].keys())}")
+            logger.debug(f"First panel has narration: {bool(panels_payload[0].get('narration'))}")
+            logger.debug(f"First panel has audio_data: {bool(panels_payload[0].get('audio_data'))}")
             if panels_payload[0].get('audio_data'):
-                print(f"🔍 DEBUG: First panel audio_data length: {len(panels_payload[0]['audio_data'])}")
+                logger.debug(f"First panel audio_data length: {len(panels_payload[0]['audio_data'])}")
 
         # Use the authenticated user's ID
         user_id = current_user.get('id')
@@ -176,7 +173,7 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error saving comic: {e}")
+        logger.error(f"Error saving comic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/user-comics")
@@ -186,16 +183,16 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
     """
     try:
         user_id = current_user.get('id')
-        print(f"🔍 DEBUG: Fetching comics for user: {user_id}")
+        logger.info(f"Fetching comics for user: {user_id}")
         
         # Use the ComicStorageService to get user comics
         comics = await comic_storage_service.get_user_comics(user_id)
         
-        print(f"✅ Found {len(comics)} comics for user {user_id}")
+        logger.info(f"Found {len(comics)} comics for user {user_id}")
         return {'comics': comics}
         
     except Exception as e:
-        print(f"❌ Error fetching user comics: {e}")
+        logger.error(f"Error fetching user comics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/public-comics")
@@ -204,16 +201,16 @@ async def get_public_comics():
     Get all public comics from all users for the explore page
     """
     try:
-        print(f"🔍 DEBUG: Fetching public comics")
+        logger.info("Fetching public comics")
         
         # Use the ComicStorageService to get public comics
         comics = await comic_storage_service.get_public_comics()
         
-        print(f"✅ Found {len(comics)} public comics")
+        logger.info(f"Found {len(comics)} public comics")
         return {'comics': comics}
         
     except Exception as e:
-        print(f"❌ Error fetching public comics: {e}")
+        logger.error(f"Error fetching public comics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/{comic_id}/visibility")
@@ -227,7 +224,7 @@ async def update_comic_visibility(comic_id: str, request: Request, current_user:
         raw_data = await request.json()
         is_public = raw_data.get('is_public', False)
 
-        print(f"🔍 DEBUG: Updating comic {comic_id} visibility to {is_public} for user {user_id}")
+        logger.info(f"Updating comic {comic_id} visibility to {is_public} for user {user_id}")
 
         # If trying to make public, validate that comic is complete
         if is_public:
@@ -267,13 +264,13 @@ async def update_comic_visibility(comic_id: str, request: Request, current_user:
         if not response.data:
             raise HTTPException(status_code=404, detail='Comic not found or unauthorized')
 
-        print(f"✅ Updated comic {comic_id} visibility to {is_public}")
+        logger.info(f"Updated comic {comic_id} visibility to {is_public}")
         return {'success': True, 'is_public': is_public}
 
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error updating comic visibility: {e}")
+        logger.error(f"Error updating comic visibility: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/list-comics")
@@ -320,14 +317,14 @@ async def list_comics():
                             cover_base64 = base64.b64encode(cover_bytes).decode('utf-8')
                             comic_data['cover_image'] = f"data:image/png;base64,{cover_base64}"
                     except Exception as e:
-                        print(f"⚠️ Error reading panel 1 as cover for {comic_dir}: {e}")
+                        logger.warning(f"Error reading panel 1 as cover for {comic_dir}: {e}")
                 
                 comics.append(comic_data)
         
         return {'comics': comics}
 
     except Exception as e:
-        print(f"❌ Error listing comics: {e}")
+        logger.error(f"Error listing comics: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -335,20 +332,20 @@ async def list_comics():
 async def delete_comic(comic_id: str, current_user: dict = Depends(get_current_user)):
     """Delete a specific comic by ID"""
     try:
-        print(f"🗑️ Deleting comic {comic_id} for user {current_user.get('email', 'Unknown')}")
+        logger.info(f"Deleting comic {comic_id} for user {current_user.get('email', 'Unknown')}")
         
         # Use the comic storage service to delete the comic
         success = await comic_storage_service.delete_comic(current_user.get('id'), comic_id)
         
         if success:
-            print(f"✅ Successfully deleted comic {comic_id}")
+            logger.info(f"Successfully deleted comic {comic_id}")
             return {"success": True, "message": "Comic deleted successfully"}
         else:
-            print(f"❌ Failed to delete comic {comic_id}")
+            logger.warning(f"Failed to delete comic {comic_id}")
             raise HTTPException(status_code=404, detail="Comic not found or you don't have permission to delete it")
             
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error deleting comic: {e}")
+        logger.error(f"Error deleting comic: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

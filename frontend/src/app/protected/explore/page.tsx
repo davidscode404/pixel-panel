@@ -2,31 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { API_CONFIG, buildApiUrl } from '@/config/api';
 import ComicDetailModal from '@/components/ComicDetailModal';
-
-interface ComicPanel {
-  id: string;
-  panel_number: number;
-  public_url: string;
-  storage_path: string;
-  file_size: number;
-  created_at: string;
-}
-
-interface Comic {
-  id: string;
-  title: string;
-  user_id: string;
-  is_public: boolean;
-  created_at: string;
-  updated_at: string;
-  panels: ComicPanel[];
-}
+import type { Comic, ComicPanel } from '@/types';
 
 export default function ExplorePage() {
-  const router = useRouter();
   const [comics, setComics] = useState<Comic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +25,6 @@ export default function ExplorePage() {
       setLoading(true);
       setError(null);
 
-      console.log('🔍 DEBUG: Fetching public comics...');
-
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.PUBLIC_COMICS), {
         method: 'GET',
         headers: {
@@ -59,7 +37,6 @@ export default function ExplorePage() {
       }
 
       const data = await response.json();
-      console.log('✅ Public comics data:', data);
 
       if (data.comics && Array.isArray(data.comics)) {
         // Process comics data to ensure panels are properly structured
@@ -71,9 +48,8 @@ export default function ExplorePage() {
           }));
         
         setComics(processedComics);
-        console.log(`📚 Loaded ${processedComics.length} public comics (filtered from ${data.comics.length} total)`);
       } else {
-        console.warn('⚠️ No comics data in response');
+        console.warn('No comics data in response');
         setComics([]);
       }
     } catch (error) {
@@ -108,7 +84,6 @@ export default function ExplorePage() {
   const handleImageError = (key: string) => {
     setImageLoading(prev => ({ ...prev, [key]: false }));
     setImageErrors(prev => ({ ...prev, [key]: true }));
-    console.warn(`⚠️ Failed to load image: ${key}`);
   };
 
   if (loading) {
@@ -166,11 +141,6 @@ export default function ExplorePage() {
         ) : (
           <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6 space-y-6 w-full">
           {comics.map((comic, index) => {
-            console.log('Rendering public comic:', comic.title, 'Panels:', comic.panels?.length || 0);
-            // Create varying heights for comic-like layout - made taller for wider cards
-            const heights = ['h-64', 'h-80', 'h-72', 'h-96', 'h-56', 'h-[400px]']
-            const randomHeight = heights[index % heights.length]
-            
             return (
             <div
               key={comic.id}
@@ -213,7 +183,7 @@ export default function ExplorePage() {
                       );
                     } else {
                       return (
-                        <img
+                        <Image
                           src={imageUrl}
                           alt={comic.title}
                           className="w-full h-full object-cover"
