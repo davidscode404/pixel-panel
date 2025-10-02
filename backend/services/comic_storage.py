@@ -2,6 +2,7 @@
 import os
 import base64
 import math
+import logging
 from io import BytesIO
 from supabase import create_client, Client
 from typing import List, Optional
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 from PIL import Image
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class ComicStorageService:
     def __init__(self):
@@ -82,11 +85,9 @@ class ComicStorageService:
 
                             # Get public URL for audio
                             audio_url = self.supabase.storage.from_(self.bucket_name).get_public_url(audio_storage_path)
-                            print(f"🎵 Audio uploaded for panel {panel_id}: {audio_url}")
+                            logger.info(f"Audio uploaded for panel {panel_id}: {audio_url}")
                         except Exception as audio_err:
-                            print(f"⚠️ Failed to upload audio for panel {panel_id}: {audio_err}")
-                            import traceback
-                            traceback.print_exc()
+                            logger.warning(f"Failed to upload audio for panel {panel_id}: {audio_err}", exc_info=True)
 
                     # Save panel metadata to database
                     self.supabase.table('comic_panels').insert({
@@ -109,7 +110,7 @@ class ComicStorageService:
                             img = img.resize(base_panel_size)
                         panel_images.append((panel_id, img))
                     except Exception as pil_err:
-                        print(f"Warning: failed to open panel {panel_id} for composite: {pil_err}")
+                        logger.warning(f"Failed to open panel {panel_id} for composite: {pil_err}", exc_info=True)
             
             # 3. Create thumbnail/composite image
             composite_public_url: Optional[str] = None
@@ -117,14 +118,14 @@ class ComicStorageService:
 
             # Use custom thumbnail if provided, otherwise create composite
             if thumbnail_data:
-                print(f"📸 Using custom thumbnail")
+                logger.info("Using custom thumbnail")
                 # Handle both data URL format and raw base64
                 if thumbnail_data.startswith('data:'):
                     thumbnail_bytes = base64.b64decode(thumbnail_data.split(',')[1])
                 else:
                     thumbnail_bytes = base64.b64decode(thumbnail_data)
             elif panel_images:
-                print(f"📸 Creating composite thumbnail from panels")
+                logger.info("Creating composite thumbnail from panels")
                 # Sort by panel number to place in order
                 panel_images.sort(key=lambda t: t[0])
                 _, first_img = panel_images[0]
@@ -164,7 +165,7 @@ class ComicStorageService:
             return {"comic_id": comic_id, "composite_public_url": composite_public_url}
             
         except Exception as e:
-            print(f"Error saving comic: {e}")
+            logger.error(f"Error saving comic: {e}", exc_info=True)
             raise
     
     async def get_user_comics(self, user_id: str) -> List[dict]:
@@ -210,7 +211,7 @@ class ComicStorageService:
             
             if existing_comic.data:
                 comic_id = existing_comic.data[0]['id']
-                print(f"📚 Using existing comic ID: {comic_id}")
+                logger.info(f"Using existing comic ID: {comic_id}")
             else:
                 # Create new comic record
                 comic_response = self.supabase.table('comics').insert({
@@ -219,7 +220,7 @@ class ComicStorageService:
                     'is_public': False
                 }).execute()
                 comic_id = comic_response.data[0]['id']
-                print(f"📚 Created new comic with ID: {comic_id}")
+                logger.info(f"Created new comic with ID: {comic_id}")
             
             # 2. Upload panel to Supabase Storage
             storage_path = f"users/{user_id}/comics/{comic_id}/panel_{panel_id}.png"
@@ -234,7 +235,7 @@ class ComicStorageService:
                 file_options={"content-type": "image/png", "upsert": "true"}
             )
             
-            print(f"📤 Storage upload result: {upload_result}")
+            logger.debug(f"Storage upload result: {upload_result}")
             
             # Get public URL
             public_url = self.supabase.storage.from_(self.bucket_name).get_public_url(storage_path)
@@ -253,11 +254,11 @@ class ComicStorageService:
             if existing_panel.data:
                 # Update existing panel
                 update_result = self.supabase.table('comic_panels').update(panel_data).eq('id', existing_panel.data[0]['id']).execute()
-                print(f"📊 Updated panel {panel_id} in database: {update_result}")
+                logger.info(f"Updated panel {panel_id} in database")
             else:
                 # Insert new panel
                 insert_result = self.supabase.table('comic_panels').insert(panel_data).execute()
-                print(f"📊 Saved panel {panel_id} to database: {insert_result}")
+                logger.info(f"Saved panel {panel_id} to database")
             
             return {
                 'comic_id': comic_id,
@@ -268,7 +269,7 @@ class ComicStorageService:
             }
             
         except Exception as e:
-            print(f"Error saving panel to Supabase: {e}")
+            logger.error(f"Error saving panel to Supabase: {e}", exc_info=True)
             raise
 
     async def delete_comic(self, user_id: str, comic_id: str) -> bool:
@@ -292,5 +293,5 @@ class ComicStorageService:
             
             return True
         except Exception as e:
-            print(f"Error deleting comic: {e}")
+            logger.error(f"Error deleting comic: {e}", exc_info=True)
             return False

@@ -2,8 +2,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import stripe
 import os
+import logging
 from typing import Optional
 from auth_shared import get_current_user
+
+logger = logging.getLogger(__name__)
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
@@ -82,7 +85,7 @@ async def stripe_webhook(request):
         
         # TODO: Add credits to user's account in your database
         # This would typically involve updating a user_credits table
-        print(f"Payment succeeded: User {user_id} purchased {credits} credits")
+        logger.info(f"Payment succeeded: User {user_id} purchased {credits} credits")
         
         # Here you would update your database to add credits to the user
         # Example:
