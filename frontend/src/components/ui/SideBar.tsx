@@ -168,7 +168,7 @@ export default function SideBar({
              height={32} 
              className="flex-shrink-0 object-contain"
            />
-          <span className={`text-xl font-bold transition-all duration-300 whitespace-nowrap text-orange-500 ${
+          <span className={`text-xl font-bold transition-all duration-300 whitespace-nowrap text-orange-500 leading-none ${
             isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
           }`}>
             PixelPanel
