@@ -142,20 +142,23 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="w-full h-full">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Explore Comics</h1>
-        <p className="text-foreground-secondary">Discover comics created by the community</p>
-      </div>
-
-      {comics.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📚</div>
-          <h2 className="text-xl font-semibold mb-2 text-foreground">No Public Comics Yet</h2>
-          <p className="text-foreground-secondary">Be the first to share your comic with the community!</p>
+    <div className="w-full h-full overflow-auto">
+      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Explore Comics</h1>
+          <p style={{ color: 'var(--foreground-secondary)' }}>Discover comics created by the community</p>
         </div>
-      ) : (
-        <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-3 gap-4 space-y-4 w-full">
+
+        {comics.length === 0 ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-6xl mb-4" style={{ color: 'var(--accent)' }}>📚</div>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>No Public Comics Yet</h2>
+              <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>Be the first to share your comic with the community!</p>
+            </div>
+          </div>
+        ) : (
+          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6 space-y-6 w-full">
           {comics.map((comic, index) => {
             console.log('Rendering public comic:', comic.title, 'Panels:', comic.panels?.length || 0);
             // Create varying heights for comic-like layout - made taller for wider cards
@@ -163,13 +166,13 @@ export default function ExplorePage() {
             const randomHeight = heights[index % heights.length]
             
             return (
-            <div 
-              key={comic.id} 
-              className={`group bg-background-card border-2 border-black overflow-hidden hover:border-accent transition-colors relative break-inside-avoid mb-4 cursor-pointer shadow-lg ${randomHeight}`}
+            <div
+              key={comic.id}
+              className="group relative bg-background-card overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02] border-4 border-black"
               onClick={() => router.push(`/preview/${comic.id}`)}
             >
               {/* Image */}
-              <div className="relative w-full h-full">
+              <div className="relative w-full aspect-[3/4]">
                 {imageLoading[`${comic.id}-preview`] && (
                   <div className="absolute inset-0 bg-background-tertiary flex items-center justify-center z-10">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
@@ -183,45 +186,54 @@ export default function ExplorePage() {
                     </div>
                   </div>
                 ) : (
-                   <Image
-                      src={
-                        comic.panels.find(p => p.panel_number === 0)?.public_url || 
-                        comic.panels.find(p => p.panel_number === 1)?.public_url ||
-                        comic.panels[0]?.public_url ||
-                        '/placeholder-comic.png'
-                      }
-                      alt={comic.title}
-                      width={400}
-                      height={300}
-                      className="w-full h-full object-cover"
-                      onLoad={() => handleImageLoad(`${comic.id}-preview`)}
-                      onError={() => handleImageError(`${comic.id}-preview`)}
-                      onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
-                    />
+                  (() => {
+                    const imageUrl = comic.panels.find(p => p.panel_number === 0)?.public_url || 
+                                    comic.panels.find(p => p.panel_number === 1)?.public_url ||
+                                    comic.panels[0]?.public_url ||
+                                    '/placeholder-comic.png';
+                    
+                    if (imageUrl.startsWith('http')) {
+                      return (
+                        <Image
+                          src={imageUrl}
+                          alt={comic.title}
+                          width={400}
+                          height={300}
+                          className="w-full h-full object-cover"
+                          onLoad={() => handleImageLoad(`${comic.id}-preview`)}
+                          onError={() => handleImageError(`${comic.id}-preview`)}
+                          onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
+                        />
+                      );
+                    } else {
+                      return (
+                        <img
+                          src={imageUrl}
+                          alt={comic.title}
+                          className="w-full h-full object-cover"
+                          onLoad={() => handleImageLoad(`${comic.id}-preview`)}
+                          onError={() => handleImageError(`${comic.id}-preview`)}
+                          onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
+                        />
+                      );
+                    }
+                  })()
                 )}
               </div>
 
-              {/* Details overlay - only visible on hover */}
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                <h3 className="text-sm font-semibold text-foreground-inverse mb-1">{comic.title}</h3>
-                <p className="text-foreground-secondary text-xs mb-1">By Creator</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-foreground-muted text-xs">
-                    {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    <svg className="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    <span className="text-foreground-muted text-xs">{comic.panels.length}</span>
-                  </div>
-                </div>
+              {/* Title and date at bottom with overlay */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
+                <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{comic.title}</h3>
+                <p className="text-foreground-secondary text-xs">
+                  {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </p>
               </div>
+
             </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        )}
 
         {/* Modal for viewing comic details */}
         {selectedComic && (
@@ -276,6 +288,7 @@ export default function ExplorePage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

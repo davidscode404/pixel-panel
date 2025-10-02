@@ -100,6 +100,7 @@ export default function CreatePage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editComicTitle, setEditComicTitle] = useState('');
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -222,7 +223,6 @@ export default function CreatePage() {
 
     const canvas = panel.canvasRef.current;
     const dataURL = canvas.toDataURL();
-<<<<<<< HEAD
 
     console.log(`💾 Saving ${isLargeCanvas ? 'LARGE' : 'small'} canvas data for panel ${panelId}`);
     console.log(`   - Data URL length: ${dataURL.length}`);
@@ -234,15 +234,6 @@ export default function CreatePage() {
             ...p,
             [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL
           }
-=======
-    
-    setPanels(prev => prev.map(p => 
-      p.id === panelId 
-        ? { 
-            ...p, 
-            [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL 
-          } 
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
         : p
     ));
 
@@ -273,7 +264,27 @@ export default function CreatePage() {
     img.src = dataURL;
   };
 
-<<<<<<< HEAD
+  // Title editing handlers
+  const handleTitleClick = () => {
+    setIsEditingTitle(true);
+  };
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setComicTitle(e.target.value);
+  };
+
+  const handleTitleBlur = () => {
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      setIsEditingTitle(false);
+    } else if (e.key === 'Escape') {
+      setIsEditingTitle(false);
+    }
+  };
+
   // Enable next panel when current panel has content
   const enableNextPanel = (currentPanelId: number) => {
     setPanels(prev => prev.map(p => {
@@ -283,7 +294,8 @@ export default function CreatePage() {
       }
       return p;
     }));
-=======
+  };
+
   const loadComicForEditing = async (comicId: string) => {
     try {
       const accessToken = await getAccessToken();
@@ -384,7 +396,6 @@ export default function CreatePage() {
     } finally {
       setIsLoadingEditData(false);
     }
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
   };
 
   const handlePanelClick = (panelId: number) => {
@@ -581,7 +592,6 @@ export default function CreatePage() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-<<<<<<< HEAD
 
     // Update panel data to reflect cleared state and disable subsequent panels
     setPanels(prev => prev.map(p => {
@@ -595,41 +605,10 @@ export default function CreatePage() {
       return p;
     }));
 
-    // Panel cleared - frontend state is automatically updated
-  };
-
-  const goToNextPanel = (currentPanelId: number) => {
-    // Save current panel's state before navigating
-    saveCanvasState(currentPanelId, true);
-    updateSmallCanvasPreview(currentPanelId);
-
-    // Navigate to next panel (or stay on panel 6 if it's the last)
-    const nextPanelId = currentPanelId < 6 ? currentPanelId + 1 : currentPanelId;
-
-    // Check if next panel is enabled
-    const nextPanel = panels.find(p => p.id === nextPanelId);
-    if (nextPanel && nextPanel.isEnabled) {
-      // Zoom out current panel and zoom into next panel
-      setPanels(prev => prev.map(p => ({
-        ...p,
-        isZoomed: p.id === nextPanelId
-      })));
-
-      // Restore canvas state for the next panel after a short delay
-      setTimeout(() => {
-        restoreCanvasState(nextPanelId, true);
-      }, 100);
-=======
-    
-    // Update panel data to reflect cleared state
-    setPanels(prev => prev.map(p => 
-      p.id === panelId 
-        ? { ...p, smallCanvasData: null, largeCanvasData: null }
-        : p
-    ));
-    
     // Check if all panels are now empty and reset context if so
     checkAndResetContext();
+
+    // Panel cleared - frontend state is automatically updated
   };
 
   const checkAndResetContext = async () => {
@@ -660,7 +639,30 @@ export default function CreatePage() {
       } catch (error) {
         console.error('Error resetting context:', error);
       }
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
+    }
+  };
+
+  const goToNextPanel = (currentPanelId: number) => {
+    // Save current panel's state before navigating
+    saveCanvasState(currentPanelId, true);
+    updateSmallCanvasPreview(currentPanelId);
+
+    // Navigate to next panel (or stay on panel 6 if it's the last)
+    const nextPanelId = currentPanelId < 6 ? currentPanelId + 1 : currentPanelId;
+
+    // Check if next panel is enabled
+    const nextPanel = panels.find(p => p.id === nextPanelId);
+    if (nextPanel && nextPanel.isEnabled) {
+      // Zoom out current panel and zoom into next panel
+      setPanels(prev => prev.map(p => ({
+        ...p,
+        isZoomed: p.id === nextPanelId
+      })));
+
+      // Restore canvas state for the next panel after a short delay
+      setTimeout(() => {
+        restoreCanvasState(nextPanelId, true);
+      }, 100);
     }
   };
 
@@ -696,29 +698,26 @@ export default function CreatePage() {
       return;
     }
 
-<<<<<<< HEAD
-=======
     console.log('Starting to create comic:', comicTitle);
 
     // Build payload for SAVE_COMIC (save all panels at once)
     const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const panelsData = panels
+    const panelsDataForSave = panels
       .filter(panel => !!panel.largeCanvasData)
       .map(panel => ({ id: panel.id, largeCanvasData: panel.largeCanvasData }));
 
-    if (panelsData.length === 0) {
+    if (panelsDataForSave.length === 0) {
       alert('No panels have been drawn yet. Please draw something before saving.');
       return;
     }
 
     const payload = {
       comic_title: safeTitle,
-      panels_data: panelsData,
+      panels_data: panelsDataForSave,
     };
 
     console.log('🔍 DEBUG: SAVE_COMIC payload:', payload);
 
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
     try {
       // Store panels data in sessionStorage for the confirmation page
       const panelsData = panels
@@ -826,7 +825,6 @@ export default function CreatePage() {
       // Get access token for API request
       const accessToken = await getAccessToken();
       
-<<<<<<< HEAD
       // Get previous panel for continuity (if exists)
       const previousPanel = panelId > 1 ? panels.find(p => p.id === panelId - 1) : null;
       console.log(`🔍 Previous panel (${panelId - 1}):`, {
@@ -851,10 +849,6 @@ export default function CreatePage() {
         console.log(`⚠️ No previous panel context available for panel ${panelId}`);
       }
       
-=======
-      // Call backend API
-      console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
@@ -878,7 +872,6 @@ export default function CreatePage() {
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-<<<<<<< HEAD
             // Calculate scaling to fit the canvas while maintaining aspect ratio
             const canvasAspect = canvas.width / canvas.height;
             const imgAspect = img.width / img.height;
@@ -902,11 +895,6 @@ export default function CreatePage() {
             // Draw the image centered and scaled to fit
             ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
-=======
-            // Draw the image to fill the entire canvas (no gaps)
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
             // Save the new state
             saveCanvasState(panelId, true);
             updateSmallCanvasPreview(panelId);
@@ -998,9 +986,6 @@ export default function CreatePage() {
       {!zoomedPanel ? (
         // Comic Canvas View
         <div className="h-full flex flex-col">
-<<<<<<< HEAD
-          <div className="flex-shrink-0 p-4 flex justify-end items-center">
-=======
           <div className="flex-shrink-0 p-4 flex justify-between items-center">
             <div className="flex items-center gap-4">
               {isEditingTitle ? (
@@ -1040,7 +1025,6 @@ export default function CreatePage() {
               )}
               
             </div>
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
             {/* Action Buttons - Right Side */}
             <div className="flex items-center gap-2">
               <button
@@ -1063,11 +1047,7 @@ export default function CreatePage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-<<<<<<< HEAD
-                {isEditing ? 'Update Comic' : 'Continue to Publish'}
-=======
                 {isEditMode ? 'Update Comic' : (isEditing ? 'Update Comic' : 'Create Comic')}
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
               </button>
             </div>
           </div>
@@ -1078,15 +1058,11 @@ export default function CreatePage() {
                 <div
                   key={panel.id}
                   data-panel-id={panel.id}
-<<<<<<< HEAD
                   className={`group relative bg-background-card backdrop-blur-sm transition-all duration-300 transform-gpu border-4 ${
                     panel.isEnabled
                       ? 'cursor-pointer hover:bg-background-tertiary hover:scale-[1.02] border-black'
                       : 'cursor-not-allowed opacity-40 border-gray-400'
                   }`}
-=======
-                  className="group relative bg-stone-800/60 backdrop-blur-sm cursor-pointer hover:bg-stone-700/60 transition-all duration-300 shadow-2xl hover:shadow-amber-200/20 hover:scale-[1.02] transform-gpu aspect-[4/3]"
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
                   onClick={() => handlePanelClick(panel.id)}
                 >
                   <canvas
@@ -1094,16 +1070,10 @@ export default function CreatePage() {
                     width={400}
                     height={300}
                     className="w-full h-full pointer-events-none bg-white"
-<<<<<<< HEAD
-                  />
-                  {/* Panel Number Overlay */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm flex items-center justify-center text-xs font-bold text-foreground-inverse group-hover:bg-accent-light transition-colors duration-300 border-2 border-black">
-=======
                     style={{ width: '100%', height: '100%', display: 'block' }}
                   />
                   {/* Panel Number Overlay */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-xs font-bold text-stone-900 shadow-lg group-hover:bg-amber-400/90 transition-colors duration-300">
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
+                  <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm flex items-center justify-center text-xs font-bold text-foreground-inverse group-hover:bg-accent-light transition-colors duration-300 border-2 border-black">
                     {panel.id}
                   </div>
 
@@ -1127,13 +1097,9 @@ export default function CreatePage() {
                     </button>
                   )}
                   {/* Hover Effect Overlay */}
-<<<<<<< HEAD
                   {panel.isEnabled && (
                     <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent-light/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                   )}
-=======
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-200/10 to-amber-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
                 </div>
               ))}
             </div>
@@ -1157,13 +1123,8 @@ export default function CreatePage() {
               </svg>
               Back to Canvas
             </button>
-<<<<<<< HEAD
             <h2 className="text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-3">
               <div className="w-8 h-8 bg-accent backdrop-blur-sm flex items-center justify-center text-sm font-bold text-foreground-inverse border-2 border-black">
-=======
-            <h2 className="text-xl font-bold text-amber-50 drop-shadow-lg flex items-center gap-3">
-              <div className="w-8 h-8 bg-amber-500/80 backdrop-blur-sm rounded-full flex items-center justify-center text-sm font-bold text-stone-900 shadow-lg">
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
                 {zoomedPanel.id}
               </div>
               Panel {zoomedPanel.id}
@@ -1177,19 +1138,14 @@ export default function CreatePage() {
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-<<<<<<< HEAD
                 className="bg-background-card max-w-full max-h-full w-auto h-auto border-4 border-black"
-=======
-                className="bg-white shadow-2xl shadow-amber-500/10 max-w-full max-h-full"
-                style={{ width: '100%', height: '100%', display: 'block' }}
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
+                style={{ width: '65%', height: '100%', display: 'block' }}
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
                 onMouseLeave={() => handleMouseUp(zoomedPanel.id)}
               />
             </div>
-<<<<<<< HEAD
 
             {/* Combined Tools and Generate Section - Bottom */}
             <div className="bg-background-secondary p-4 flex flex-col gap-4 items-center">
@@ -1271,128 +1227,6 @@ export default function CreatePage() {
                     </svg>
                   )}
                 </button>
-=======
-            
-            {/* Combined Tools and Generate Section - Right Side */}
-            <div className="w-80 bg-stone-800/40 backdrop-blur-sm p-4 flex flex-col overflow-y-auto border border-amber-100/20">
-              {/* Generate Scene Section */}
-              <div className="mb-6">
-                <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
-                  Generate Scene
-                </h3>
-                <div className="flex flex-col gap-3">
-                  <textarea
-                    value={textPrompt}
-                    onChange={(e) => setTextPrompt(e.target.value)}
-                    placeholder="Describe the scene you want to generate..."
-                    className="w-full px-3 py-2 border border-amber-100/30 rounded-lg bg-stone-800/40 backdrop-blur-sm text-amber-50 placeholder-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-100/50 resize-none shadow-lg text-sm"
-                    rows={3}
-                  />
-                  <button
-                    onClick={() => generateComicArt(zoomedPanel.id)}
-                    disabled={isGenerating || !textPrompt.trim()}
-                    className="group w-full rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-amber-600/80 backdrop-blur-sm text-white hover:bg-amber-500/90 hover:border-amber-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105 disabled:bg-stone-500/50 disabled:hover:scale-100 disabled:hover:shadow-xl"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        Generate Scene
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-amber-50 drop-shadow-lg mb-3">
-                  Drawing Tools
-                </h3>
-                
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Tools</label>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleToolChange('pen')}
-                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
-                        currentTool === 'pen' 
-                          ? 'bg-amber-500/80 text-stone-900 shadow-lg border border-amber-300/50' 
-                          : 'bg-stone-800/40 text-amber-50 border border-amber-100/20 hover:bg-stone-700/50 hover:border-amber-100/40'
-                      }`}
-                    >
-                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                      Pen
-                    </button>
-                    <button
-                      onClick={() => handleToolChange('eraser')}
-                      className={`flex-1 px-3 py-2 rounded-lg transition-all duration-300 font-medium text-sm ${
-                        currentTool === 'eraser' 
-                          ? 'bg-amber-500/80 text-stone-900 shadow-lg border border-amber-300/50' 
-                          : 'bg-stone-800/40 text-amber-50 border border-amber-100/20 hover:bg-stone-700/50 hover:border-amber-100/40'
-                      }`}
-                    >
-                      <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      Eraser
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Brush Size */}
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Brush Size</label>
-                  <div className="flex items-center space-x-2 bg-stone-800/40 rounded-lg px-3 py-2 border border-amber-100/20">
-                    <input
-                      type="range"
-                      min="1"
-                      max="20"
-                      value={brushSize}
-                      onChange={(e) => setBrushSize(Number(e.target.value))}
-                      className="flex-1 accent-amber-500"
-                    />
-                    <span className="text-xs font-bold text-amber-50 w-6 text-center">{brushSize}</span>
-                  </div>
-                </div>
-                
-                {/* Color Picker */}
-                <div className="mb-4">
-                  <label className="text-xs font-medium text-amber-50/80 mb-2 block">Color</label>
-                  <div className="flex items-center space-x-2 bg-stone-800/40 rounded-lg px-3 py-2 border border-amber-100/20">
-                    <input
-                      type="color"
-                      value={currentColor}
-                      onChange={(e) => setCurrentColor(e.target.value)}
-                      className="w-8 h-8 rounded border border-amber-100/30 bg-stone-800/60 cursor-pointer"
-                    />
-                    <span className="text-xs text-amber-50/80">Current color</span>
-                  </div>
-                </div>
-
-                {/* Clear Panel Button */}
-                <div>
-                  <button
-                    onClick={() => clearPanel(zoomedPanel.id)}
-                    className="group w-full rounded-lg border border-solid border-amber-200/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-700/80 backdrop-blur-sm text-amber-50 hover:bg-stone-600/90 hover:border-amber-200/50 font-medium text-sm h-10 px-4 shadow-xl hover:shadow-2xl hover:scale-105"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Clear Panel
-                  </button>
-                </div>
->>>>>>> 111f67f215b7c88f02158d7a1807a5750022024b
               </div>
             </div>
           </div>

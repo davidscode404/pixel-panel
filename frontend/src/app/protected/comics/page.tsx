@@ -234,8 +234,8 @@ export default function MyComicsPage() {
   }
 
   return (
-    <div className="w-full h-full px-2">
-      <div className="max-w-7xl mx-auto">
+    <div className="w-full h-full overflow-auto">
+      <div className="max-w-7xl mx-auto px-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>My Comics</h1>
           <p style={{ color: 'var(--foreground-secondary)' }}>
@@ -268,7 +268,7 @@ export default function MyComicsPage() {
             </div>
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-1 space-y-1 w-full">
+          <div className="columns-2 md:columns-5 lg:columns-5 xl:columns-5 gap-6 space-y-6 w-full">
             {comics.map((comic, index) => {
               console.log('Rendering comic:', comic.title, 'Panels:', comic.panels?.length || 0);
               // Find first panel with audio
@@ -318,7 +318,7 @@ export default function MyComicsPage() {
                         );
                       } else {
                         return (
-                          <img
+                          <Image
                             src={imageUrl}
                             alt={formatComicTitle(comic.title)}
                             className="w-full h-full object-cover"
