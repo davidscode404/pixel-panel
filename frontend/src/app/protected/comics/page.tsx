@@ -33,13 +33,13 @@ export default function MyComicsPage() {
   const [user, setUser] = useState<User | null>(null)
   const [comics, setComics] = useState<Comic[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedComic, setSelectedComic] = useState<Comic | null>(null)
-  const [showModal, setShowModal] = useState(false)
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [error, setError] = useState<string | null>(null)
   const [playingAudio, setPlayingAudio] = useState<string | null>(null)
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
+  const [selectedComic, setSelectedComic] = useState<Comic | null>(null)
+  const [showModal, setShowModal] = useState(false)
 
   const supabase = createClient()
 
@@ -76,7 +76,7 @@ export default function MyComicsPage() {
 
   const fetchUserAndComics = async () => {
     try {
-      setError(null)
+      // Clear any previous errors
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       if (userError) throw userError
@@ -112,7 +112,7 @@ export default function MyComicsPage() {
       }
     } catch (error) {
       console.error('Error:', error)
-      setError('An error occurred while loading your comics.')
+      console.error('Error loading comics:', error)
     } finally {
       setLoading(false)
     }
@@ -122,15 +122,6 @@ export default function MyComicsPage() {
     fetchUserAndComics()
   }, [])
 
-  const openModal = (comic: Comic) => {
-    setSelectedComic(comic)
-    setShowModal(true)
-  }
-
-  const closeModal = () => {
-    setShowModal(false)
-    setSelectedComic(null)
-  }
 
   const handleImageLoad = (imageId: string) => {
     setImageLoading(prev => ({ ...prev, [imageId]: false }))
@@ -183,12 +174,32 @@ export default function MyComicsPage() {
     }
   }, [audioElement])
 
+  const formatComicTitle = (title: string | undefined): string => {
+    if (!title) return 'Unknown Comic';
+    return title
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const openModal = (comic: Comic) => {
+    setSelectedComic(comic);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedComic(null);
+  };
+
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto mb-4"></div>
-          <p className="text-foreground-secondary">Loading your comics...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
+          <p style={{ color: 'var(--foreground)' }}>Loading your comics...</p>
         </div>
       </div>
     )
@@ -196,13 +207,24 @@ export default function MyComicsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center">
         <div className="text-center">
-          <div className="text-error text-xl mb-4">⚠️</div>
-          <p className="text-error mb-4">{error}</p>
+          <div className="text-6xl mb-4" style={{ color: 'var(--error)' }}>⚠️</div>
+          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>Error Loading Comics</h2>
+          <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>{error}</p>
           <button 
             onClick={fetchUserAndComics}
-            className="px-4 py-2 bg-accent hover:bg-accent-hover text-foreground-inverse rounded-lg transition-colors"
+            className="px-6 py-3 rounded-lg transition-colors"
+            style={{ 
+              backgroundColor: 'var(--accent)',
+              color: 'var(--foreground-inverse)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--accent-hover)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--accent)'
+            }}
           >
             Try Again
           </button>
@@ -212,32 +234,42 @@ export default function MyComicsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="w-full h-full px-2">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">My Comics</h1>
-          <p className="text-foreground-secondary">
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>My Comics</h1>
+          <p style={{ color: 'var(--foreground-secondary)' }}>
             {comics.length === 0 ? 'No comics yet' : `${comics.length} comic${comics.length !== 1 ? 's' : ''} created`}
           </p>
         </div>
 
         {comics.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">📚</div>
-            <h2 className="text-2xl font-bold text-foreground mb-4">No Comics Yet</h2>
-            <p className="text-foreground-secondary mb-8 max-w-md mx-auto">
-              Start creating your first comic story! Let your imagination run wild and bring your ideas to life.
-            </p>
-            <a
-              href="/protected/create"
-              className="inline-block px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-semibold rounded-lg transition-colors"
-            >
-              Create Your First Comic
-            </a>
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-6xl mb-4" style={{ color: 'var(--accent)' }}>📖</div>
+              <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>No Comics Yet</h2>
+              <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>Start creating your first comic story! Let your imagination run wild and bring your ideas to life.</p>
+              <a
+                href="/protected/create"
+                className="inline-block px-6 py-3 rounded-lg transition-colors"
+                style={{ 
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--foreground-inverse)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent-hover)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--accent)'
+                }}
+              >
+                Create Your First Comic
+              </a>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {comics.map((comic) => {
+          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-1 space-y-1 w-full">
+            {comics.map((comic, index) => {
               console.log('Rendering comic:', comic.title, 'Panels:', comic.panels?.length || 0);
               // Find first panel with audio
               const audioPanel = comic.panels.find(p => p.audio_url);
@@ -265,21 +297,38 @@ export default function MyComicsPage() {
                       </div>
                     </div>
                   ) : (
-                     <Image
-                        src={
-                          comic.panels.find(p => p.panel_number === 0)?.public_url || 
-                          comic.panels.find(p => p.panel_number === 1)?.public_url ||
-                          comic.panels[0]?.public_url ||
-                          '/placeholder-comic.png'
-                        }
-                        alt={comic.title}
-                        width={400}
-                        height={300}
-                        className="w-full h-full object-cover"
-                        onLoad={() => handleImageLoad(`${comic.id}-preview`)}
-                        onError={() => handleImageError(`${comic.id}-preview`)}
-                        onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
-                      />
+                    (() => {
+                      const imageUrl = comic.panels.find(p => p.panel_number === 0)?.public_url || 
+                                      comic.panels.find(p => p.panel_number === 1)?.public_url ||
+                                      comic.panels[0]?.public_url ||
+                                      '/placeholder-comic.png';
+                      
+                      if (imageUrl.startsWith('http')) {
+                        return (
+                          <Image
+                            src={imageUrl}
+                            alt={formatComicTitle(comic.title)}
+                            width={400}
+                            height={300}
+                            className="w-full h-full object-cover"
+                            onLoad={() => handleImageLoad(`${comic.id}-preview`)}
+                            onError={() => handleImageError(`${comic.id}-preview`)}
+                            onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
+                          />
+                        );
+                      } else {
+                        return (
+                          <img
+                            src={imageUrl}
+                            alt={formatComicTitle(comic.title)}
+                            className="w-full h-full object-cover"
+                            onLoad={() => handleImageLoad(`${comic.id}-preview`)}
+                            onError={() => handleImageError(`${comic.id}-preview`)}
+                            onLoadStart={() => handleImageLoadStart(`${comic.id}-preview`)}
+                          />
+                        );
+                      }
+                    })()
                   )}
 
                   {/* Play button overlay */}
@@ -309,7 +358,7 @@ export default function MyComicsPage() {
 
                 {/* Title and date at bottom with overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
-                  <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{comic.title}</h3>
+                  <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{formatComicTitle(comic.title)}</h3>
                   <p className="text-foreground-secondary text-xs">
                     {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                   </p>

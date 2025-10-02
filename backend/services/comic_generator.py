@@ -9,7 +9,6 @@ import base64
 import tempfile
 import io
 import google.generativeai as genai
-from google.generativeai import types
 from PIL import Image
 from io import BytesIO
 from dotenv import load_dotenv
@@ -87,14 +86,22 @@ class ComicArtGenerator:
                 "You have been provided with the previous panel as context. Create a new scene that follows naturally from the context, "
                 "maintaining visual consistency in style, characters, and setting. Use the reference sketch as a guide for composition. "
                 "Create clean, professional comic book style artwork with bold lines, clear forms, and comic book aesthetics. "
-                "The new scene should feel like a natural continuation of the story."
+                "The new scene should feel like a natural continuation of the story. "
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
+                "Do NOT include white borders or empty white space around the artwork unless specifically requested in the prompt. "
+                "Generate the image with a 4:3 aspect ratio (landscape orientation) - width should be wider than height. "
+                "Ideal dimensions are 800x600 pixels or similar 4:3 proportions."
             )
         else:
             system_prompt = (
                 "You are a comic art generator. You generate art for panels based on a reference sketch from the user. "
                 "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
                 "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
-                "and scene composition as shown in the reference sketch."
+                "and scene composition as shown in the reference sketch. "
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
+                "Do NOT include white borders or empty white space around the artwork unless specifically requested in the prompt. "
+                "Generate the image with a 4:3 aspect ratio (landscape orientation) - width should be wider than height. "
+                "Ideal dimensions are 800x600 pixels or similar 4:3 proportions."
             )
         
         if reference_image_path:
@@ -108,19 +115,17 @@ class ComicArtGenerator:
                 reference_image.save(img_buffer, format='PNG')
                 img_bytes = img_buffer.getvalue()
                 print(f"📦 Reference image size: {len(img_bytes)} bytes")
-                
+
                 # Create multimodal content with image and text
                 # Convert image bytes to PIL Image for the API
-                
-                # Create PIL Image from bytes
                 img = Image.open(io.BytesIO(img_bytes))
-                
+
                 # Create the prompt with image
                 prompt_parts = [
                     img,
                     f"{system_prompt}\n\nText prompt: {text_prompt}"
                 ]
-                
+
                 # Add context image if available
                 if has_context:
                     try:

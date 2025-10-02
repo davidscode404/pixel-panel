@@ -130,39 +130,32 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         print(f"🔍 DEBUG: Raw data keys: {list(raw_data.keys())}")
         print(f"🔍 DEBUG: Authenticated user: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'Unknown')})")
         
-        # Try to parse as ComicRequest to see validation errors
-        try:
-            request = ComicRequest(**raw_data)
-            print(f"✅ Successfully parsed as ComicRequest")
-        except Exception as validation_error:
-            print(f"❌ Validation error: {validation_error}")
-            print(f"📋 Expected schema: ComicRequest(title: str, panels: List[PanelData])")
-            print(f"📋 PanelData schema: PanelData(id: int, prompt: str, image_data: str, is_zoomed: bool)")
-            raise HTTPException(status_code=422, detail=f"Validation error: {str(validation_error)}")
+        # Handle both old and new frontend formats
+        comic_title = raw_data.get('title') or raw_data.get('comic_title')
+        panels_data = raw_data.get('panels') or raw_data.get('panels_data')
         
-        comic_title = request.title
-        panels_data = request.panels
+        if not comic_title:
+            raise HTTPException(status_code=422, detail="Missing required field: title or comic_title")
+        if not panels_data:
+            raise HTTPException(status_code=422, detail="Missing required field: panels or panels_data")
         
-        if not all([comic_title, panels_data]):
-            print(f"❌ Missing fields - comic_title: {comic_title}, panels_data: {bool(panels_data)}")
-            raise HTTPException(status_code=400, detail='Missing required fields')
-        
-        # Convert Pydantic models to plain dicts for the storage layer
+        print(f"✅ Extracted - comic_title: {comic_title}, panels_count: {len(panels_data)}")
+
+        # Convert Pydantic models to plain dicts for the storage layer, supporting voice-over features
         try:
             panels_payload = [
                 {
-                    'id': p.id,
-                    # Support both keys downstream: image_data and largeCanvasData
-                    'image_data': p.image_data,
-                    'prompt': p.prompt,
-                    'is_zoomed': p.is_zoomed,
-                    'narration': getattr(p, 'narration', None),
-                    'audio_data': getattr(p, 'audio_data', None)
+                    'id': p.id if hasattr(p, 'id') else p.get('id', 1),
+                    'image_data': p.image_data if hasattr(p, 'image_data') else (p.get('image_data') or p.get('largeCanvasData')),
+                    'prompt': p.prompt if hasattr(p, 'prompt') else p.get('prompt', f"Panel {p.get('id', 1)}"),
+                    'is_zoomed': p.is_zoomed if hasattr(p, 'is_zoomed') else p.get('is_zoomed', False),
+                    'narration': getattr(p, 'narration', None) if hasattr(p, 'narration') else p.get('narration'),
+                    'audio_data': getattr(p, 'audio_data', None) if hasattr(p, 'audio_data') else p.get('audio_data')
                 }
                 for p in panels_data
             ]
         except Exception as conv_err:
-            print(f"❌ Error converting PanelData to dicts: {conv_err}")
+            print(f"❌ Error converting panel data to dicts: {conv_err}")
             raise HTTPException(status_code=400, detail=f"Invalid panels data: {conv_err}")
 
         print(f"🔍 DEBUG: Prepared panels_payload count: {len(panels_payload)}")
@@ -177,7 +170,7 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         user_id = current_user.get('id')
 
         # Get thumbnail data if provided
-        thumbnail_data = request.thumbnail_data
+        thumbnail_data = raw_data.get('thumbnail_data')
 
         return await comic_storage_service.save_comic(user_id, comic_title, panels_payload, thumbnail_data)
     except HTTPException:
@@ -205,7 +198,6 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
         print(f"❌ Error fetching user comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/public-comics")
 async def get_public_comics():
     """
@@ -223,7 +215,6 @@ async def get_public_comics():
     except Exception as e:
         print(f"❌ Error fetching public comics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.patch("/{comic_id}/visibility")
 async def update_comic_visibility(comic_id: str, request: Request, current_user: dict = Depends(get_current_user)):
@@ -254,7 +245,6 @@ async def update_comic_visibility(comic_id: str, request: Request, current_user:
     except Exception as e:
         print(f"❌ Error updating comic visibility: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/list-comics")
 async def list_comics():
@@ -308,4 +298,27 @@ async def list_comics():
 
     except Exception as e:
         print(f"❌ Error listing comics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/user-comics/{comic_id}")
+async def delete_comic(comic_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a specific comic by ID"""
+    try:
+        print(f"🗑️ Deleting comic {comic_id} for user {current_user.get('email', 'Unknown')}")
+        
+        # Use the comic storage service to delete the comic
+        success = await comic_storage_service.delete_comic(current_user.get('id'), comic_id)
+        
+        if success:
+            print(f"✅ Successfully deleted comic {comic_id}")
+            return {"success": True, "message": "Comic deleted successfully"}
+        else:
+            print(f"❌ Failed to delete comic {comic_id}")
+            raise HTTPException(status_code=404, detail="Comic not found or you don't have permission to delete it")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error deleting comic: {e}")
         raise HTTPException(status_code=500, detail=str(e))

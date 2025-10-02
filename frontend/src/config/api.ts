@@ -1,19 +1,27 @@
 // API Configuration
 // Change this port to easily switch between different backend servers
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000', // Change this to 8000 or any other port as needed
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000', // Use environment variable for production
   ENDPOINTS: {
-    LOAD_COMIC: '/load-comic',
-    SAVE_COMIC: '/api/comics/save-comic',
+    // New modular API endpoints
     GENERATE: '/api/comics/generate',
-    LIST_COMICS: '/api/comics/list-comics',
-    USER_COMICS: '/api/comics/user-comics',
-    PUBLIC_COMICS: '/api/comics/public-comics'
+    SAVE_COMIC: '/api/comics/save-comic',
+    MY_COMICS: '/api/comics/user-comics',
+    USER_COMICS: '/api/comics/user-comics',  // Alias for MY_COMICS
+    PUBLIC_COMICS: '/api/comics/public-comics',
+    LIST_COMICS: '/api/comics/list-comics',  // New endpoint for saved-comics directory
+    GENERATE_VOICE: '/api/voice-over/generate-voiceover',
+    
+    // Legacy endpoints (still needed for compatibility)
+    LOAD_COMIC: '/load-comic',  // Legacy endpoint in main.py
+    SAVE_PANEL: '/save-panel',  // Legacy endpoint (if still needed)
+    RESET_CONTEXT: '/reset-context',  // Legacy endpoint (if still needed)
+    GENERATE_COMIC: '/generate-comic'  // Legacy endpoint (if still needed)
   }
 };
 
 // Simple cache for API responses
-const apiCache = new Map<string, { data: any; timestamp: number }>();
+const apiCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_DURATION = 5000; // 5 seconds cache
 
 // Helper function to build full API URLs
@@ -21,10 +29,82 @@ export const buildApiUrl = (endpoint: string): string => {
   return `${API_CONFIG.BASE_URL}${endpoint}`;
 };
 
-// Cached fetch function
+// Get auth token from Supabase - will be set by AuthProvider
+let currentAuthToken: string | null = null;
+
+export const setAuthToken = (token: string | null) => {
+  currentAuthToken = token;
+};
+
+const getAuthToken = (): string | null => {
+  if (currentAuthToken) {
+    return currentAuthToken;
+  }
+  
+  // Fallback: try to get from localStorage
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    // Check common Supabase auth storage keys
+    const keys = [
+      'sb-localhost-auth-token',
+      'supabase.auth.token',
+      'sb-auth-token'
+    ];
+    
+    for (const key of keys) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          if (data?.access_token) {
+            return data.access_token;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+    
+    // Last resort: scan all localStorage for Supabase auth
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.includes('sb-') && key.includes('auth')) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          if (data?.access_token) {
+            return data.access_token;
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Error getting auth token:', error);
+  }
+  
+  return null;
+};
+
+// Cached fetch function with authentication
 export const cachedFetch = async (url: string, options?: RequestInit): Promise<Response> => {
   const now = Date.now();
-  const cacheKey = `${url}_${JSON.stringify(options || {})}`;
+  
+  // Add authentication headers
+  const authToken = getAuthToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(options?.headers || {}),
+    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+  };
+  
+  const requestOptions = {
+    ...options,
+    headers
+  };
+  
+  const cacheKey = `${url}_${JSON.stringify(requestOptions)}`;
   
   // Check if we have a valid cached response
   const cached = apiCache.get(cacheKey);
@@ -37,8 +117,13 @@ export const cachedFetch = async (url: string, options?: RequestInit): Promise<R
   }
   
   // Make the actual API call
-  console.log(`Making API call to ${url}`);
-  const response = await fetch(url, options);
+  console.log(`Making API call to ${url}${authToken ? ' (authenticated)' : ' (no auth)'}`);
+  if (authToken) {
+    console.log('🔑 Auth token preview:', authToken.substring(0, 20) + '...');
+  } else {
+    console.log('⚠️ No auth token available for API call');
+  }
+  const response = await fetch(url, requestOptions);
   
   // Cache successful responses
   if (response.ok) {

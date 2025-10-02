@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import booksData from '../data/books.json';
 import { buildApiUrl, API_CONFIG, cachedFetch } from '../config/api';
+import { ComicPanel } from '../types';
 
 interface Book {
   id: number | string; // Allow string for user comic titles
@@ -14,14 +14,14 @@ interface Book {
   gradient: string;
   image?: string; // Optional for user comics
   isUserComic?: boolean;
-  panels?: any[];
+  panels?: ComicPanel[];
 }
 
-interface SavedComic {
-  title: string;
-  date: string;
-  panels: any[];
-}
+// interface SavedComic {
+//   title: string;
+//   date: string;
+//   panels: ComicPanel[];
+// }
 
 // Helper function to format comic titles nicely
 const formatComicTitle = (title: string): string => {
@@ -66,7 +66,7 @@ export default function BookSlider() {
         console.log('Loaded comics from project directory:', comics);
         
         // Debug cover images
-        comics.forEach((comic: any) => {
+        comics.forEach((comic: { title: string; cover_image?: string }) => {
           if (comic.cover_image) {
             console.log(`Cover image found for ${comic.title}: ${comic.cover_image.substring(0, 50)}...`);
           } else {
@@ -76,7 +76,7 @@ export default function BookSlider() {
         
         if (comics.length > 0) {
           // Convert all user comics to Book objects
-          const userComics: Book[] = comics.map((comic: any, index: number) => ({
+          const userComics: Book[] = comics.map((comic: { title: string; cover_image?: string }) => ({
             id: comic.title,
             title: formatComicTitle(comic.title),
             author: 'You',
@@ -106,7 +106,7 @@ export default function BookSlider() {
           comicsToShow.forEach((userComic, index) => {
             const bookIndex = startIndex + index;
             if (bookIndex < updatedBooks.length) {
-              updatedBooks[bookIndex] = userComic as any; // Type assertion for mixed ID types
+              updatedBooks[bookIndex] = userComic as any;
             }
           });
           
@@ -293,11 +293,11 @@ export default function BookSlider() {
                   ) : book.isUserComic ? (
                     // User comic with gradient background (fallback)
                     <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
-                  ) : (
+                  ) : book.image ? (
                     // Regular book with image
                     <>
                       <Image 
-                        src={book.image || '/api/placeholder/400/600'} 
+                        src={book.image} 
                         alt={book.title}
                         fill
                         className="object-cover"
@@ -305,6 +305,9 @@ export default function BookSlider() {
                       {/* Overlay for better text readability */}
                       <div className="absolute inset-0 bg-black/20" />
                     </>
+                  ) : (
+                    // Regular book with gradient background (fallback)
+                    <div className={`absolute inset-0 bg-gradient-to-br ${book.gradient} opacity-90`} />
                   )}
                 </div>
                 
@@ -360,7 +363,7 @@ export default function BookSlider() {
           />
           
           {/* Modal Content */}
-          <div className="relative bg-background-tertiary rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
+          <div className="relative bg-stone-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
             {/* Close Button */}
             <button
               onClick={closePopup}
@@ -411,11 +414,11 @@ export default function BookSlider() {
                       </p>
                     </div>
                   </div>
-                ) : (
+                ) : selectedBook.image ? (
                   // Regular book with image
                   <>
                     <Image 
-                      src={selectedBook.image || '/api/placeholder/400/600'} 
+                      src={selectedBook.image} 
                       alt={selectedBook.title}
                       fill
                       className="object-cover"
@@ -433,6 +436,18 @@ export default function BookSlider() {
                       </div>
                     </div>
                   </>
+                ) : (
+                  // Regular book with gradient background (fallback)
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center text-white p-8">
+                      <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
+                        {selectedBook.title}
+                      </h2>
+                      <p className="text-lg opacity-90 drop-shadow-md">
+                        by {selectedBook.author}
+                      </p>
+                    </div>
+                  </div>
                 )}
                 
                 {/* Decorative Elements */}
@@ -447,23 +462,23 @@ export default function BookSlider() {
                     </h3>
                     <div className="space-y-3">
                       <div>
-                        <span className="font-semibold text-foreground-secondary">Title:</span>
-                        <p className="text-white">{selectedBook.title}</p>
+                        <span className="font-semibold text-stone-400">Title:</span>
+                        <p className="text-stone-100">{selectedBook.title}</p>
                       </div>
                       <div>
-                        <span className="font-semibold text-foreground-secondary">Author:</span>
-                        <p className="text-white">{selectedBook.author}</p>
+                        <span className="font-semibold text-stone-400">Author:</span>
+                        <p className="text-stone-100">{selectedBook.author}</p>
                       </div>
                       <div>
-                        <span className="font-semibold text-foreground-secondary">Genre:</span>
-                        <p className="text-white">Featured Comic</p>
+                        <span className="font-semibold text-stone-400">Genre:</span>
+                        <p className="text-stone-100">Featured Comic</p>
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-foreground-secondary mb-2">Description:</h4>
-                    <p className="text-foreground leading-relaxed">
+                    <h4 className="font-semibold text-stone-400 mb-2">Description:</h4>
+                    <p className="text-stone-300 leading-relaxed">
                       Discover this amazing comic story filled with adventure, mystery, and unforgettable characters. 
                       Perfect for readers who love engaging narratives and beautiful artwork.
                     </p>

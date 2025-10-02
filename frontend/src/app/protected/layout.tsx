@@ -13,6 +13,8 @@ export default function ProtectedLayout({
   const { user, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(false)
+
   useEffect(() => {
     if (!loading && !user) {
       const redirectUrl = encodeURIComponent(pathname)
@@ -20,10 +22,17 @@ export default function ProtectedLayout({
     }
   }, [user, loading, router, pathname])
 
+  // Track the current page for navigation purposes
+  useEffect(() => {
+    if (pathname && pathname !== '/protected') {
+      localStorage.setItem('lastVisitedPage', pathname)
+    }
+  }, [pathname])
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-foreground">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
+        <div style={{ color: 'var(--foreground)' }}>Loading...</div>
       </div>
     )
   }
@@ -32,12 +41,22 @@ export default function ProtectedLayout({
     return null
   }
 
+  const toggleSidebar = () => {
+    setIsSidebarMinimized(!isSidebarMinimized)
+  }
+
   return (
-    <div className="h-screen bg-background flex overflow-hidden">
-      <SideBar />
+    <div className="h-screen flex overflow-hidden" style={{ backgroundColor: 'var(--background)' }}>
+      {/* Sidebar - Fixed */}
+      <SideBar 
+        isMinimized={isSidebarMinimized} 
+        onToggleMinimize={toggleSidebar}
+        onMinimize={() => setIsSidebarMinimized(true)}
+      />
       
+      {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto" style={{ backgroundColor: 'var(--background)' }}>
           {children}
         </main>
       </div>

@@ -384,3 +384,4 @@ coverage/
 *.temp
 temp/
 tmp/
+.vercel

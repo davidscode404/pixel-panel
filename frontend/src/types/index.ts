@@ -2,11 +2,11 @@
  * Type definitions for the PixelPanel application
  */
 
-// User types
+// User types - compatible with Supabase User
 export interface User {
   id: string;
-  email: string;
-  user_metadata?: Record<string, any>;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
 }
 
 // Comic types

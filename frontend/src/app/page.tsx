@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import BookSlider from '../components/BookSlider';
+import Footer from '@/components/ui/Footer';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function Home() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   // Redirect authenticated users to protected area
@@ -35,56 +36,59 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen p-8 sm:p-12 animated-gradient">
-      {/* Auth buttons in top right */}
-      <div className="absolute top-4 right-4 flex gap-2">
-        <Link href="/auth/login">
-          <button className="px-4 py-2 text-sm bg-background-secondary/50 text-foreground-secondary rounded-md hover:bg-background-secondary/70 transition-colors border border-border">
-            Sign In
-          </button>
-        </Link>
-        <Link href="/auth/signup">
-          <button className="px-4 py-2 text-sm bg-accent text-white rounded-md hover:bg-accent-hover transition-colors">
-            Sign Up
-          </button>
-        </Link>
-      </div>
-
-      <main className="flex flex-col items-center gap-12">
-        <div className="text-center max-w-2xl">
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mb-6 text-foreground drop-shadow-2xl flex items-center justify-center gap-4">
-            <img
-              src="/logo.png"
-              alt="PixelPanel Logo"
-              className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
-            />
-            PixelPanel
-          </h1>
-          <p className="text-base sm:text-lg text-foreground-secondary drop-shadow-lg">
-            Generate your comic story via voice with our AI-powered comic generator agent.
-            Simply speak your ideas and watch them come to life!
-          </p>
-        </div>
-
-        {/* Create Comic button */}
-        <div className="flex justify-center">
+    <div className="min-h-screen flex flex-col animated-gradient">
+      <div className="flex-1 p-8 sm:p-12">
+        {/* Auth buttons in top right */}
+        <div className="absolute top-4 right-4 flex gap-2">
           <Link href="/auth/login">
-            <button className="group rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-background-secondary/40 backdrop-blur-sm text-foreground hover:bg-background-secondary/60 hover:border-accent/50 font-medium text-base h-12 px-8 shadow-xl hover:shadow-2xl hover:scale-105">
-              Create Your Comic
-              <svg
-                className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
+            <button className="px-4 py-2 text-sm bg-background-secondary/50 text-foreground-secondary rounded-md hover:bg-background-secondary/70 transition-colors border border-border">
+              Sign In
+            </button>
+          </Link>
+          <Link href="/auth/signup">
+            <button className="px-4 py-2 text-sm bg-accent text-white rounded-md hover:bg-accent-hover transition-colors">
+              Sign Up
             </button>
           </Link>
         </div>
-        
-        <BookSlider />
-      </main>
+
+        <main className="flex flex-col items-center gap-12">
+          <div className="text-center max-w-2xl">
+            <h1 className="text-4xl sm:text-6xl font-bold tracking-tight mb-6 text-foreground drop-shadow-2xl flex items-center justify-center gap-4">
+              <img
+                src="/logo.png"
+                alt="PixelPanel Logo"
+                className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+              />
+              PixelPanel
+            </h1>
+            <p className="text-base sm:text-lg text-foreground-secondary drop-shadow-lg">
+              Generate your comic story via voice with our AI-powered comic generator agent.
+              Simply speak your ideas and watch them come to life!
+            </p>
+          </div>
+
+          {/* Create Comic button */}
+          <div className="flex justify-center">
+            <Link href="/auth/login">
+              <button className="group rounded-lg border border-solid border-accent/30 transition-all duration-300 flex items-center justify-center gap-2 bg-background-secondary/40 backdrop-blur-sm text-foreground hover:bg-background-secondary/60 hover:border-accent/50 font-medium text-base h-12 px-8 shadow-xl hover:shadow-2xl hover:scale-105">
+                Create Your Comic
+                <svg
+                  className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </button>
+            </Link>
+          </div>
+
+          <BookSlider />
+        </main>
+      </div>
+      <Footer />
     </div>
   );
 }
