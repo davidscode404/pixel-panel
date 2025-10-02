@@ -4,29 +4,8 @@ import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { buildApiUrl, API_CONFIG } from '@/config/api'
-
-interface Panel {
-  id: string
-  comic_id?: string
-  panel_number: number
-  storage_path?: string
-  public_url: string
-  file_size?: number
-  created_at?: string
-  narration?: string
-  audio_url?: string
-}
-
-interface Comic {
-  id: string
-  title: string
-  user_id?: string
-  is_public?: boolean
-  created_at: string
-  updated_at?: string
-  panels: Panel[]
-}
+import { buildApiUrl } from '@/config/api'
+import type { Comic, ComicPanel } from '@/types'
 
 interface ComicDetailModalProps {
   comic: Comic
@@ -117,7 +96,6 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
       .sort((a, b) => a.panel_number - b.panel_number)
 
     if (panelsWithAudio.length === 0) {
-      console.log('No panels with audio found')
       return
     }
 

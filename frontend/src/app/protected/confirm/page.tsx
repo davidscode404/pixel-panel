@@ -6,16 +6,9 @@ import Link from 'next/link';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
+import type { PanelData } from '@/types';
 
 const supabase = createSupabaseClient();
-
-interface PanelData {
-  id: number;
-  prompt: string;
-  image_data: string;
-  is_zoomed: boolean;
-  narration?: string;
-}
 
 export default function ConfirmComicPage() {
   const router = useRouter();
@@ -61,7 +54,6 @@ export default function ConfirmComicPage() {
   // Auto-generate narrations when panels are loaded
   useEffect(() => {
     if (panelsData.length > 0 && !narrationsGenerated && !generatingNarrations) {
-      console.log('Auto-generating narrations for panels...');
       generateNarrations();
     }
   }, [panelsData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -139,8 +131,6 @@ export default function ConfirmComicPage() {
       // Collect prompts from all panels
       const prompts = panelsData.map(panel => panel.prompt);
 
-      console.log('🎨 Generating thumbnail with prompts:', prompts);
-
       const response = await fetch(buildApiUrl('/api/comics/generate-thumbnail'), {
         method: 'POST',
         headers: {
@@ -159,7 +149,6 @@ export default function ConfirmComicPage() {
         // Store thumbnail data with data URL prefix for display
         const thumbnailDataUrl = `data:image/png;base64,${result.thumbnail_data}`;
         setThumbnailData(thumbnailDataUrl);
-        console.log('✅ Thumbnail generated successfully');
       } else {
         throw new Error('Invalid response from thumbnail generation');
       }
@@ -172,20 +161,14 @@ export default function ConfirmComicPage() {
   };
 
   const generateAudioForPanels = async () => {
-    console.log('🎵 Generating audio for all panels...');
-    console.log('🔍 Panels to process:', panelsData.map(p => ({ id: p.id, hasNarration: !!p.narration })));
-
     const updatedPanels = await Promise.all(
       panelsData.map(async (panel) => {
         // Skip if no narration
         if (!panel.narration) {
-          console.log(`⚠️ Panel ${panel.id} has no narration, skipping audio generation`);
           return panel;
         }
 
         try {
-          console.log(`🎤 Generating audio for panel ${panel.id} with narration: "${panel.narration.substring(0, 50)}..."`);
-
           const url = new URL(buildApiUrl('/api/voice-over/generate-voiceover'));
           url.searchParams.append('narration', panel.narration);
 
@@ -197,25 +180,23 @@ export default function ConfirmComicPage() {
           });
 
           if (!response.ok) {
-            console.warn(`❌ Failed to generate audio for panel ${panel.id}: ${response.status} ${response.statusText}`);
+            console.warn(`Failed to generate audio for panel ${panel.id}: ${response.status} ${response.statusText}`);
             return panel;
           }
 
           const audioData = await response.json();
-          console.log(`✅ Audio generated for panel ${panel.id}, size: ${audioData.audio?.length || 0} bytes`);
 
           return {
             ...panel,
             audio_data: audioData.audio
           };
         } catch (error) {
-          console.error(`❌ Error generating audio for panel ${panel.id}:`, error);
+          console.error(`Error generating audio for panel ${panel.id}:`, error);
           return panel;
         }
       })
     );
 
-    console.log('🔍 Updated panels with audio:', updatedPanels.map(p => ({ id: p.id, hasAudio: !!p.audio_data, audioSize: p.audio_data?.length })));
     return updatedPanels;
   };
 
@@ -237,7 +218,6 @@ export default function ConfirmComicPage() {
       const accessToken = await getAccessToken();
       
       // Generate audio for all panels with narrations
-      console.log('🎵 Generating audio for panels...');
       const panelsWithAudio = await generateAudioForPanels();
       
       const payload = {
@@ -248,8 +228,6 @@ export default function ConfirmComicPage() {
         panels: panelsWithAudio,
         thumbnail_data: thumbnailData  // Include thumbnail if generated
       };
-
-      console.log('🔍 DEBUG: Saving comic with payload (audio included)');
 
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_COMIC), {
         method: 'POST',
@@ -266,7 +244,6 @@ export default function ConfirmComicPage() {
       }
 
       const result = await response.json();
-      console.log('✅ Comic saved successfully:', result);
 
       // Clear sessionStorage
       sessionStorage.removeItem('comicPanelsData');
@@ -275,7 +252,7 @@ export default function ConfirmComicPage() {
       router.push('/protected/comics');
 
     } catch (error) {
-      console.error('❌ Error saving comic:', error);
+      console.error('Error saving comic:', error);
       setError(error instanceof Error ? error.message : 'Failed to save comic');
     } finally {
       setLoading(false);

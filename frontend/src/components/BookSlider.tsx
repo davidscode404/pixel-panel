@@ -40,12 +40,10 @@ export default function BookSlider() {
 
   // Load user's saved comic and replace "Where the Crawdads Sing"
   useEffect(() => {
-    console.log('BookSlider: Loading comics from project directory...');
     loadComicsFromDB();
     
     // Listen for storage events to refresh when new comics are saved
     const handleStorageChange = () => {
-      console.log('BookSlider: Storage changed, refreshing comics...');
       loadComicsFromDB();
     };
     
@@ -63,16 +61,6 @@ export default function BookSlider() {
       if (response.ok) {
         const data = await response.json();
         const comics = data.comics;
-        console.log('Loaded comics from project directory:', comics);
-        
-        // Debug cover images
-        comics.forEach((comic: { title: string; cover_image?: string }) => {
-          if (comic.cover_image) {
-            console.log(`Cover image found for ${comic.title}: ${comic.cover_image.substring(0, 50)}...`);
-          } else {
-            console.log(`No cover image for ${comic.title}`);
-          }
-        });
         
         if (comics.length > 0) {
           // Convert all user comics to Book objects
@@ -114,9 +102,7 @@ export default function BookSlider() {
           
           // Set the current index to the center (where the most recent comic is)
           setCurrentIndex(centerIndex);
-          console.log(`Added ${comicsToShow.length} user comics to books, centered at index ${centerIndex}`);
         } else {
-          console.log('No saved comics found, using default books');
           setBooks(booksData.books);
         }
       } else {
@@ -181,7 +167,6 @@ export default function BookSlider() {
         // Use the original title (with underscores) for the backend
         const originalTitle = book.id as string; // The ID contains the original title
         const encodedTitle = encodeURIComponent(originalTitle);
-        console.log(`Previewing comic: '${book.title}' (original: '${originalTitle}') -> encoded: '${encodedTitle}'`);
         
         // Redirect to preview page
         window.location.href = `/preview/${encodedTitle}`;

@@ -109,7 +109,6 @@ export const cachedFetch = async (url: string, options?: RequestInit): Promise<R
   // Check if we have a valid cached response
   const cached = apiCache.get(cacheKey);
   if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-    console.log(`Using cached response for ${url}`);
     return new Response(JSON.stringify(cached.data), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -117,12 +116,6 @@ export const cachedFetch = async (url: string, options?: RequestInit): Promise<R
   }
   
   // Make the actual API call
-  console.log(`Making API call to ${url}${authToken ? ' (authenticated)' : ' (no auth)'}`);
-  if (authToken) {
-    console.log('🔑 Auth token preview:', authToken.substring(0, 20) + '...');
-  } else {
-    console.log('⚠️ No auth token available for API call');
-  }
   const response = await fetch(url, requestOptions);
   
   // Cache successful responses

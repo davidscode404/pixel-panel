@@ -6,19 +6,20 @@ import { buildApiUrl, API_CONFIG } from '../../../config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import Link from 'next/link';
+import type { ComicPanel } from '@/types';
 
 // Create Supabase client (shared with AuthProvider)
 const supabase = createSupabaseClient()
 
-
-interface Panel {
+// Local Panel type for create page (extends ComicPanel with canvas-specific fields)
+interface Panel extends Omit<ComicPanel, 'id' | 'panel_number' | 'public_url'> {
   id: number;
   isZoomed: boolean;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  smallCanvasData: string | null; // base64 data URL for small canvas
-  largeCanvasData: string | null; // base64 data URL for large canvas
-  prompt?: string; // Optional prompt for the panel
-  isEnabled: boolean; // Whether the panel is unlocked for editing
+  smallCanvasData: string | null;
+  largeCanvasData: string | null;
+  prompt?: string;
+  isEnabled: boolean;
 }
 
 export default function CreatePage() {
@@ -40,46 +41,34 @@ export default function CreatePage() {
     const getAccessToken = async () => {
       // 1) Try to read current session
       let { data: { session }, error } = await supabase.auth.getSession();
-      console.log('🔍 DEBUG:getSession -> session:', session, 'error:', error);
 
       // 2) If missing, try to refresh using stored refresh token
       if (!session) {
-        console.log('ℹ️ No session returned. Attempting refreshSession...');
         const refreshRes = await supabase.auth.refreshSession();
-        console.log('🔍 DEBUG:refreshSession ->', refreshRes);
         session = refreshRes.data.session ?? null;
       }
 
       // 3) As a fallback, validate via getUser (forces a user check)
       if (!session) {
-        console.log('ℹ️ No session after refresh. Attempting getUser as fallback...');
         const { data: userData, error: userErr } = await supabase.auth.getUser();
-        console.log('🔍 DEBUG:getUser -> user:', userData?.user, 'error:', userErr);
         if (userData?.user) {
           // Try getting session once more
           const s2 = await supabase.auth.getSession();
           session = s2.data.session ?? null;
-          console.log('🔍 DEBUG:getSession (after getUser) ->', session);
         }
       }
 
       if (!session) {
-        console.log('❌ No active session available after retries');
         throw new Error('No active session. Please sign in first.');
       }
 
       if (!session.access_token) {
-        console.log('❌ Session present but missing access_token');
         throw new Error('No access token available');
       }
 
-      console.log('🔍 DEBUG: Access token length:', session.access_token.length);
-      console.log('🔍 DEBUG: Access token starts with:', session.access_token.substring(0, 50));
       // Check if token has proper JWT structure (3 parts separated by dots)
       const tokenParts = session.access_token.split('.');
-      console.log('🔍 DEBUG: Token parts count:', tokenParts.length);
       if (tokenParts.length !== 3) {
-        console.log('❌ Invalid JWT format - expected 3 parts, got:', tokenParts.length);
         throw new Error('Invalid JWT token format');
       }
 
@@ -129,8 +118,6 @@ export default function CreatePage() {
       
       if (comicTitle) {
         try {
-          console.log(`Loading comic from URL parameter: ${comicTitle}`);
-          
           const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.LOAD_COMIC}/${comicTitle}`));
           if (response.ok) {
             const comic = await response.json();
@@ -171,7 +158,6 @@ export default function CreatePage() {
               setPanels(updatedPanels);
               
               setTimeout(() => {
-                console.log('Loading panels onto canvases...');
                 comic.panels.forEach((savedPanel: any) => {
                   if (savedPanel.image_data) {
                     const panel = updatedPanels.find(p => p.id === savedPanel.id);
@@ -179,10 +165,8 @@ export default function CreatePage() {
                       const canvas = panel.canvasRef.current;
                       const ctx = canvas.getContext('2d');
                       if (ctx) {
-                        console.log(`Loading panel ${savedPanel.id} onto canvas`);
                         const img = new Image();
                         img.onload = () => {
-                          console.log(`Drawing panel ${savedPanel.id} onto canvas`);
                           ctx.clearRect(0, 0, canvas.width, canvas.height);
                           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         };
@@ -224,10 +208,6 @@ export default function CreatePage() {
     const canvas = panel.canvasRef.current;
     const dataURL = canvas.toDataURL();
 
-    console.log(`💾 Saving ${isLargeCanvas ? 'LARGE' : 'small'} canvas data for panel ${panelId}`);
-    console.log(`   - Data URL length: ${dataURL.length}`);
-    console.log(`   - Data preview: ${dataURL.substring(0, 50)}...`);
-
     setPanels(prev => prev.map(p =>
       p.id === panelId
         ? {
@@ -241,8 +221,6 @@ export default function CreatePage() {
     if (dataURL && dataURL.length > 100) {
       enableNextPanel(panelId);
     }
-
-    console.log(`✅ Canvas state saved for panel ${panelId} (${isLargeCanvas ? 'LARGE' : 'small'})`);
   };
 
   const restoreCanvasState = (panelId: number, isLargeCanvas: boolean = false) => {
@@ -619,7 +597,6 @@ export default function CreatePage() {
     
     if (allPanelsEmpty) {
       try {
-        console.log('All panels cleared, resetting context...');
         // Get access token for API request
         const accessToken = await getAccessToken();
         
@@ -631,9 +608,7 @@ export default function CreatePage() {
           }
         });
         
-        if (response.ok) {
-          console.log('Context reset successfully');
-        } else {
+        if (!response.ok) {
           console.error('Failed to reset context');
         }
       } catch (error) {
@@ -689,16 +664,12 @@ export default function CreatePage() {
   };
 
   const createComic = async () => {
-    console.log('🔍 DEBUG: Proceeding to confirmation page');
-
     // Check if any panels have content
     const panelsWithData = panels.filter(panel => panel.largeCanvasData);
     if (panelsWithData.length === 0) {
       alert('Please create at least one panel before proceeding.');
       return;
     }
-
-    console.log('Starting to create comic:', comicTitle);
 
     // Build payload for SAVE_COMIC (save all panels at once)
     const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -716,8 +687,6 @@ export default function CreatePage() {
       panels_data: panelsDataForSave,
     };
 
-    console.log('🔍 DEBUG: SAVE_COMIC payload:', payload);
-
     try {
       // Store panels data in sessionStorage for the confirmation page
       const panelsData = panels
@@ -731,11 +700,10 @@ export default function CreatePage() {
 
       sessionStorage.setItem('comicPanelsData', JSON.stringify(panelsData));
 
-      console.log('✅ Comic data stored in sessionStorage, navigating to confirmation');
       router.push('/protected/confirm');
       
     } catch (error) {
-      console.error('❌ Error preparing comic data:', error);
+      console.error('Error preparing comic data:', error);
       alert(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -747,7 +715,6 @@ export default function CreatePage() {
     }
     
     const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    console.log(`🔍 DEBUG: Original title: "${title}", Safe title: "${safeTitle}"`);
     
     // Ensure safeTitle is not empty after processing
     if (!safeTitle || safeTitle.trim() === '') {
@@ -756,7 +723,6 @@ export default function CreatePage() {
     
     // Check if any panels have data
     const panelsWithData = panels.filter(panel => panel.largeCanvasData);
-    console.log(`🔍 DEBUG: Found ${panelsWithData.length} panels with data out of ${panels.length} total panels`);
     
     if (panelsWithData.length === 0) {
       throw new Error('No panels have been drawn yet. Please draw something before saving.');
@@ -765,13 +731,9 @@ export default function CreatePage() {
     try {
       // Send each panel to backend to save in project directory
       for (const panel of panels) {
-        console.log(`🔍 DEBUG: Panel ${panel.id} - largeCanvasData exists: ${!!panel.largeCanvasData}`);
         if (panel.largeCanvasData) {
-          console.log(`Saving panel ${panel.id} to project directory...`);
-          
           // Extract base64 data
           const base64Data = panel.largeCanvasData.split(',')[1];
-          console.log(`🔍 DEBUG: Panel ${panel.id} - base64Data length: ${base64Data.length}`);
           
           // Get access token for API request
           const accessToken = await getAccessToken();
@@ -793,10 +755,6 @@ export default function CreatePage() {
           if (!response.ok) {
             throw new Error(`Failed to save panel ${panel.id}`);
           }
-          
-          console.log(`Panel ${panel.id} saved to project directory successfully`);
-        } else {
-          console.log(`Panel ${panel.id} has no data to save`);
         }
       }
     } catch (error) {
@@ -827,12 +785,6 @@ export default function CreatePage() {
       
       // Get previous panel for continuity (if exists)
       const previousPanel = panelId > 1 ? panels.find(p => p.id === panelId - 1) : null;
-      console.log(`🔍 Previous panel (${panelId - 1}):`, {
-        exists: !!previousPanel,
-        hasLargeCanvasData: !!previousPanel?.largeCanvasData,
-        hasPrompt: !!previousPanel?.prompt,
-        largeCanvasDataLength: previousPanel?.largeCanvasData?.length
-      });
 
       const previousPanelContext = previousPanel && previousPanel.largeCanvasData && previousPanel.prompt ? {
         prompt: previousPanel.prompt,
@@ -840,15 +792,6 @@ export default function CreatePage() {
       } : null;
 
       // Call backend API
-      console.log(`🚀 Generating comic art for panel ${panelId} with prompt: ${textPrompt.substring(0, 50)}...`);
-      if (previousPanelContext) {
-        console.log(`🎯 Using previous panel context from panel ${panelId - 1}`);
-        console.log(`   - Previous prompt: ${previousPanelContext.prompt}`);
-        console.log(`   - Context image size: ${previousPanelContext.image_data.length} bytes`);
-      } else {
-        console.log(`⚠️ No previous panel context available for panel ${panelId}`);
-      }
-      
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
@@ -903,7 +846,6 @@ export default function CreatePage() {
             setPanels(prev => prev.map(p =>
               p.id === panelId ? { ...p, prompt: textPrompt } : p
             ));
-            console.log(`💾 Saved prompt for panel ${panelId}: "${textPrompt}"`);
           }
         };
         img.src = `data:image/png;base64,${result.image_data}`;

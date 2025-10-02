@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
@@ -37,16 +38,27 @@ export default function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center animated-gradient">
-      <div className="max-w-md w-full space-y-8 p-8 bg-background/80 backdrop-blur-sm rounded-lg shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-900 to-stone-800">
+      <div className="max-w-md w-full space-y-8 p-8 bg-stone-800/50 backdrop-blur-sm rounded-lg shadow-lg">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-foreground mb-2">Sign Up</h2>
-          <p className="text-foreground-secondary">Join PixelPanel today</p>
+          <div className="flex justify-center items-center gap-2 mb-4">
+            <Image
+              src="/logo.png"
+              alt="PixelPanel Logo"
+              width={48}
+              height={48}
+              className="w-12 h-12 object-contain flex-shrink-0"
+              priority
+            />
+            <h1 className="text-3xl font-bold text-orange-500 leading-none">PixelPanel</h1>
+          </div>
+          <h2 className="text-2xl font-bold text-amber-50 mb-2">Sign Up</h2>
+          <p className="text-stone-300">Join PixelPanel today</p>
         </div>
         
         <form className="space-y-6" onSubmit={handleSignup}>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-foreground-secondary mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-stone-200 mb-2">
               Email address
             </label>
             <input
@@ -56,13 +68,13 @@ export default function SignupForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-background-secondary text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              className="w-full px-3 py-2 border border-stone-600 rounded-md shadow-sm bg-stone-700/50 text-amber-50 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               placeholder="Enter your email"
             />
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground-secondary mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-stone-200 mb-2">
               Password
             </label>
             <input
@@ -72,13 +84,13 @@ export default function SignupForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-background-secondary text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              className="w-full px-3 py-2 border border-stone-600 rounded-md shadow-sm bg-stone-700/50 text-amber-50 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               placeholder="Enter your password"
             />
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground-secondary mb-2">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-stone-200 mb-2">
               Confirm Password
             </label>
             <input
@@ -88,7 +100,7 @@ export default function SignupForm() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md shadow-sm bg-background-secondary text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+              className="w-full px-3 py-2 border border-stone-600 rounded-md shadow-sm bg-stone-700/50 text-amber-50 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               placeholder="Confirm your password"
             />
           </div>
@@ -102,20 +114,20 @@ export default function SignupForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-accent hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Creating account...' : 'Sign up'}
           </button>
         </form>
 
         <div className="text-center">
-          <p className="text-foreground-muted">
+          <p className="text-stone-300">
             Already have an account?{' '}
-            <Link href="/auth/login" className="text-accent hover:text-accent-light">
+            <Link href="/auth/login" className="text-orange-500 hover:text-orange-400">
               Sign in
             </Link>
           </p>
-          <Link href="/" className="text-foreground-muted hover:text-foreground-secondary text-sm mt-4 inline-block">
+          <Link href="/" className="text-stone-300 hover:text-amber-50 text-sm mt-4 inline-block">
             ← Back to home
           </Link>
         </div>
