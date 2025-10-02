@@ -377,6 +377,7 @@ export default function MyComicsPage() {
             isOpen={showModal}
             onClose={closeModal}
             showVisibilityToggle={true}
+            showEditButton={true}
           />
         )}
       </div>

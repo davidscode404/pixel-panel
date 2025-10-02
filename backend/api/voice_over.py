@@ -64,8 +64,10 @@ async def generate_story_endpoint(story: str = Body(..., embed=True)):
     # Parse the result to ensure it's valid JSON
     try:
         parsed_result = json.loads(result)
+        print(f"🔍 DEBUG: Parsed story result: {parsed_result}")
         return parsed_result
     except json.JSONDecodeError:
+        print(f"🔍 DEBUG: JSON decode error, returning as story: {result}")
         return {"story": result}
 
 @router.post("/generate-voiceover")

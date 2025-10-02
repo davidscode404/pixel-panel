@@ -33,9 +33,10 @@ interface ComicDetailModalProps {
   isOpen: boolean
   onClose: () => void
   showVisibilityToggle?: boolean
+  showEditButton?: boolean
 }
 
-export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilityToggle = false }: ComicDetailModalProps) {
+export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilityToggle = false, showEditButton = false }: ComicDetailModalProps) {
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [playingAudio, setPlayingAudio] = useState<string | null>(null)
@@ -43,6 +44,33 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
   const [currentPlayingPanel, setCurrentPlayingPanel] = useState<number | null>(null)
   const [isPublic, setIsPublic] = useState(comic.is_public ?? false)
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
+
+  // Check if comic can be published (has title, narrations, and thumbnail)
+  const canPublish = () => {
+    const hasTitle = comic.title && comic.title.trim().length > 0
+    const hasNarrations = comic.panels
+      .filter(panel => panel.panel_number > 0) // Exclude panel 0 (thumbnail)
+      .every(panel => panel.narration && panel.narration.trim().length > 0)
+    const hasThumbnail = comic.panels.some(panel => panel.panel_number === 0) // Panel 0 is thumbnail
+    
+    return hasTitle && hasNarrations && hasThumbnail
+  }
+
+  // Get publication requirements status
+  const getPublicationStatus = () => {
+    const hasTitle = comic.title && comic.title.trim().length > 0
+    const storyPanels = comic.panels.filter(panel => panel.panel_number > 0)
+    const panelsWithNarrations = storyPanels.filter(panel => panel.narration && panel.narration.trim().length > 0)
+    const hasThumbnail = comic.panels.some(panel => panel.panel_number === 0)
+    
+    return {
+      hasTitle,
+      hasThumbnail,
+      totalStoryPanels: storyPanels.length,
+      panelsWithNarrations: panelsWithNarrations.length,
+      hasAllNarrations: panelsWithNarrations.length === storyPanels.length && storyPanels.length > 0
+    }
+  }
 
   const handleImageLoad = (imageId: string) => {
     setImageLoading(prev => ({ ...prev, [imageId]: false }))
@@ -157,13 +185,16 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update visibility')
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.detail || 'Failed to update visibility'
+        throw new Error(errorMessage)
       }
 
       setIsPublic(!isPublic)
     } catch (error) {
       console.error('Error updating comic visibility:', error)
-      alert('Failed to update comic visibility')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update comic visibility'
+      alert(errorMessage)
     } finally {
       setIsUpdatingVisibility(false)
     }
@@ -212,27 +243,60 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
               <h2 className="text-2xl font-bold text-foreground">{comic.title}</h2>
             </div>
 
-            {/* Public/Private Toggle - only show for user's own comics */}
-            {showVisibilityToggle && (
-              <button
-                onClick={toggleVisibility}
-                disabled={isUpdatingVisibility}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start ${
-                  isPublic
-                    ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30'
-                    : 'bg-gray-500/20 text-gray-600 hover:bg-gray-500/30'
-                } ${isUpdatingVisibility ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                  {isPublic ? (
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  ) : (
-                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 001 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
-                  )}
-                </svg>
-                <span>{isPublic ? 'Public' : 'Private'}</span>
-              </button>
-            )}
+            {/* Public/Private Toggle and Edit Button - only show for user's own comics */}
+            <div className="flex items-center gap-2">
+              {showVisibilityToggle && (
+                <button
+                  onClick={toggleVisibility}
+                  disabled={isUpdatingVisibility || (!isPublic && !canPublish())}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start ${
+                    isPublic
+                      ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30'
+                      : canPublish()
+                        ? 'bg-gray-500/20 text-gray-600 hover:bg-gray-500/30'
+                        : 'bg-red-500/20 text-red-600 opacity-50 cursor-not-allowed'
+                  } ${isUpdatingVisibility ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={
+                    !isPublic && !canPublish()
+                      ? "Cannot publish: Missing title, narrations, or thumbnail"
+                      : isUpdatingVisibility
+                        ? "Updating visibility..."
+                        : isPublic
+                          ? "Make private"
+                          : "Make public"
+                  }
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    {isPublic ? (
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    ) : (
+                      <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 001 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                    )}
+                  </svg>
+                  <span>
+                    {isPublic 
+                      ? 'Public' 
+                      : canPublish() 
+                        ? 'Private' 
+                        : 'Private (Incomplete)'
+                    }
+                  </span>
+                </button>
+              )}
+
+              {showEditButton && (
+                <button
+                  disabled
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start bg-gray-500/20 text-gray-600 opacity-50 cursor-not-allowed"
+                  title="Edit functionality coming soon"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                  <span>Edit</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <button
@@ -242,6 +306,45 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
             ×
           </button>
         </div>
+
+        {/* Publication Requirements Indicator - only show for user's own comics when not public */}
+        {showVisibilityToggle && !isPublic && (
+          <div className="mb-4 p-3 bg-background-tertiary rounded-lg border border-border">
+            <h3 className="text-sm font-medium text-foreground mb-2">Publication Requirements</h3>
+            <div className="space-y-1">
+              {(() => {
+                const status = getPublicationStatus()
+                return (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-2 h-2 rounded-full ${status.hasTitle ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className={status.hasTitle ? 'text-green-600' : 'text-red-600'}>
+                        {status.hasTitle ? '✓' : '✗'} Comic Title
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-2 h-2 rounded-full ${status.hasThumbnail ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className={status.hasThumbnail ? 'text-green-600' : 'text-red-600'}>
+                        {status.hasThumbnail ? '✓' : '✗'} Thumbnail (Panel 0)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className={`w-2 h-2 rounded-full ${status.hasAllNarrations ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className={status.hasAllNarrations ? 'text-green-600' : 'text-red-600'}>
+                        {status.hasAllNarrations ? '✓' : '✗'} Panel Narrations ({status.panelsWithNarrations}/{status.totalStoryPanels})
+                      </span>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+            {!canPublish() && (
+              <div className="mt-2 text-xs text-foreground-muted">
+                Complete all requirements above to publish your comic.
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {comic.panels

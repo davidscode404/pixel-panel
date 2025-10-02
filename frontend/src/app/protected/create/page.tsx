@@ -986,46 +986,8 @@ export default function CreatePage() {
       {!zoomedPanel ? (
         // Comic Canvas View
         <div className="h-full flex flex-col">
-          <div className="flex-shrink-0 p-4 flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              {isEditingTitle ? (
-                <input
-                  type="text"
-                  value={comicTitle}
-                  onChange={handleTitleChange}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'var(--accent)';
-                    handleTitleBlur();
-                  }}
-                  onKeyDown={handleTitleKeyDown}
-                  className="text-2xl font-bold bg-transparent border-b-2 focus:outline-none"
-                  style={{
-                    color: 'var(--foreground)',
-                    borderColor: 'var(--accent)'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = 'var(--accent-hover)'
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <h1 
-                  className="text-2xl font-bold drop-shadow-lg cursor-pointer transition-colors"
-                  style={{ color: 'var(--foreground)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--accent-hover)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--foreground)'
-                  }}
-                  onClick={handleTitleClick}
-                >
-                  {isEditMode ? `Edit: ${comicTitle}` : comicTitle}
-                </h1>
-              )}
-              
-            </div>
-            {/* Action Buttons - Right Side */}
+          <div className="flex-shrink-0 p-4 flex justify-end items-center">
+            {/* Action Buttons */}
             <div className="flex items-center gap-2">
               <button
                 onClick={createComic}
