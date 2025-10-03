@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/components/auth/AuthProvider';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import type { PanelData } from '@/types';
@@ -12,13 +11,10 @@ const supabase = createSupabaseClient();
 
 export default function ConfirmComicPage() {
   const router = useRouter();
-  const { } = useAuth();
   
   // Form states
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [tags, setTags] = useState('');
   
   // Comic data
   const [panelsData, setPanelsData] = useState<PanelData[]>([]);
@@ -148,43 +144,34 @@ export default function ConfirmComicPage() {
     }
   };
 
-  const generateAudioForPanels = async () => {
-    const updatedPanels = await Promise.all(
-      panelsData.map(async (panel) => {
-        // Skip if no narration
-        if (!panel.narration) {
-          return panel;
-        }
-
-        try {
-          const url = new URL(buildApiUrl('/api/voice-over/generate-voiceover'));
-          url.searchParams.append('narration', panel.narration);
-
-          const response = await fetch(url.toString(), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (!response.ok) {
-            return panel;
-          }
-
-          const audioData = await response.json();
-
-          return {
-            ...panel,
-            audio_data: audioData.audio
-          };
-        } catch (error) {
-          return panel;
-        }
-      })
+  // Helper function to update panel narration
+  const updatePanelNarration = (panelId: number, narration: string) => {
+    const updatedPanels = panelsData.map(p =>
+      p.id === panelId ? { ...p, narration } : p
     );
-
-    return updatedPanels;
+    setPanelsData(updatedPanels);
   };
+
+  // Helper function to render loading spinner
+  const renderLoadingSpinner = (text: string) => (
+    <>
+      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
+      <span>{text}</span>
+    </>
+  );
+
+  // Helper function to render checklist icon
+  const renderChecklistIcon = (isComplete: boolean) => (
+    isComplete ? (
+      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+    ) : (
+      <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+    )
+  );
 
   const handleSaveComic = async () => {
     if (!title.trim()) {
@@ -203,15 +190,10 @@ export default function ConfirmComicPage() {
     try {
       const accessToken = await getAccessToken();
       
-      // Generate audio for all panels with narrations
-      const panelsWithAudio = await generateAudioForPanels();
-      
       const payload = {
         title: title.trim(),
-        description: description.trim(),
         is_public: isPublic,
-        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-        panels: panelsWithAudio,
+        panels: panelsData,
         thumbnail_data: thumbnailData  // Include thumbnail if generated
       };
 
@@ -327,12 +309,7 @@ export default function ConfirmComicPage() {
                       {panel.narration ? (
                         <textarea
                           value={panel.narration}
-                          onChange={(e) => {
-                            const updatedPanels = panelsData.map(p =>
-                              p.id === panel.id ? { ...p, narration: e.target.value } : p
-                            );
-                            setPanelsData(updatedPanels);
-                          }}
+                          onChange={(e) => updatePanelNarration(panel.id, e.target.value)}
                           placeholder="Edit narration for this panel..."
                           className="w-full text-xs text-foreground bg-background-secondary rounded p-2 border border-border hover:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none transition-colors"
                           rows={2}
@@ -340,12 +317,7 @@ export default function ConfirmComicPage() {
                       ) : (
                         <textarea
                           value=""
-                          onChange={(e) => {
-                            const updatedPanels = panelsData.map(p =>
-                              p.id === panel.id ? { ...p, narration: e.target.value } : p
-                            );
-                            setPanelsData(updatedPanels);
-                          }}
+                          onChange={(e) => updatePanelNarration(panel.id, e.target.value)}
                           placeholder="Click to add narration or generate using the button..."
                           className="w-full text-xs text-foreground-muted bg-background-secondary rounded p-2 border border-dashed border-border hover:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-solid focus:border-accent resize-none transition-colors italic"
                           rows={2}
@@ -373,10 +345,7 @@ export default function ConfirmComicPage() {
                 className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-foreground-inverse rounded-lg transition-colors font-medium"
               >
                 {generatingThumbnail ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
-                    <span>Generating Thumbnail...</span>
-                  </>
+                  renderLoadingSpinner('Generating Thumbnail...')
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -496,45 +465,21 @@ export default function ConfirmComicPage() {
                 <p className="text-sm font-medium text-foreground mb-3">Before Publishing:</p>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center space-x-2">
-                    {title.trim() ? (
-                      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    {renderChecklistIcon(title.trim())}
                     <span className={title.trim() ? 'text-foreground' : 'text-foreground-muted'}>
                       Add comic title
                     </span>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    {thumbnailData ? (
-                      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    {renderChecklistIcon(!!thumbnailData)}
                     <span className={thumbnailData ? 'text-foreground' : 'text-foreground-muted'}>
                       Generate thumbnail
                     </span>
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    {panelsData.every(p => p.narration) ? (
-                      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                    {renderChecklistIcon(panelsData.every(p => p.narration))}
                     <span className={panelsData.every(p => p.narration) ? 'text-foreground' : 'text-foreground-muted'}>
                       Generate narrations for all panels
                     </span>
@@ -561,10 +506,7 @@ export default function ConfirmComicPage() {
                   className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-accent hover:bg-accent-hover disabled:bg-background-muted disabled:cursor-not-allowed text-foreground-inverse rounded-lg transition-colors font-medium"
                 >
                   {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
-                      <span>Publishing (generating audio)...</span>
-                    </>
+                    renderLoadingSpinner('Publishing...')
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

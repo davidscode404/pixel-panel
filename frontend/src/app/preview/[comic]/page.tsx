@@ -294,7 +294,7 @@ export default function ComicPreview() {
               <div className="flex items-center space-x-2">
                 {/* Edit Button */}
                 <button
-                  onClick={() => router.push(`/protected/create?edit=${comicId}`)}
+                  onClick={() => router.push(`/protected/edit/${comicId}`)}
                   className="flex items-center space-x-2 px-3 py-1 rounded-md transition-colors text-sm"
                   style={{
                     backgroundColor: 'var(--accent)',
