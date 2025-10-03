@@ -14,6 +14,4 @@ class Comic(Base):
     image_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Database relationships (if any)
-    # user = relationship("User", back_populates="comics")
+

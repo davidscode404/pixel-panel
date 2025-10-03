@@ -131,7 +131,6 @@ export default function ComicPreview() {
       throw new Error(`Comic with ID "${comicId}" not found in database`);
       
     } catch (err) {
-      console.error('Error loading comic:', err);
       setError(err instanceof Error ? err.message : 'Failed to load comic');
     } finally {
       setLoading(false);
@@ -247,7 +246,6 @@ export default function ComicPreview() {
         alert(`Failed to delete comic: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error deleting comic:', error);
       alert('Failed to delete comic. Please try again.');
     } finally {
       setIsDeleting(false);

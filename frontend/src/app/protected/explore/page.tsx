@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { API_CONFIG, buildApiUrl } from '@/config/api';
 import ComicDetailModal from '@/components/ComicDetailModal';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { Comic, ComicPanel } from '@/types';
 
 export default function ExplorePage() {
@@ -49,11 +50,9 @@ export default function ExplorePage() {
         
         setComics(processedComics);
       } else {
-        console.warn('No comics data in response');
         setComics([]);
       }
     } catch (error) {
-      console.error('❌ Error fetching public comics:', error);
       setError(error instanceof Error ? error.message : 'Failed to load public comics');
       setComics([]);
     } finally {
@@ -93,10 +92,7 @@ export default function ExplorePage() {
           <h1 className="text-3xl font-bold text-foreground">Explore Comics</h1>
           <p className="text-foreground-secondary">Discover comics created by the community</p>
         </div>
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
-          <span className="ml-3 text-foreground-secondary">Loading public comics...</span>
-        </div>
+        <LoadingSpinner message="Loading public comics..." />
       </div>
     );
   }
@@ -133,7 +129,6 @@ export default function ExplorePage() {
         {comics.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center">
-              <div className="text-6xl mb-4" style={{ color: 'var(--accent)' }}>📚</div>
               <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>No Public Comics Yet</h2>
               <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>Be the first to share your comic with the community!</p>
             </div>
@@ -157,8 +152,7 @@ export default function ExplorePage() {
                 {imageErrors[`${comic.id}-preview`] ? (
                   <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
                     <div className="text-foreground-muted text-center">
-                      <div className="text-xl mb-1">🖼️</div>
-                      <div className="text-xs">No image</div>
+                      <div className="text-sm">No image</div>
                     </div>
                   </div>
                 ) : (

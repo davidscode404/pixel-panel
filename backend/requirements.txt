@@ -1,4 +1,3 @@
-dedalus-labs
 fastapi
 pydantic-settings
 python-dotenv
@@ -9,10 +8,7 @@ pillow
 google-generativeai
 httpx
 pydantic
-asyncio
-sqlalchemy
-alembic
 supabase
 PyJWT
-openai
 stripe
+slowapi

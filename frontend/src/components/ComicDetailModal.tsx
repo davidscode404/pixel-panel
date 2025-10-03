@@ -122,14 +122,12 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
         playNextPanel()
       }
 
-      audio.onerror = (e) => {
-        console.error(`Error playing audio for panel ${panel.panel_number}:`, e)
+      audio.onerror = () => {
         currentIndex++
         playNextPanel()
       }
 
-      audio.play().catch(err => {
-        console.error('Error playing audio:', err)
+      audio.play().catch(() => {
         currentIndex++
         playNextPanel()
       })
@@ -170,7 +168,6 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
 
       setIsPublic(!isPublic)
     } catch (error) {
-      console.error('Error updating comic visibility:', error)
       const errorMessage = error instanceof Error ? error.message : 'Failed to update comic visibility'
       alert(errorMessage)
     } finally {

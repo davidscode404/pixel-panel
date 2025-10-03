@@ -13,13 +13,8 @@ export const API_CONFIG = {
     GENERATE_VOICE: '/api/voice-over/generate-voiceover',
     
     // Stripe endpoints
-    CREATE_PAYMENT_INTENT: '/create-payment-intent',
-    
-    // Legacy endpoints (still needed for compatibility)
-    LOAD_COMIC: '/load-comic',  // Legacy endpoint in main.py
-    SAVE_PANEL: '/save-panel',  // Legacy endpoint (if still needed)
-    RESET_CONTEXT: '/reset-context',  // Legacy endpoint (if still needed)
-    GENERATE_COMIC: '/generate-comic'  // Legacy endpoint (if still needed)
+    CREATE_PAYMENT_INTENT: '/api/stripe/create-payment-intent',
+    USER_CREDITS: '/api/stripe/user-credits'
   }
 };
 
@@ -87,7 +82,7 @@ const getAuthToken = (): string | null => {
       }
     }
   } catch (error) {
-    console.warn('Error getting auth token:', error);
+    // Error getting auth token
   }
   
   return null;

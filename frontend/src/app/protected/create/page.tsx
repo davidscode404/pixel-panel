@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
-import Link from 'next/link';
 import type { ComicPanel } from '@/types';
 
 // Create Supabase client (shared with AuthProvider)
@@ -170,15 +169,12 @@ export default function CreatePage() {
                           ctx.clearRect(0, 0, canvas.width, canvas.height);
                           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         };
-                        img.onerror = (error) => {
-                          console.error(`Error loading image for panel ${savedPanel.id}:`, error);
+                        img.onerror = () => {
+                          // Failed to load image
                         };
                         img.src = savedPanel.image_data;
-                      } else {
-                        console.error(`Could not get context for panel ${savedPanel.id}`);
                       }
-                    } else {
-                      console.error(`Canvas not found for panel ${savedPanel.id}`);
+                    }
                     }
                   }
                 });
@@ -188,11 +184,9 @@ export default function CreatePage() {
             window.history.replaceState({}, document.title, window.location.pathname);
           } else {
             const errorData = await response.json();
-            console.error('Server error:', errorData);
             alert(`Failed to load comic: ${errorData.error || 'Unknown error'}`);
           }
         } catch (error) {
-          console.error('Error loading comic:', error);
           alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
@@ -356,8 +350,8 @@ export default function CreatePage() {
                   }
                 }
               };
-              img.onerror = (error) => {
-                console.error(`Failed to load image for panel ${i + 1}:`, error);
+              img.onerror = () => {
+                // Failed to load image
               };
               img.src = panelData.public_url;
             }
@@ -369,7 +363,6 @@ export default function CreatePage() {
         alert('Failed to load comic for editing');
       }
     } catch (error) {
-      console.error('Error loading comic for editing:', error);
       alert('Failed to load comic for editing');
     } finally {
       setIsLoadingEditData(false);
@@ -465,15 +458,19 @@ export default function CreatePage() {
 
     setIsDrawing(true);
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    
+    // Scale coordinates from display size to canvas size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
     
     if (currentTool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = brushSize;
+      ctx.lineWidth = brushSize * 8; // Make eraser much bigger
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = currentColor;
@@ -495,8 +492,12 @@ export default function CreatePage() {
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    
+    // Scale coordinates from display size to canvas size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -609,10 +610,10 @@ export default function CreatePage() {
         });
         
         if (!response.ok) {
-          console.error('Failed to reset context');
+          // Failed to reset context
         }
       } catch (error) {
-        console.error('Error resetting context:', error);
+        // Error resetting context
       }
     }
   };
@@ -703,7 +704,6 @@ export default function CreatePage() {
       router.push('/protected/confirm');
       
     } catch (error) {
-      console.error('Error preparing comic data:', error);
       alert(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -758,7 +758,6 @@ export default function CreatePage() {
         }
       }
     } catch (error) {
-      console.error('Error saving PNG files:', error);
       throw new Error(`Failed to save PNG files: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
@@ -801,7 +800,8 @@ export default function CreatePage() {
         body: JSON.stringify({
           text_prompt: textPrompt,
           reference_image: base64Data,
-          panel_id: panelId
+          panel_id: panelId,
+          previous_panel_context: previousPanelContext
         })
       });
 
@@ -853,7 +853,6 @@ export default function CreatePage() {
         alert(`Error generating comic art: ${result.error}`);
       }
     } catch (error) {
-      console.error('Error generating comic art:', error);
       alert('Failed to generate comic art. Make sure the backend server is running.');
     } finally {
       setIsGenerating(false);
@@ -884,14 +883,12 @@ export default function CreatePage() {
         audio.addEventListener('pause', () => setIsAudioPlaying(false));
         audio.addEventListener('ended', () => setIsAudioPlaying(false));
         
-        audio.play().catch(error => {
-          console.error('Error playing audio:', error);
+        audio.play().catch(() => {
           alert('Error playing audio. Make sure the audio file exists.');
           setIsAudioPlaying(false);
         });
         
       } catch (error) {
-        console.error('Error generating audio:', error);
         alert('Error generating audio');
       } finally {
         setIsGeneratingAudio(false);
@@ -1043,7 +1040,12 @@ export default function CreatePage() {
                 width={800}
                 height={600}
                 className="bg-background-card max-w-full max-h-full w-auto h-auto border-4 border-black"
-                style={{ width: '65%', height: '100%', display: 'block' }}
+                style={{ 
+                  width: '65%', 
+                  height: '100%', 
+                  display: 'block',
+                  cursor: currentTool === 'eraser' ? 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><rect x=\'8\' y=\'8\' width=\'8\' height=\'8\' fill=\'white\' stroke=\'black\' stroke-width=\'2\'/></svg>") 12 12, auto' : 'crosshair'
+                }}
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
@@ -1106,31 +1108,92 @@ export default function CreatePage() {
               </div>
 
               {/* Generate Scene Section */}
-              <div className="w-full max-w-2xl flex items-center gap-3 bg-background-card rounded-lg border-2 border-border p-3">
-                <textarea
-                  value={textPrompt}
-                  onChange={(e) => setTextPrompt(e.target.value)}
-                  placeholder="Describe the scene..."
-                  className="flex-1 bg-transparent text-foreground placeholder-foreground-muted focus:outline-none resize-none text-sm leading-relaxed min-h-[60px]"
-                  rows={3}
-                />
-                <button
-                  onClick={() => generateComicArt(zoomedPanel.id)}
-                  disabled={isGenerating || !textPrompt.trim()}
-                  className="flex p-2.5 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-all disabled:bg-background-muted disabled:cursor-not-allowed flex items-center justify-center"
-                  title="Generate"
-                >
-                  {isGenerating ? (
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.996.996 0 00-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 000-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
-                    </svg>
-                  )}
-                </button>
+              <div className="w-full max-w-2xl space-y-2">
+                <div className="flex items-center gap-3 bg-background-card rounded-lg border-2 border-border p-3">
+                  <textarea
+                    value={textPrompt}
+                    onChange={(e) => setTextPrompt(e.target.value)}
+                    placeholder={
+                      zoomedPanel.id === 1 
+                        ? "e.g., A superhero standing on a rooftop at sunset, cape flowing in the wind..."
+                        : zoomedPanel.id === 2
+                        ? "e.g., Close-up of the hero's determined face as they spot danger below..."
+                        : zoomedPanel.id === 3
+                        ? "e.g., The hero leaping into action, diving off the building..."
+                        : zoomedPanel.id === 4
+                        ? "e.g., Mid-air combat scene with dramatic lighting and motion lines..."
+                        : zoomedPanel.id === 5
+                        ? "e.g., The hero landing heroically, dust and debris around them..."
+                        : "e.g., Victory pose with the saved civilians cheering in the background..."
+                    }
+                    className="flex-1 bg-transparent text-foreground placeholder-foreground-muted focus:outline-none resize-none text-sm leading-relaxed min-h-[60px]"
+                    rows={3}
+                  />
+                  <button
+                    onClick={() => generateComicArt(zoomedPanel.id)}
+                    disabled={isGenerating || !textPrompt.trim()}
+                    className="flex p-2.5 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-all disabled:bg-background-muted disabled:cursor-not-allowed flex items-center justify-center"
+                    title="Generate"
+                  >
+                    {isGenerating ? (
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.996.996 0 00-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 000-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                
+                {/* Art Style Suggestions */}
+                <div className="px-2 space-y-2">
+                  <div className="text-xs font-medium text-foreground-secondary">Quick Styles:</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setTextPrompt(prev => prev + (prev ? ', ' : '') + 'in Marvel Comics style')}
+                      className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
+                    >
+                      Marvel Style
+                    </button>
+                    <button
+                      onClick={() => setTextPrompt(prev => prev + (prev ? ', ' : '') + 'in DC Comics style')}
+                      className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
+                    >
+                      DC Style
+                    </button>
+                    <button
+                      onClick={() => setTextPrompt(prev => prev + (prev ? ', ' : '') + 'in Japanese manga style')}
+                      className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
+                    >
+                      Manga Style
+                    </button>
+                    <button
+                      onClick={() => setTextPrompt(prev => prev + (prev ? ', ' : '') + 'in Korean manhwa style')}
+                      className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
+                    >
+                      Manhwa Style
+                    </button>
+                    <button
+                      onClick={() => setTextPrompt(prev => prev + (prev ? ', ' : '') + 'in anime style')}
+                      className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
+                    >
+                      Anime Style
+                    </button>
+                    <button
+                      onClick={() => setTextPrompt(prev => prev + (prev ? ', ' : '') + 'in retro comic book style')}
+                      className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
+                    >
+                      Retro Style
+                    </button>
+                  </div>
+                </div>
+
+                <div className="px-2 text-xs text-foreground-muted">
+                  Tip: Be specific about characters, actions, lighting, and emotions for best results
+                </div>
               </div>
             </div>
           </div>

@@ -106,11 +106,9 @@ export default function BookSlider() {
           setBooks(booksData.books);
         }
       } else {
-        console.error('Failed to fetch comics list');
         setBooks(booksData.books);
       }
     } catch (error) {
-      console.error('Error loading comics from project directory:', error);
       // If there's an error, just use the default books
       setBooks(booksData.books);
     }
@@ -171,7 +169,6 @@ export default function BookSlider() {
         // Redirect to preview page
         window.location.href = `/preview/${encodedTitle}`;
       } catch (error) {
-        console.error('Error loading comic:', error);
         alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else {
