@@ -20,7 +20,7 @@ class ComicStorageService:
         self.supabase: Client = create_client(self.supabase_url, self.supabase_key)
         self.bucket_name = "PixelPanel"
     
-    async def save_comic(self, user_id: str, comic_title: str, panels_data: List[dict], thumbnail_data: Optional[str] = None) -> str:
+    async def save_comic(self, user_id: str, comic_title: str, panels_data: List[dict], thumbnail_data: Optional[str] = None, is_public: bool = False) -> str:
         """
         Save a complete comic with all panels
         Returns the comic_id and composite public URL
@@ -30,7 +30,7 @@ class ComicStorageService:
             comic_response = self.supabase.table('comics').insert({
                 'title': comic_title,
                 'user_id': user_id,
-                'is_public': False
+                'is_public': is_public
             }).execute()
             
             comic_id = comic_response.data[0]['id']

@@ -30,7 +30,7 @@ class ComicArtGenerator:
         genai.configure(api_key=self.api_key)
         self.client = genai
     
-    def generate_comic_art(self, text_prompt, reference_image_data=None, context_image_data=None):
+    def generate_comic_art(self, text_prompt, reference_image_data=None, context_image_data=None, is_thumbnail=False):
         """
         Generate comic art based on text prompt and optional reference sketch
         
@@ -38,6 +38,7 @@ class ComicArtGenerator:
             text_prompt (str): Text description for the comic panel
             reference_image_data (str): Base64 encoded reference sketch image data (optional)
             context_image_data (str): Base64 encoded context image data (optional)
+            is_thumbnail (bool): Whether this is a thumbnail/cover (portrait 3:4) or panel (landscape 4:3)
             
         Returns:
             PIL.Image: Generated comic art image
@@ -62,7 +63,7 @@ class ComicArtGenerator:
         
         try:
             # Generate the comic art
-            image = self._generate_art(text_prompt, reference_image_path, context_image_data)
+            image = self._generate_art(text_prompt, reference_image_path, context_image_data, is_thumbnail)
             return image
         finally:
             # Clean up temporary reference image file
@@ -70,20 +71,31 @@ class ComicArtGenerator:
                 os.unlink(reference_image_path)
                 logger.debug("Cleaned up temporary reference image file")
     
-    def _generate_art(self, text_prompt, reference_image_path=None, context_image_data=None):
+    def _generate_art(self, text_prompt, reference_image_path=None, context_image_data=None, is_thumbnail=False):
         """
         Internal method to generate comic art
         """
         # Determine if we have context (subsequent panel generation)
         has_context = context_image_data is not None
-        logger.debug(f"ComicArtGenerator: has_context={has_context}, context_size={len(context_image_data) if context_image_data else 0}")
+        logger.debug(f"ComicArtGenerator: has_context={has_context}, is_thumbnail={is_thumbnail}, context_size={len(context_image_data) if context_image_data else 0}")
         
         if has_context:
             logger.info("Using context-aware generation with previous panel image")
         else:
             logger.info("Using standard generation without context")
         
-        if has_context:
+        # Different prompts for thumbnail vs panels
+        if is_thumbnail:
+            system_prompt = (
+                "You are a comic book cover art generator. Create a stunning, eye-catching comic book cover that captures the essence of the story. "
+                "Use bold, dynamic composition with professional comic book style artwork. "
+                "Create clean lines, vibrant colors, and dramatic composition typical of comic book covers. "
+                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
+                "Do NOT include white borders, text, titles, or empty white space around the artwork unless specifically requested. "
+                "Generate the image with a 3:4 aspect ratio (portrait orientation) - height should be taller than width. "
+                "Ideal dimensions are 600x800 pixels or similar 3:4 proportions suitable for a comic book cover."
+            )
+        elif has_context:
             system_prompt = (
                 "You are a comic art generator creating the next scene in a comic sequence. "
                 "You have been provided with the previous panel as context. Create a new scene that follows naturally from the context, "

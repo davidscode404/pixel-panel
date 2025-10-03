@@ -6,6 +6,7 @@ import { User } from '@supabase/supabase-js'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
 import ComicDetailModal from '@/components/ComicDetailModal'
+import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import type { Comic } from '@/types'
 
 export default function MyComicsPage() {
@@ -84,8 +85,7 @@ export default function MyComicsPage() {
         setComics(transformedComics);
       }
     } catch (error) {
-      console.error('Error:', error)
-      console.error('Error loading comics:', error)
+      // Error loading comics
     } finally {
       setLoading(false)
     }
@@ -168,22 +168,14 @@ export default function MyComicsPage() {
 
 
   if (loading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
-          <p style={{ color: 'var(--foreground)' }}>Loading your comics...</p>
-        </div>
-      </div>
-    )
+    return <LoadingSpinner message="Loading your comics..." fullPage />;
   }
 
   if (error) {
     return (
       <div className="w-full h-full flex items-center justify-center">
         <div className="text-center">
-          <div className="text-6xl mb-4" style={{ color: 'var(--error)' }}>⚠️</div>
-          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>Error Loading Comics</h2>
+          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--error)' }}>Error Loading Comics</h2>
           <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>{error}</p>
           <button 
             onClick={fetchUserAndComics}
@@ -219,7 +211,6 @@ export default function MyComicsPage() {
         {comics.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center">
             <div className="text-center">
-              <div className="text-6xl mb-4" style={{ color: 'var(--accent)' }}>📖</div>
               <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>No Comics Yet</h2>
               <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>Start creating your first comic story! Let your imagination run wild and bring your ideas to life.</p>
               <a
@@ -264,8 +255,7 @@ export default function MyComicsPage() {
                   {imageErrors[`${comic.id}-preview`] ? (
                     <div className="w-full h-full bg-background-tertiary flex items-center justify-center">
                       <div className="text-foreground-muted text-center">
-                        <div className="text-xl mb-1">🖼️</div>
-                        <div className="text-xs">No image</div>
+                        <div className="text-sm">No image</div>
                       </div>
                     </div>
                   ) : (

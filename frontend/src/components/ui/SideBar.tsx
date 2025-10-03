@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { buildApiUrl, API_CONFIG } from '@/config/api'
 
 interface SidebarProps {
   className?: string
@@ -26,6 +28,9 @@ export default function SideBar({
   const { user, signOut } = useAuth()
   const [theme, setTheme] = useState<Theme>('system')
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false)
+  const [credits, setCredits] = useState<number | null>(null)
+  const [creditsLoading, setCreditsLoading] = useState(false)
+  const supabase = createClient()
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -34,6 +39,37 @@ export default function SideBar({
       setTheme(savedTheme)
     }
   }, [])
+
+  // Fetch user credits
+  useEffect(() => {
+    if (user) {
+      fetchUserCredits()
+    }
+  }, [user])
+
+  const fetchUserCredits = async () => {
+    try {
+      setCreditsLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_CREDITS), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setCredits(data.credits || 0)
+      }
+    } catch (error) {
+      // Error fetching credits
+    } finally {
+      setCreditsLoading(false)
+    }
+  }
 
   // Apply theme changes
   useEffect(() => {
@@ -373,6 +409,42 @@ export default function SideBar({
               </button>
             </div>
           )}
+        </div>
+
+        {/* Credits Display */}
+        <div className={`mb-4 p-3 rounded-lg transition-all duration-300 ${
+          isMinimized ? 'flex justify-center' : ''
+        }`} style={{ backgroundColor: 'var(--background-secondary)' }}>
+          <Link
+            href="/protected/credits"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              localStorage.setItem('lastVisitedPage', '/protected/credits')
+              router.push('/protected/credits')
+            }}
+            className={`flex items-center transition-all duration-300 ${
+              isMinimized ? 'justify-center' : 'justify-between'
+            }`}
+            title={isMinimized ? 'Credits' : undefined}
+          >
+            <div className={`flex items-center transition-all duration-300 ${
+              isMinimized ? 'space-x-0' : 'space-x-2'
+            }`}>
+              <span className={`transition-all duration-300 whitespace-nowrap ${
+                isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+              }`}>
+                Credits
+              </span>
+            </div>
+            <div className={`transition-all duration-300 ${
+              isMinimized ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 w-auto'
+            }`}>
+              <span className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                {creditsLoading ? '...' : credits !== null ? credits : '0'}
+              </span>
+            </div>
+          </Link>
         </div>
 
         <div className={`flex items-center transition-all duration-300 mb-3 ${

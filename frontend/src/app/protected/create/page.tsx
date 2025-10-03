@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, createRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
+import AlertBanner from '@/components/ui/AlertBanner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import ActionBar from '@/components/create/ActionBar';
+import PanelGrid from '@/components/create/PanelGrid';
+import DrawingToolbar from '@/components/create/DrawingToolbar';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
-import { useAuth } from '@/components/auth/AuthProvider';
-import Link from 'next/link';
 import type { ComicPanel } from '@/types';
 
-// Create Supabase client (shared with AuthProvider)
 const supabase = createSupabaseClient()
 
-// Local Panel type for create page (extends ComicPanel with canvas-specific fields)
 interface Panel extends Omit<ComicPanel, 'id' | 'panel_number' | 'public_url'> {
   id: number;
   isZoomed: boolean;
@@ -23,36 +24,39 @@ interface Panel extends Omit<ComicPanel, 'id' | 'panel_number' | 'public_url'> {
 }
 
 export default function CreatePage() {
-  const { user, loading } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const editComicId = searchParams.get('edit');
+
+  // Helper function to create a panel
+  const createPanel = (id: number, isEnabled: boolean = false): Panel => ({
+    id,
+    isZoomed: false,
+    canvasRef: createRef<HTMLCanvasElement>(),
+    smallCanvasData: null,
+    largeCanvasData: null,
+    prompt: undefined,
+    isEnabled
+  });
 
   const [panels, setPanels] = useState<Panel[]>([
-    { id: 1, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: true },
-    { id: 2, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
-    { id: 3, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
-    { id: 4, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
-    { id: 5, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
-    { id: 6, isZoomed: false, canvasRef: useRef<HTMLCanvasElement>(null), smallCanvasData: null, largeCanvasData: null, prompt: undefined, isEnabled: false },
+    createPanel(1, true),
+    createPanel(2),
+    createPanel(3),
+    createPanel(4),
+    createPanel(5),
+    createPanel(6),
   ]);
 
-  // Function to get the session token for API requests
     const getAccessToken = async () => {
-      // 1) Try to read current session
-      let { data: { session }, error } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
 
-      // 2) If missing, try to refresh using stored refresh token
       if (!session) {
         const refreshRes = await supabase.auth.refreshSession();
         session = refreshRes.data.session ?? null;
       }
 
-      // 3) As a fallback, validate via getUser (forces a user check)
       if (!session) {
-        const { data: userData, error: userErr } = await supabase.auth.getUser();
+        const { data: userData } = await supabase.auth.getUser();
         if (userData?.user) {
-          // Try getting session once more
           const s2 = await supabase.auth.getSession();
           session = s2.data.session ?? null;
         }
@@ -66,7 +70,6 @@ export default function CreatePage() {
         throw new Error('No access token available');
       }
 
-      // Check if token has proper JWT structure (3 parts separated by dots)
       const tokenParts = session.access_token.split('.');
       if (tokenParts.length !== 3) {
         throw new Error('Invalid JWT token format');
@@ -77,19 +80,33 @@ export default function CreatePage() {
 
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentTool, setCurrentTool] = useState('pen');
-  const [brushSize, setBrushSize] = useState(3);
+  const [brushSize] = useState(3);
   const [currentColor, setCurrentColor] = useState('#000000');
+  
+  // Generation state
   const [textPrompt, setTextPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [comicTitle, setComicTitle] = useState('Untitled');
-  const [isEditing, setIsEditing] = useState(false);
-  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editComicTitle, setEditComicTitle] = useState('');
-  const [isLoadingEditData, setIsLoadingEditData] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  
+  
+  // Audio state
+  const [currentAudio] = useState<HTMLAudioElement | null>(null);
+
+  // Helper function to update panels
+  const updatePanel = (panelId: number, updates: Partial<Panel>) => {
+    setPanels(prev => prev.map(p => 
+      p.id === panelId ? { ...p, ...updates } : p
+    ));
+  };
+
+  // Helper function to update multiple panels
+  const updatePanels = (updates: (panel: Panel) => Partial<Panel> | null) => {
+    setPanels(prev => prev.map(p => {
+      const panelUpdates = updates(p);
+      return panelUpdates ? { ...p, ...panelUpdates } : p;
+    }));
+  };
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -101,105 +118,7 @@ export default function CreatePage() {
     };
   }, [currentAudio]);
 
-  // Handle edit mode initialization
-  useEffect(() => {
-    if (editComicId) {
-      setIsEditMode(true);
-      setIsLoadingEditData(true);
-      loadComicForEditing(editComicId);
-    }
-  }, [editComicId]);
 
-  useEffect(() => {
-    const loadComicFromURL = async () => {
-      // Check for comic parameter in URL
-      const urlParams = new URLSearchParams(window.location.search);
-      const comicTitle = urlParams.get('comic');
-      
-      if (comicTitle) {
-        try {
-          const response = await fetch(buildApiUrl(`${API_CONFIG.ENDPOINTS.LOAD_COMIC}/${comicTitle}`));
-          if (response.ok) {
-            const comic = await response.json();
-            const formattedTitle = comic.comic_title
-              .replace(/_/g, ' ')
-              .split(' ')
-              .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-              .join(' ');
-            setComicTitle(formattedTitle);
-            setIsEditing(true);
-            
-            if (comic.panels) {
-              // Find the highest panel number with content
-              const highestPanelWithContent = Math.max(
-                ...comic.panels
-                  .filter((p: any) => p.image_data)
-                  .map((p: any) => p.id)
-              );
-
-              const updatedPanels = panels.map(panel => {
-                const savedPanel = comic.panels.find((p: any) => p.id === panel.id);
-                if (savedPanel && savedPanel.image_data) {
-                  return {
-                    ...panel,
-                    smallCanvasData: savedPanel.image_data,
-                    largeCanvasData: savedPanel.image_data,
-                    prompt: savedPanel.prompt || `Panel ${panel.id}`,
-                    isEnabled: true // Enable panels with content
-                  };
-                }
-                // Enable all panels up to and including the one after the last filled panel
-                return {
-                  ...panel,
-                  isEnabled: panel.id <= highestPanelWithContent + 1
-                };
-              });
-
-              setPanels(updatedPanels);
-              
-              setTimeout(() => {
-                comic.panels.forEach((savedPanel: any) => {
-                  if (savedPanel.image_data) {
-                    const panel = updatedPanels.find(p => p.id === savedPanel.id);
-                    if (panel && panel.canvasRef.current) {
-                      const canvas = panel.canvasRef.current;
-                      const ctx = canvas.getContext('2d');
-                      if (ctx) {
-                        const img = new Image();
-                        img.onload = () => {
-                          ctx.clearRect(0, 0, canvas.width, canvas.height);
-                          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        };
-                        img.onerror = (error) => {
-                          console.error(`Error loading image for panel ${savedPanel.id}:`, error);
-                        };
-                        img.src = savedPanel.image_data;
-                      } else {
-                        console.error(`Could not get context for panel ${savedPanel.id}`);
-                      }
-                    } else {
-                      console.error(`Canvas not found for panel ${savedPanel.id}`);
-                    }
-                  }
-                });
-              }, 200);
-            }
-            
-            window.history.replaceState({}, document.title, window.location.pathname);
-          } else {
-            const errorData = await response.json();
-            console.error('Server error:', errorData);
-            alert(`Failed to load comic: ${errorData.error || 'Unknown error'}`);
-          }
-        } catch (error) {
-          console.error('Error loading comic:', error);
-          alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      }
-    };
-    
-    loadComicFromURL();
-  }, []);
 
   const saveCanvasState = (panelId: number, isLargeCanvas: boolean = false) => {
     const panel = panels.find(p => p.id === panelId);
@@ -208,16 +127,10 @@ export default function CreatePage() {
     const canvas = panel.canvasRef.current;
     const dataURL = canvas.toDataURL();
 
-    setPanels(prev => prev.map(p =>
-      p.id === panelId
-        ? {
-            ...p,
+    updatePanel(panelId, {
             [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL
-          }
-        : p
-    ));
+    });
 
-    // Enable the next panel if this panel now has content
     if (dataURL && dataURL.length > 100) {
       enableNextPanel(panelId);
     }
@@ -242,139 +155,10 @@ export default function CreatePage() {
     img.src = dataURL;
   };
 
-  // Title editing handlers
-  const handleTitleClick = () => {
-    setIsEditingTitle(true);
-  };
-
-  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setComicTitle(e.target.value);
-  };
-
-  const handleTitleBlur = () => {
-    setIsEditingTitle(false);
-  };
-
-  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      setIsEditingTitle(false);
-    } else if (e.key === 'Escape') {
-      setIsEditingTitle(false);
-    }
-  };
-
-  // Enable next panel when current panel has content
   const enableNextPanel = (currentPanelId: number) => {
-    setPanels(prev => prev.map(p => {
-      // Enable the next panel if current panel has content
-      if (p.id === currentPanelId + 1) {
-        return { ...p, isEnabled: true };
-      }
-      return p;
-    }));
+    updatePanel(currentPanelId + 1, { isEnabled: true });
   };
 
-  const loadComicForEditing = async (comicId: string) => {
-    try {
-      const accessToken = await getAccessToken();
-      if (!accessToken) {
-        alert('You must be logged in to edit comics');
-        setIsLoadingEditData(false);
-        return;
-      }
-
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_COMICS), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const comicToEdit = data.comics.find((comic: any) => comic.id === comicId);
-        
-        if (comicToEdit) {
-          setEditComicTitle(comicToEdit.title);
-          setComicTitle(comicToEdit.title);
-          
-          // Load panels 1-6 into the create interface (skip panel 0 which is the cover)
-          const sortedPanels = comicToEdit.comic_panels
-            .filter((panel: any) => panel.panel_number >= 1 && panel.panel_number <= 6)
-            .sort((a: any, b: any) => a.panel_number - b.panel_number);
-          
-          // Create updated panels with the loaded image data
-          const updatedPanels = panels.map((panel, index) => {
-            const panelData = sortedPanels[index];
-            if (panelData && panelData.public_url) {
-              // Convert Supabase URL to base64 data URL format that the existing system expects
-              return {
-                ...panel,
-                // We'll load the image and convert it to base64 format
-                largeCanvasData: null, // Will be set after image loads
-                smallCanvasData: null  // Will be set after image loads
-              };
-            }
-            return panel;
-          });
-          
-          setPanels(updatedPanels);
-          
-          // Load images and convert to base64 format
-          for (let i = 0; i < Math.min(sortedPanels.length, 6); i++) {
-            const panelData = sortedPanels[i];
-            if (panelData.public_url) {
-              const img = new Image();
-              img.crossOrigin = 'anonymous';
-              img.onload = () => {
-                // Create a temporary canvas to convert the image to base64
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = 800; // Standard canvas width
-                tempCanvas.height = 600; // Standard canvas height
-                const tempCtx = tempCanvas.getContext('2d');
-                
-                if (tempCtx) {
-                  tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                  const base64Data = tempCanvas.toDataURL('image/png');
-                  
-                  // Update the panel with the base64 data
-                  setPanels(prev => prev.map(p => 
-                    p.id === i + 1 
-                      ? { ...p, largeCanvasData: base64Data, smallCanvasData: base64Data }
-                      : p
-                  ));
-                  
-                  // Also load it onto the actual canvas
-                  const panel = panels[i];
-                  if (panel && panel.canvasRef.current) {
-                    const canvas = panel.canvasRef.current;
-                    const ctx = canvas.getContext('2d');
-                    if (ctx) {
-                      ctx.clearRect(0, 0, canvas.width, canvas.height);
-                      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    }
-                  }
-                }
-              };
-              img.onerror = (error) => {
-                console.error(`Failed to load image for panel ${i + 1}:`, error);
-              };
-              img.src = panelData.public_url;
-            }
-          }
-        } else {
-          alert('Comic not found');
-        }
-      } else {
-        alert('Failed to load comic for editing');
-      }
-    } catch (error) {
-      console.error('Error loading comic for editing:', error);
-      alert('Failed to load comic for editing');
-    } finally {
-      setIsLoadingEditData(false);
-    }
-  };
 
   const handlePanelClick = (panelId: number) => {
     const panel = panels.find(p => p.id === panelId);
@@ -389,10 +173,9 @@ export default function CreatePage() {
       updateSmallCanvasPreview(panelId);
     }
 
-    setPanels(prev => prev.map(p => ({
-      ...p,
+    updatePanels(p => ({
       isZoomed: p.id === panelId ? !p.isZoomed : false
-    })));
+    }));
 
     if (!panel?.isZoomed) {
       setTimeout(() => {
@@ -409,7 +192,6 @@ export default function CreatePage() {
   useEffect(() => {
     const zoomedPanel = panels.find(p => p.isZoomed);
     if (!zoomedPanel) {
-      // We're in grid view, restore small canvas data
       panels.forEach(panel => {
         if (panel.smallCanvasData && panel.canvasRef.current) {
           const canvas = panel.canvasRef.current;
@@ -465,15 +247,19 @@ export default function CreatePage() {
 
     setIsDrawing(true);
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    
+    // Scale coordinates from display size to canvas size
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
     
     if (currentTool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = brushSize;
+      ctx.lineWidth = brushSize * 8; // Make eraser much bigger
     } else {
       ctx.globalCompositeOperation = 'source-over';
       ctx.strokeStyle = currentColor;
@@ -495,8 +281,11 @@ export default function CreatePage() {
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -504,15 +293,11 @@ export default function CreatePage() {
 
   const handleMouseUp = (panelId: number) => {
     setIsDrawing(false);
-    // Save canvas state after drawing
     const zoomedPanel = panels.find(panel => panel.isZoomed);
     if (zoomedPanel && zoomedPanel.id === panelId) {
-      // We're drawing on the large canvas - save both large and small preview
       saveCanvasState(panelId, true);
-      // Also update the small canvas preview
       updateSmallCanvasPreview(panelId);
     } else {
-      // We're drawing on a small canvas in grid view - just save small
       saveCanvasState(panelId, false);
     }
   };
@@ -525,9 +310,7 @@ export default function CreatePage() {
     const dataURL = canvas.toDataURL();
     
     // Update the small canvas preview
-    setPanels(prev => prev.map(p => 
-      p.id === panelId ? { ...p, smallCanvasData: dataURL } : p
-    ));
+    updatePanel(panelId, { smallCanvasData: dataURL });
   };
 
   // Force restore small canvas data when returning to grid view
@@ -550,7 +333,6 @@ export default function CreatePage() {
 
   const handleToolChange = (tool: string) => {
     setCurrentTool(tool);
-    // Reset composite operation for all canvases
     panels.forEach(panel => {
       if (panel.canvasRef.current) {
         const ctx = panel.canvasRef.current.getContext('2d');
@@ -572,123 +354,40 @@ export default function CreatePage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Update panel data to reflect cleared state and disable subsequent panels
-    setPanels(prev => prev.map(p => {
+    updatePanels(p => {
       if (p.id === panelId) {
-        return { ...p, smallCanvasData: null, largeCanvasData: null, prompt: undefined };
+        return { smallCanvasData: null, largeCanvasData: null, prompt: undefined };
       }
       // Disable all panels after the cleared one
       if (p.id > panelId) {
-        return { ...p, isEnabled: false };
+        return { isEnabled: false };
       }
-      return p;
-    }));
-
-    // Check if all panels are now empty and reset context if so
-    checkAndResetContext();
-
-    // Panel cleared - frontend state is automatically updated
-  };
-
-  const checkAndResetContext = async () => {
-    // Check if all panels are empty
-    const allPanelsEmpty = panels.every(panel => 
-      !panel.smallCanvasData && !panel.largeCanvasData
-    );
-    
-    if (allPanelsEmpty) {
-      try {
-        // Get access token for API request
-        const accessToken = await getAccessToken();
-        
-        const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.RESET_CONTEXT), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-        
-        if (!response.ok) {
-          console.error('Failed to reset context');
-        }
-      } catch (error) {
-        console.error('Error resetting context:', error);
-      }
-    }
-  };
-
-  const goToNextPanel = (currentPanelId: number) => {
-    // Save current panel's state before navigating
-    saveCanvasState(currentPanelId, true);
-    updateSmallCanvasPreview(currentPanelId);
-
-    // Navigate to next panel (or stay on panel 6 if it's the last)
-    const nextPanelId = currentPanelId < 6 ? currentPanelId + 1 : currentPanelId;
-
-    // Check if next panel is enabled
-    const nextPanel = panels.find(p => p.id === nextPanelId);
-    if (nextPanel && nextPanel.isEnabled) {
-      // Zoom out current panel and zoom into next panel
-      setPanels(prev => prev.map(p => ({
-        ...p,
-        isZoomed: p.id === nextPanelId
-      })));
-
-      // Restore canvas state for the next panel after a short delay
-      setTimeout(() => {
-        restoreCanvasState(nextPanelId, true);
-      }, 100);
-    }
-  };
-
-  const clearAllPanels = () => {
-    panels.forEach(panel => {
-      if (panel.canvasRef.current) {
-        const canvas = panel.canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-      }
+      return null;
     });
-    
-    // Reset all panel data
-    setPanels(prev => prev.map(panel => ({
-      ...panel,
-      smallCanvasData: null,
-      largeCanvasData: null
-    })));
-    
-    // Reset context
-    checkAndResetContext();
+
   };
 
   const createComic = async () => {
-    // Check if any panels have content
     const panelsWithData = panels.filter(panel => panel.largeCanvasData);
     if (panelsWithData.length === 0) {
-      alert('Please create at least one panel before proceeding.');
+      setError('Please create at least one panel before proceeding.');
       return;
     }
 
-    // Build payload for SAVE_COMIC (save all panels at once)
-    const safeTitle = comicTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const panelsDataForSave = panels
       .filter(panel => !!panel.largeCanvasData)
       .map(panel => ({ id: panel.id, largeCanvasData: panel.largeCanvasData }));
 
     if (panelsDataForSave.length === 0) {
-      alert('No panels have been drawn yet. Please draw something before saving.');
+      setError('No panels have been drawn yet. Please draw something before saving.');
       return;
     }
 
-    const payload = {
-      comic_title: safeTitle,
-      panels_data: panelsDataForSave,
-    };
+    setShowPublishConfirm(true);
+  };
 
+  const handleConfirmPublish = () => {
     try {
-      // Store panels data in sessionStorage for the confirmation page
       const panelsData = panels
         .filter(panel => !!panel.largeCanvasData)
         .map(panel => ({ 
@@ -699,73 +398,25 @@ export default function CreatePage() {
         }));
 
       sessionStorage.setItem('comicPanelsData', JSON.stringify(panelsData));
+      // Show a warning banner on the confirm page that panels cannot be edited there
+      sessionStorage.setItem('showPanelEditWarning', '1');
 
       router.push('/protected/confirm');
       
     } catch (error) {
-      console.error('Error preparing comic data:', error);
-      alert(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setShowPublishConfirm(false);
     }
   };
 
-  const savePanelsAsPNG = async (title: string) => {
-    // Ensure we have a valid title
-    if (!title || title.trim() === '') {
-      throw new Error('Comic title cannot be empty. Please enter a title before saving.');
-    }
-    
-    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    
-    // Ensure safeTitle is not empty after processing
-    if (!safeTitle || safeTitle.trim() === '') {
-      throw new Error('Comic title becomes invalid after processing. Please use a title with letters or numbers.');
-    }
-    
-    // Check if any panels have data
-    const panelsWithData = panels.filter(panel => panel.largeCanvasData);
-    
-    if (panelsWithData.length === 0) {
-      throw new Error('No panels have been drawn yet. Please draw something before saving.');
-    }
-    
-    try {
-      // Send each panel to backend to save in project directory
-      for (const panel of panels) {
-        if (panel.largeCanvasData) {
-          // Extract base64 data
-          const base64Data = panel.largeCanvasData.split(',')[1];
-          
-          // Get access token for API request
-          const accessToken = await getAccessToken();
-          
-          // Send to backend to save in project directory
-          const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SAVE_PANEL), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify({
-              comic_title: safeTitle,
-              panel_id: panel.id,
-              image_data: base64Data
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to save panel ${panel.id}`);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error saving PNG files:', error);
-      throw new Error(`Failed to save PNG files: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+  const handleCancelPublish = () => {
+    setShowPublishConfirm(false);
   };
 
   const generateComicArt = async (panelId: number) => {
     if (!textPrompt.trim()) {
-      alert('Please enter a text prompt');
+      setError('Please enter a text prompt');
       return;
     }
 
@@ -775,23 +426,19 @@ export default function CreatePage() {
     setIsGenerating(true);
     
     try {
-      // Get canvas data as base64
       const canvas = panel.canvasRef.current;
       const canvasData = canvas.toDataURL('image/png');
-      const base64Data = canvasData.split(',')[1]; // Remove data:image/png;base64, prefix
+      const base64Data = canvasData.split(',')[1];
 
-      // Get access token for API request
       const accessToken = await getAccessToken();
       
-      // Get previous panel for continuity (if exists)
       const previousPanel = panelId > 1 ? panels.find(p => p.id === panelId - 1) : null;
 
       const previousPanelContext = previousPanel && previousPanel.largeCanvasData && previousPanel.prompt ? {
         prompt: previousPanel.prompt,
-        image_data: previousPanel.largeCanvasData.split(',')[1] // Remove data:image/png;base64, prefix
+        image_data: previousPanel.largeCanvasData.split(',')[1] 
       } : null;
 
-      // Call backend API
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GENERATE), {
         method: 'POST',
         headers: {
@@ -801,212 +448,75 @@ export default function CreatePage() {
         body: JSON.stringify({
           text_prompt: textPrompt,
           reference_image: base64Data,
-          panel_id: panelId
+          panel_id: panelId,
+          previous_panel_context: previousPanelContext
         })
       });
 
       const result = await response.json();
 
       if (result.success) {
-        // Load the generated image onto the canvas
         const img = new Image();
         img.onload = () => {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Calculate scaling to fit the canvas while maintaining aspect ratio
             const canvasAspect = canvas.width / canvas.height;
             const imgAspect = img.width / img.height;
             
             let drawWidth, drawHeight, offsetX, offsetY;
             
             if (imgAspect > canvasAspect) {
-              // Image is wider than canvas - fit to width
               drawWidth = canvas.width;
               drawHeight = canvas.width / imgAspect;
               offsetX = 0;
               offsetY = (canvas.height - drawHeight) / 2;
             } else {
-              // Image is taller than canvas - fit to height
               drawHeight = canvas.height;
               drawWidth = canvas.height * imgAspect;
               offsetX = (canvas.width - drawWidth) / 2;
               offsetY = 0;
             }
             
-            // Draw the image centered and scaled to fit
             ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
-            // Save the new state
             saveCanvasState(panelId, true);
             updateSmallCanvasPreview(panelId);
 
-            // Save the prompt for this panel (important for context in next panels)
-            setPanels(prev => prev.map(p =>
-              p.id === panelId ? { ...p, prompt: textPrompt } : p
-            ));
+            updatePanel(panelId, { prompt: textPrompt });
           }
         };
         img.src = `data:image/png;base64,${result.image_data}`;
       } else {
-        alert(`Error generating comic art: ${result.error}`);
+        setError(result.error || 'Error generating comic art');
       }
-    } catch (error) {
-      console.error('Error generating comic art:', error);
-      alert('Failed to generate comic art. Make sure the backend server is running.');
+    } catch {
+      setError('Failed to generate comic art. Make sure the backend server is running.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const generateAudio = async () => {
-    // Check if this is the kan_vibe comic
-    if (comicTitle.toLowerCase().includes('kan') || comicTitle.toLowerCase().includes('vibe')) {
-      setIsGeneratingAudio(true);
-      
-      try {
-        // Simulate loading time
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Stop any currently playing audio
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio.currentTime = 0;
-        }
-        
-        // Create audio element and play the kanban_audio.mp3
-        const audio = new Audio('/saved-comics/kan_vibe/kanban_audio.mp3');
-        setCurrentAudio(audio);
-        
-        // Set up event listeners
-        audio.addEventListener('play', () => setIsAudioPlaying(true));
-        audio.addEventListener('pause', () => setIsAudioPlaying(false));
-        audio.addEventListener('ended', () => setIsAudioPlaying(false));
-        
-        audio.play().catch(error => {
-          console.error('Error playing audio:', error);
-          alert('Error playing audio. Make sure the audio file exists.');
-          setIsAudioPlaying(false);
-        });
-        
-      } catch (error) {
-        console.error('Error generating audio:', error);
-        alert('Error generating audio');
-      } finally {
-        setIsGeneratingAudio(false);
-      }
-    } else {
-      alert('Audio generation is only available for Kan Vibe comics');
-    }
-  };
-
-  const stopAudio = () => {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-      setIsAudioPlaying(false);
-    }
-  };
-
   const zoomedPanel = panels.find(panel => panel.isZoomed);
 
-  // Show loading state when loading edit data
-  if (isLoadingEditData) {
-    return (
-      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--accent)' }}></div>
-          <p style={{ color: 'var(--foreground)' }}>Loading comic for editing...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="h-full">
+      {error && (
+        <div className="p-4">
+          <AlertBanner type="error" message={error} onClose={() => setError(null)} />
+        </div>
+      )}
       {!zoomedPanel ? (
-        // Comic Canvas View
         <div className="h-full flex flex-col">
-          <div className="flex-shrink-0 p-4 flex justify-end items-center">
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={createComic}
-                className="group rounded-lg border border-solid transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
-                style={{
-                  backgroundColor: 'var(--accent)',
-                  borderColor: 'var(--accent)',
-                  color: 'var(--foreground-inverse)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--accent-hover)'
-                  e.currentTarget.style.borderColor = 'var(--accent-hover)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--accent)'
-                  e.currentTarget.style.borderColor = 'var(--accent)'
-                }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                {isEditMode ? 'Update Comic' : (isEditing ? 'Update Comic' : 'Create Comic')}
-              </button>
-            </div>
-          </div>
-          
+          <ActionBar onCreate={createComic} />
           <div className="flex-1 p-6 overflow-hidden">
-            <div className="w-full h-full grid grid-cols-3 gap-6">
-              {panels.map((panel) => (
-                <div
-                  key={panel.id}
-                  data-panel-id={panel.id}
-                  className={`group relative bg-background-card backdrop-blur-sm transition-all duration-300 transform-gpu border-4 ${
-                    panel.isEnabled
-                      ? 'cursor-pointer hover:bg-background-tertiary hover:scale-[1.02] border-black'
-                      : 'cursor-not-allowed opacity-40 border-gray-400'
-                  }`}
-                  onClick={() => handlePanelClick(panel.id)}
-                >
-                  <canvas
-                    ref={panel.canvasRef}
-                    width={400}
-                    height={300}
-                    className="w-full h-full pointer-events-none bg-white"
-                    style={{ width: '100%', height: '100%', display: 'block' }}
-                  />
-                  {/* Panel Number Overlay */}
-                  <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm flex items-center justify-center text-xs font-bold text-foreground-inverse group-hover:bg-accent-light transition-colors duration-300 border-2 border-black">
-                    {panel.id}
-                  </div>
-
-                  {/* Simple overlay for disabled panels */}
-                  {!panel.isEnabled && (
-                    <div className="absolute inset-0 bg-white/60 pointer-events-none" />
-                  )}
-
-                  {/* Trash Icon Overlay */}
-                  {panel.isEnabled && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        clearPanel(panel.id);
-                      }}
-                      className="absolute top-2 right-2 w-6 h-6 bg-red-500/80 backdrop-blur-sm flex items-center justify-center text-white hover:bg-red-600/90 transition-colors duration-300 opacity-0 group-hover:opacity-100 border-2 border-black"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  )}
-                  {/* Hover Effect Overlay */}
-                  {panel.isEnabled && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-accent-light/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                  )}
-                </div>
-              ))}
-            </div>
+            <PanelGrid 
+              panels={panels}
+              onPanelClick={handlePanelClick}
+              onClearPanel={clearPanel}
+            />
           </div>
         </div>
       ) : (
@@ -1043,7 +553,12 @@ export default function CreatePage() {
                 width={800}
                 height={600}
                 className="bg-background-card max-w-full max-h-full w-auto h-auto border-4 border-black"
-                style={{ width: '65%', height: '100%', display: 'block' }}
+                style={{ 
+                  width: '65%', 
+                  height: '100%', 
+                  display: 'block',
+                  cursor: currentTool === 'eraser' ? 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><rect x=\'8\' y=\'8\' width=\'8\' height=\'8\' fill=\'white\' stroke=\'black\' stroke-width=\'2\'/></svg>") 12 12, auto' : 'crosshair'
+                }}
                 onMouseDown={(e) => handleMouseDown(e, zoomedPanel.id)}
                 onMouseMove={(e) => handleMouseMove(e, zoomedPanel.id)}
                 onMouseUp={() => handleMouseUp(zoomedPanel.id)}
@@ -1052,90 +567,30 @@ export default function CreatePage() {
             </div>
 
             {/* Combined Tools and Generate Section - Bottom */}
-            <div className="bg-background-secondary p-4 flex flex-col gap-4 items-center">
-              {/* Figma-style Toolbar */}
-              <div className="bg-background-card rounded-xl px-3 py-2 flex items-center gap-1 shadow-lg border-2 border-border">
-                <button
-                  onClick={() => handleToolChange('pen')}
-                  className={`p-2.5 rounded-lg transition-all ${
-                    currentTool === 'pen'
-                      ? 'bg-accent text-foreground-inverse'
-                      : 'text-foreground hover:bg-background-tertiary'
-                  }`}
-                  title="Pen"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleToolChange('eraser')}
-                  className={`p-2.5 rounded-lg transition-all ${
-                    currentTool === 'eraser'
-                      ? 'bg-accent text-foreground-inverse'
-                      : 'text-foreground hover:bg-background-tertiary'
-                  }`}
-                  title="Eraser"
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 01-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0M4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l3.53-3.53-6.36-6.36-3.54 3.53c-.78.79-.78 2.05 0 2.83z"/>
-                  </svg>
-                </button>
-
-                <div className="w-px h-6 bg-border mx-1"></div>
-
-                <input
-                  type="color"
-                  value={currentColor}
-                  onChange={(e) => setCurrentColor(e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-2 border-border"
-                  title="Color"
-                />
-
-                <div className="w-px h-6 bg-border mx-1"></div>
-
-                <button
-                  onClick={() => clearPanel(zoomedPanel.id)}
-                  className="p-2.5 rounded-lg text-foreground hover:bg-background-tertiary transition-all"
-                  title="Clear"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Generate Scene Section */}
-              <div className="w-full max-w-2xl flex items-center gap-3 bg-background-card rounded-lg border-2 border-border p-3">
-                <textarea
-                  value={textPrompt}
-                  onChange={(e) => setTextPrompt(e.target.value)}
-                  placeholder="Describe the scene..."
-                  className="flex-1 bg-transparent text-foreground placeholder-foreground-muted focus:outline-none resize-none text-sm leading-relaxed min-h-[60px]"
-                  rows={3}
-                />
-                <button
-                  onClick={() => generateComicArt(zoomedPanel.id)}
-                  disabled={isGenerating || !textPrompt.trim()}
-                  className="flex p-2.5 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-all disabled:bg-background-muted disabled:cursor-not-allowed flex items-center justify-center"
-                  title="Generate"
-                >
-                  {isGenerating ? (
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.996.996 0 00-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 000-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
+            <DrawingToolbar
+              currentTool={currentTool}
+              onToolChange={handleToolChange}
+              currentColor={currentColor}
+              onColorChange={setCurrentColor}
+              onClear={() => clearPanel(zoomedPanel.id)}
+              textPrompt={textPrompt}
+              setTextPrompt={setTextPrompt}
+              onGenerate={() => generateComicArt(zoomedPanel.id)}
+              isGenerating={isGenerating}
+              panelId={zoomedPanel.id}
+            />
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={showPublishConfirm}
+        title="Continue to Publish?"
+        message="Note: Your comic panels are not editable during publishing. Make sure your panels are complete before proceeding."
+        confirmText="Continue to Publish"
+        cancelText="Keep Editing"
+        onConfirm={handleConfirmPublish}
+        onCancel={handleCancelPublish}
+      />
     </div>
   );
 }

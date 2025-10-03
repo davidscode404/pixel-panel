@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from services.audio_generator import AudioGenerator
+from services.user_credits import UserCreditsService
+from auth_shared import get_current_user
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import google.generativeai as genai
 import os
 import json
@@ -18,8 +22,10 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 audio_generator = AudioGenerator()
+credits_service = UserCreditsService()
 
 router = APIRouter(prefix="/api/voice-over")
+limiter = Limiter(key_func=get_remote_address)
 
 async def generate_story(story: str):
     """
@@ -58,7 +64,8 @@ async def generate_story(story: str):
         return fallback_response
 
 @router.post("/generate-story")
-async def generate_story_endpoint(story: str = Body(..., embed=True)):
+@limiter.limit("20/minute")
+async def generate_story_endpoint(request: Request, story: str = Body(..., embed=True)):
     """
     Generate story endpoint
     """
@@ -74,14 +81,31 @@ async def generate_story_endpoint(story: str = Body(..., embed=True)):
         return {"story": result}
 
 @router.post("/generate-voiceover")
-async def generate_narration(narration: str):
+@limiter.limit("10/minute")
+async def generate_narration(request: Request, narration: str, current_user: dict = Depends(get_current_user)):
     """
     Generate voice narration
     """
     try:
+        # Check if user has sufficient credits (0.1 credits per narration)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 1):  # Using 1 credit for simplicity
+            raise HTTPException(
+                status_code=402, 
+                detail="Insufficient credits. Please purchase more credits to generate voice narrations."
+            )
+        
         logger.info(f"Generating audio for narration ({len(narration)} chars)...")
         audio_data = await audio_generator.generate_audio_base64(narration)
         logger.info(f"Audio generated, base64 length: {len(audio_data)} chars")
+        
+        # Deduct 0.1 credits after successful generation (using 1 credit for simplicity)
+        try:
+            new_balance = await credits_service.deduct_credits(current_user["id"], 1)
+            logger.info(f"Deducted 1 credit from user {current_user['id']} for voice generation. New balance: {new_balance}")
+        except Exception as credit_error:
+            logger.error(f"Failed to deduct credits for user {current_user['id']}: {credit_error}")
+            # Note: We still return the generated audio even if credit deduction fails
+        
         return {"audio": audio_data}
     except Exception as e:
         logger.error(f"Error generating voiceover: {e}", exc_info=True)

@@ -131,7 +131,6 @@ export default function ComicPreview() {
       throw new Error(`Comic with ID "${comicId}" not found in database`);
       
     } catch (err) {
-      console.error('Error loading comic:', err);
       setError(err instanceof Error ? err.message : 'Failed to load comic');
     } finally {
       setLoading(false);
@@ -247,7 +246,6 @@ export default function ComicPreview() {
         alert(`Failed to delete comic: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error deleting comic:', error);
       alert('Failed to delete comic. Please try again.');
     } finally {
       setIsDeleting(false);
@@ -296,7 +294,7 @@ export default function ComicPreview() {
               <div className="flex items-center space-x-2">
                 {/* Edit Button */}
                 <button
-                  onClick={() => router.push(`/protected/create?edit=${comicId}`)}
+                  onClick={() => router.push(`/protected/edit/${comicId}`)}
                   className="flex items-center space-x-2 px-3 py-1 rounded-md transition-colors text-sm"
                   style={{
                     backgroundColor: 'var(--accent)',

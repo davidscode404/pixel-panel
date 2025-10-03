@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/components/auth/AuthProvider';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
+import AlertBanner from '@/components/ui/AlertBanner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import type { PanelData } from '@/types';
 
@@ -12,18 +13,16 @@ const supabase = createSupabaseClient();
 
 export default function ConfirmComicPage() {
   const router = useRouter();
-  const { } = useAuth();
   
   // Form states
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
-  const [tags, setTags] = useState('');
   
   // Comic data
   const [panelsData, setPanelsData] = useState<PanelData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
   
   // Narration states
   const [generatingNarrations, setGeneratingNarrations] = useState(false);
@@ -46,17 +45,9 @@ export default function ConfirmComicPage() {
         return;
       }
     } catch (error) {
-      console.error('Error loading comic data:', error);
       setError('Failed to load comic data. Please try again.');
     }
   }, []);
-
-  // Auto-generate narrations when panels are loaded
-  useEffect(() => {
-    if (panelsData.length > 0 && !narrationsGenerated && !generatingNarrations) {
-      generateNarrations();
-    }
-  }, [panelsData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getAccessToken = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
@@ -93,7 +84,6 @@ export default function ConfirmComicPage() {
             
             // Ensure narration is a string, not an object
             if (typeof narration !== 'string') {
-              console.warn(`Narration for panel ${panel.id} is not a string:`, narration);
               narration = `Narration for: ${panel.prompt}`;
             }
             
@@ -102,7 +92,6 @@ export default function ConfirmComicPage() {
               narration: narration
             };
           } catch (error) {
-            console.error(`Error generating narration for panel ${panel.id}:`, error);
             return {
               ...panel,
               narration: `Narration for: ${panel.prompt}`
@@ -114,7 +103,6 @@ export default function ConfirmComicPage() {
       setPanelsData(updatedPanels);
       setNarrationsGenerated(true);
     } catch (error) {
-      console.error('Error generating narrations:', error);
       setError('Failed to generate narrations. Please try again.');
     } finally {
       setGeneratingNarrations(false);
@@ -153,61 +141,49 @@ export default function ConfirmComicPage() {
         throw new Error('Invalid response from thumbnail generation');
       }
     } catch (error) {
-      console.error('Error generating thumbnail:', error);
       setError('Failed to generate thumbnail. Please try again.');
     } finally {
       setGeneratingThumbnail(false);
     }
   };
 
-  const generateAudioForPanels = async () => {
-    const updatedPanels = await Promise.all(
-      panelsData.map(async (panel) => {
-        // Skip if no narration
-        if (!panel.narration) {
-          return panel;
-        }
-
-        try {
-          const url = new URL(buildApiUrl('/api/voice-over/generate-voiceover'));
-          url.searchParams.append('narration', panel.narration);
-
-          const response = await fetch(url.toString(), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (!response.ok) {
-            console.warn(`Failed to generate audio for panel ${panel.id}: ${response.status} ${response.statusText}`);
-            return panel;
-          }
-
-          const audioData = await response.json();
-
-          return {
-            ...panel,
-            audio_data: audioData.audio
-          };
-        } catch (error) {
-          console.error(`Error generating audio for panel ${panel.id}:`, error);
-          return panel;
-        }
-      })
+  // Helper function to update panel narration
+  const updatePanelNarration = (panelId: number, narration: string) => {
+    const updatedPanels = panelsData.map(p =>
+      p.id === panelId ? { ...p, narration } : p
     );
-
-    return updatedPanels;
+    setPanelsData(updatedPanels);
   };
+
+  // Helper function to render loading spinner
+  const renderLoadingSpinner = (text: string) => (
+    <>
+      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
+      <span>{text}</span>
+    </>
+  );
+
+  // Helper function to render checklist icon
+  const renderChecklistIcon = (isComplete: boolean) => (
+    isComplete ? (
+      <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+    ) : (
+      <svg className="w-5 h-5 text-foreground-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+    )
+  );
 
   const handleSaveComic = async () => {
     if (!title.trim()) {
-      alert('Please enter a title for your comic.');
+      setError('Please enter a title for your comic.');
       return;
     }
 
     if (panelsData.length === 0) {
-      alert('No comic panels found. Please go back to create panels.');
+      setError('No comic panels found. Please go back to create panels.');
       return;
     }
 
@@ -217,15 +193,10 @@ export default function ConfirmComicPage() {
     try {
       const accessToken = await getAccessToken();
       
-      // Generate audio for all panels with narrations
-      const panelsWithAudio = await generateAudioForPanels();
-      
       const payload = {
         title: title.trim(),
-        description: description.trim(),
         is_public: isPublic,
-        tags: tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0),
-        panels: panelsWithAudio,
+        panels: panelsData,
         thumbnail_data: thumbnailData  // Include thumbnail if generated
       };
 
@@ -252,7 +223,6 @@ export default function ConfirmComicPage() {
       router.push('/protected/comics');
 
     } catch (error) {
-      console.error('Error saving comic:', error);
       setError(error instanceof Error ? error.message : 'Failed to save comic');
     } finally {
       setLoading(false);
@@ -260,7 +230,15 @@ export default function ConfirmComicPage() {
   };
 
   const handleGoBack = () => {
-    router.back();
+    setShowConfirmClear(true);
+  };
+
+  const confirmClearAndBack = () => {
+    try {
+      sessionStorage.removeItem('comicPanelsData');
+    } catch {}
+    setShowConfirmClear(false);
+    router.push('/protected/create');
   };
 
   if (error && panelsData.length === 0) {
@@ -291,37 +269,38 @@ export default function ConfirmComicPage() {
             <span>›</span>
             <span className="text-foreground">Publish Comic</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Publish Your Comic</h1>
-          <p className="text-foreground-secondary">Configure your comic details and publish it to the world.</p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Publish Your Comic</h1>
+              <p className="text-foreground-secondary">Configure your comic details and publish it to the world.</p>
+            </div>
+            <button
+              onClick={handleGoBack}
+              className="flex items-center space-x-2 px-4 py-2 bg-background-secondary hover:bg-background-tertiary text-foreground rounded-lg border border-border transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Edit</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-8">
           {/* Left Side - Comic Preview */}
           <div className="space-y-6">
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Comic Preview</h2>
               
-              {/* Comic Title Display */}
-              <div className="bg-background-tertiary rounded-lg p-4 mb-6 border-2 border-black">
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Untitled Comic"
-                  className="w-full text-2xl font-bold text-foreground text-center bg-transparent focus:outline-none focus:ring-2 focus:ring-accent rounded px-2 py-1"
-                  maxLength={100}
-                />
-              </div>
-
-              {/* Panels Preview */}
-              <div className="space-y-4">
+              {/* Panels Preview - 2x3 Grid */}
+              <div className="grid grid-cols-2 gap-4">
                 {panelsData.map((panel) => (
                   <div 
                     key={panel.id}
-                    className="bg-background-tertiary rounded-lg border-2 border-black overflow-hidden"
+                    className="bg-background-tertiary border-2 border-black overflow-hidden"
                   >
                     {/* Panel Image */}
-                    <div className="aspect-[4/3] bg-background-tertiary overflow-hidden">
+                    <div className="aspect-[4/3] bg-background-tertiary overflow-hidden relative">
                       {panel.image_data ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -337,91 +316,75 @@ export default function ConfirmComicPage() {
                           </div>
                         </div>
                       )}
+                      {/* Panel Number Badge */}
+                      <div className="absolute top-2 left-2 w-6 h-6 bg-accent backdrop-blur-sm flex items-center justify-center text-xs font-bold text-foreground-inverse border-2 border-black">
+                        {panel.id}
+                      </div>
                     </div>
                     
-                    {/* Panel Narration */}
-                    <div className="p-4 border-t border-border">
-                      <div className="text-sm font-medium text-foreground-secondary mb-2">
-                        Panel {panel.id} Narration:
+                    {/* Panel Narration - Editable */}
+                    <div className="p-3 border-t-4 border-black">
+                      <div className="text-xs font-medium text-foreground-secondary mb-1 flex items-center justify-between">
+                        <span>Narration:</span>
+                        <svg className="w-3 h-3 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
                       </div>
                       {panel.narration ? (
                         <textarea
                           value={panel.narration}
-                          onChange={(e) => {
-                            const updatedPanels = panelsData.map(p =>
-                              p.id === panel.id ? { ...p, narration: e.target.value } : p
-                            );
-                            setPanelsData(updatedPanels);
-                          }}
-                          className="w-full text-sm text-foreground bg-background-secondary rounded p-3 border border-border focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none"
-                          rows={3}
+                          onChange={(e) => updatePanelNarration(Number(panel.id), e.target.value)}
+                          placeholder="Edit narration for this panel..."
+                          className="w-full text-xs text-foreground bg-background-secondary rounded p-2 border border-border hover:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none transition-colors"
+                          rows={2}
                         />
                       ) : (
-                        <div className="text-sm text-foreground-muted italic">
-                          No narration generated yet
-                        </div>
+                        <textarea
+                          value=""
+                          onChange={(e) => updatePanelNarration(Number(panel.id), e.target.value)}
+                          placeholder="Click to add narration or generate using the button..."
+                          className="w-full text-xs text-foreground-muted bg-background-secondary rounded p-2 border border-dashed border-border hover:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-solid focus:border-accent resize-none transition-colors italic"
+                          rows={2}
+                        />
                       )}
                     </div>
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
 
-              {generatingNarrations && (
-                <div className="mt-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Generating narrations...</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-              {/* Regenerate Narrations Button (only shown after generation) */}
-              {narrationsGenerated && (
-                <div className="mt-4">
-                  <button
-                    onClick={generateNarrations}
-                    disabled={generatingNarrations}
-                    className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-background-secondary hover:bg-background-tertiary disabled:opacity-50 text-foreground rounded-lg transition-colors font-medium border border-border"
-                  >
+          {/* Right Side - Comic Configuration Form */}
+          <div className="space-y-6">
+            {/* Generate Thumbnail Section */}
+            <div className="bg-background-card p-6 border-4 border-black">
+              <h2 className="text-xl font-bold text-foreground mb-4">Comic Thumbnail</h2>
+              <p className="text-sm text-foreground-secondary mb-4">
+                Generate a cover image for your comic that will be displayed in the comics gallery.
+              </p>
+              
+              <button
+                onClick={generateThumbnail}
+                disabled={generatingThumbnail || panelsData.length === 0}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-foreground-inverse rounded-lg transition-colors font-medium"
+              >
+                {generatingThumbnail ? (
+                  renderLoadingSpinner('Generating Thumbnail...')
+                ) : (
+                  <>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <span>Regenerate Narrations</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Generate Thumbnail Button */}
-              <div className="mt-4">
-                <button
-                  onClick={generateThumbnail}
-                  disabled={generatingThumbnail || panelsData.length === 0}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-foreground-inverse rounded-lg transition-colors font-medium"
-                >
-                  {generatingThumbnail ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
-                      <span>Generating Thumbnail...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>{thumbnailData ? 'Regenerate Thumbnail' : 'Generate Thumbnail'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
+                    <span>{thumbnailData ? 'Regenerate Thumbnail' : 'Generate Thumbnail'}</span>
+                  </>
+                )}
+              </button>
 
               {/* Thumbnail Preview */}
               {thumbnailData && (
-                <div className="mt-4 p-4 bg-background-tertiary rounded-lg border-2 border-border">
+                <div className="mt-4 p-4 bg-background-tertiary border-4 border-black">
                   <p className="text-sm font-medium text-foreground-secondary mb-2">Generated Thumbnail:</p>
-                  <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border-2 border-black">
+                  <div className="relative w-full aspect-[3/4] overflow-hidden border-2 border-black">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={thumbnailData}
@@ -429,16 +392,13 @@ export default function ConfirmComicPage() {
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <p className="text-xs text-foreground-muted mt-2">This thumbnail will be used for displaying your comic</p>
+                  <p className="text-xs text-foreground-muted mt-2">This thumbnail will be used as your comic cover</p>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Right Side - Comic Configuration Form */}
-          <div className="space-y-6">
             {/* Comic Details Form */}
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Comic Details</h2>
               
               <div className="space-y-4">
@@ -489,27 +449,86 @@ export default function ConfirmComicPage() {
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            {/* Generation Actions */}
+            <div className="bg-background-card p-6 border-4 border-black">
+              <h2 className="text-xl font-bold text-foreground mb-4">Generation Actions</h2>
+              <p className="text-sm text-foreground-secondary mb-4">
+                Generate content for your comic before publishing.
+              </p>
+              
+              <div className="space-y-3">
+                {/* Generate Narrations Button */}
+                <button
+                  onClick={generateNarrations}
+                  disabled={generatingNarrations || panelsData.length === 0}
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-background-secondary hover:bg-background-tertiary disabled:opacity-50 text-foreground rounded-lg transition-colors font-medium border border-border"
+                >
+                  {generatingNarrations ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent"></div>
+                      <span>Generating Narrations...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <span>{narrationsGenerated ? 'Regenerate Narrations' : 'Generate Narrations'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Publish Section */}
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Publish Comic</h2>
               
-              {error && (
-                <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg">
-                  <p className="text-error text-sm">{error}</p>
+              {/* Publishing Checklist */}
+                <div className="mb-4 p-4 bg-background-tertiary border-4 border-black">
+                <p className="text-sm font-medium text-foreground mb-3">Before Publishing:</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center space-x-2">
+                    {renderChecklistIcon(Boolean(title.trim()))}
+                    <span className={title.trim() ? 'text-foreground' : 'text-foreground-muted'}>
+                      Add comic title
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {renderChecklistIcon(!!thumbnailData)}
+                    <span className={thumbnailData ? 'text-foreground' : 'text-foreground-muted'}>
+                      Generate thumbnail
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {renderChecklistIcon(panelsData.every(p => p.narration))}
+                    <span className={panelsData.every(p => p.narration) ? 'text-foreground' : 'text-foreground-muted'}>
+                      Generate narrations for all panels
+                    </span>
+                  </div>
                 </div>
+                
+                {(!title.trim() || !thumbnailData || !panelsData.every(p => p.narration)) && (
+                  <p className="mt-3 text-xs text-foreground-muted italic">
+                    Complete all items above to enable publishing
+                  </p>
+                )}
+              </div>
+              
+              {error && (
+                <AlertBanner type="error" message={error} />
               )}
 
               <div className="space-y-3">
                 <button
                   onClick={handleSaveComic}
-                  disabled={loading || !title.trim()}
+                  disabled={loading || !title.trim() || !thumbnailData || !panelsData.every(p => p.narration)}
                   className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-accent hover:bg-accent-hover disabled:bg-background-muted disabled:cursor-not-allowed text-foreground-inverse rounded-lg transition-colors font-medium"
                 >
                   {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-foreground-inverse"></div>
-                      <span>Publishing (generating audio)...</span>
-                    </>
+                    renderLoadingSpinner('Publishing...')
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -520,21 +539,26 @@ export default function ConfirmComicPage() {
                   )}
                 </button>
                 
-                <button
-                  onClick={handleGoBack}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-background-secondary hover:bg-background-tertiary disabled:opacity-50 text-foreground rounded-lg transition-colors font-medium border border-border"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  <span>Back to Edit</span>
-                </button>
+                
               </div>
             </div>
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={showConfirmClear}
+        title="Leave Publish Flow?"
+        message={
+          <div>
+            <p className="mb-2">Going back to edit will clear the current publish session.</p>
+            <p className="text-sm text-foreground-muted">Your in-progress narrations and generated thumbnail on this page will be discarded.</p>
+          </div>
+        }
+        confirmText="Yes, clear and go back"
+        cancelText="Stay here"
+        onConfirm={confirmClearAndBack}
+        onCancel={() => setShowConfirmClear(false)}
+      />
     </div>
   );
 }

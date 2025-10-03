@@ -10,10 +10,10 @@ interface CreditsPurchaseProps {
 }
 
 const CREDIT_PACKAGES = [
-  { id: 'credits_10', name: '10 Credits', price: 5, credits: 10, popular: false },
-  { id: 'credits_25', name: '25 Credits', price: 10, credits: 25, popular: true },
-  { id: 'credits_50', name: '50 Credits', price: 18, credits: 50, popular: false },
-  { id: 'credits_100', name: '100 Credits', price: 30, credits: 100, popular: false },
+  { id: 'credits_50', name: 'Starter', price: 4.99, credits: 50, popular: false, description: 'Perfect for trying out' },
+  { id: 'credits_120', name: 'Popular', price: 9.99, credits: 120, popular: true, description: 'Most popular choice' },
+  { id: 'credits_280', name: 'Pro', price: 19.99, credits: 280, popular: false, description: 'For regular creators' },
+  { id: 'credits_800', name: 'Creator', price: 49.99, credits: 800, popular: false, description: 'For power users' },
 ];
 
 export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
@@ -133,8 +133,14 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
                 <div className="text-2xl font-bold mb-1" style={{ color: 'var(--accent)' }}>
                   ${pkg.price}
                 </div>
-                <div className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-                  ${(pkg.price / pkg.credits).toFixed(2)} per credit
+                <div className="text-sm mb-2" style={{ color: 'var(--foreground-secondary)' }}>
+                  {pkg.credits} credits
+                </div>
+                <div className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                  {pkg.description}
+                </div>
+                <div className="text-xs mt-1" style={{ color: 'var(--accent)' }}>
+                  ${(pkg.price / pkg.credits).toFixed(3)} per credit
                 </div>
               </div>
             </button>

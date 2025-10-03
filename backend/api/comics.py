@@ -3,7 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from schemas.comic import ComicArtRequest, ComicRequest, ThumbnailRequest
 from services.comic_storage import ComicStorageService
 from services.comic_generator import ComicArtGenerator
+from services.user_credits import UserCreditsService
 from auth_shared import get_current_user
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import json
 import base64
 import os
@@ -14,16 +17,25 @@ import io
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/comics", tags=["comics"])
+limiter = Limiter(key_func=get_remote_address)
 
 comic_generator = ComicArtGenerator()
 comic_storage_service = ComicStorageService()
+credits_service = UserCreditsService()
 
 @router.post("/generate")
-async def generate_comic_art(request: ComicArtRequest):
+@limiter.limit("10/minute")
+async def generate_comic_art(raw_request: Request, request: ComicArtRequest, current_user: dict = Depends(get_current_user)):
     """
     Generate comic art from text prompt and optional reference image
     """
     try:
+        # Check if user has sufficient credits (1 credit per panel)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 1):
+            raise HTTPException(
+                status_code=402, 
+                detail="Insufficient credits. Please purchase more credits to generate comic panels."
+            )
         text_prompt = request.text_prompt
         reference_image_data = request.reference_image
         panel_id = request.panel_id
@@ -54,6 +66,15 @@ async def generate_comic_art(request: ComicArtRequest):
         # Convert image to base64 for response
         img_base64 = comic_generator.image_to_base64(image)
         
+        # Deduct 1 credit after successful generation
+        try:
+            new_balance = await credits_service.deduct_credits(current_user["id"], 1)
+            logger.info(f"Deducted 1 credit from user {current_user['id']}. New balance: {new_balance}")
+        except Exception as credit_error:
+            logger.error(f"Failed to deduct credits for user {current_user['id']}: {credit_error}")
+            # Note: We still return the generated image even if credit deduction fails
+            # The credit can be deducted manually if needed
+        
         # No need to store context - frontend handles continuity
         logger.info(f"Generated panel {panel_id} successfully")
         
@@ -71,12 +92,19 @@ async def generate_comic_art(request: ComicArtRequest):
         )
 
 @router.post("/generate-thumbnail")
-async def generate_thumbnail(request: ThumbnailRequest):
+@limiter.limit("10/minute")
+async def generate_thumbnail(raw_request: Request, request: ThumbnailRequest, current_user: dict = Depends(get_current_user)):
     """
     Generate a thumbnail image based on comic prompts
     Returns a 3:4 aspect ratio image suitable for comic book covers
     """
     try:
+        # Check if user has sufficient credits (1 credit per thumbnail)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 1):
+            raise HTTPException(
+                status_code=402, 
+                detail="Insufficient credits. Please purchase more credits to generate thumbnails."
+            )
         # Combine all prompts into a single prompt for thumbnail generation
         combined_prompt = f"Comic book cover art featuring: {', '.join(request.prompts[:3])}"  # Use first 3 prompts
         logger.debug(f"Generating thumbnail with prompt: {combined_prompt}")
@@ -88,16 +116,25 @@ async def generate_thumbnail(request: ThumbnailRequest):
                 detail="Comic art generator not initialized"
             )
 
-        # Generate the thumbnail
-        image = comic_generator.generate_comic_art(combined_prompt, None, None)
+        # Generate the thumbnail with portrait orientation
+        image = comic_generator.generate_comic_art(combined_prompt, None, None, is_thumbnail=True)
 
-        # Resize to 3:4 aspect ratio (e.g., 600x800)
+        # Ensure it's exactly 600x800 (3:4 aspect ratio)
         target_width = 600
         target_height = 800
-        image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        if image.size != (target_width, target_height):
+            image = image.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
         # Convert image to base64 for response
         img_base64 = comic_generator.image_to_base64(image)
+
+        # Deduct 1 credit after successful generation
+        try:
+            new_balance = await credits_service.deduct_credits(current_user["id"], 1)
+            logger.info(f"Deducted 1 credit from user {current_user['id']} for thumbnail. New balance: {new_balance}")
+        except Exception as credit_error:
+            logger.error(f"Failed to deduct credits for user {current_user['id']}: {credit_error}")
+            # Note: We still return the generated thumbnail even if credit deduction fails
 
         logger.info("Generated thumbnail successfully")
 
@@ -115,6 +152,7 @@ async def generate_thumbnail(request: ThumbnailRequest):
         )
 
 @router.post("/save-comic")
+@limiter.limit("30/minute")
 async def save_comic(raw_request: Request, current_user: dict = Depends(get_current_user)):
     """
     Save a comic to the database
@@ -166,10 +204,13 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         # Use the authenticated user's ID
         user_id = current_user.get('id')
 
-        # Get thumbnail data if provided
+        # Get thumbnail data and visibility setting if provided
         thumbnail_data = raw_data.get('thumbnail_data')
+        is_public = raw_data.get('is_public', False)
+        
+        logger.info(f"Saving comic with is_public={is_public}")
 
-        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload, thumbnail_data)
+        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload, thumbnail_data, is_public)
     except HTTPException:
         raise
     except Exception as e:
@@ -177,7 +218,8 @@ async def save_comic(raw_request: Request, current_user: dict = Depends(get_curr
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/user-comics")
-async def get_user_comics(current_user: dict = Depends(get_current_user)):
+@limiter.limit("50/minute")
+async def get_user_comics(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Get all comics for the authenticated user from Supabase
     """
@@ -196,7 +238,8 @@ async def get_user_comics(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/public-comics")
-async def get_public_comics():
+@limiter.limit("50/minute")
+async def get_public_comics(request: Request):
     """
     Get all public comics from all users for the explore page
     """
@@ -214,6 +257,7 @@ async def get_public_comics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/{comic_id}/visibility")
+@limiter.limit("30/minute")
 async def update_comic_visibility(comic_id: str, request: Request, current_user: dict = Depends(get_current_user)):
     """
     Update comic visibility (public/private)
@@ -274,7 +318,8 @@ async def update_comic_visibility(comic_id: str, request: Request, current_user:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/list-comics")
-async def list_comics():
+@limiter.limit("50/minute")
+async def list_comics(request: Request):
     """
     List all saved comics in the project directory
     """
@@ -329,7 +374,8 @@ async def list_comics():
 
 
 @router.delete("/user-comics/{comic_id}")
-async def delete_comic(comic_id: str, current_user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+async def delete_comic(comic_id: str, request: Request, current_user: dict = Depends(get_current_user)):
     """Delete a specific comic by ID"""
     try:
         logger.info(f"Deleting comic {comic_id} for user {current_user.get('email', 'Unknown')}")

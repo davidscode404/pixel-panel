@@ -67,10 +67,11 @@ async def get_current_user(request: Request) -> dict:
                     )
                 
                 user_data = auth_response.json()
-                logger.info(f"User authenticated: {user_data.get('email', 'Unknown')}")
+                user_id = user_data.get("id")
+                logger.info(f"User authenticated: {user_data.get('email', 'Unknown')} with ID: {user_id}")
                 
                 return {
-                    "id": user_data.get("id"),
+                    "id": user_id,
                     "email": user_data.get("email"),
                     "user_metadata": user_data.get("user_metadata", {})
                 }

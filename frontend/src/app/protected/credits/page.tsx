@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import StripeProvider from '@/components/stripe/StripeProvider';
 import CreditsPurchase from '@/components/stripe/CreditsPurchase';
 import { createClient } from '@/lib/supabase/client';
+import { buildApiUrl, API_CONFIG } from '@/config/api';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function CreditsPage() {
   const { user } = useAuth();
@@ -14,23 +16,38 @@ export default function CreditsPage() {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
+  const fetchUserCredits = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_CREDITS), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch credits');
+      }
+
+      const data = await response.json();
+      setCredits(data.credits || 0);
+    } catch (error) {
+      setCredits(0); // Default to 0 if fetch fails
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
   useEffect(() => {
     if (user) {
       fetchUserCredits();
     }
-  }, [user]);
-
-  const fetchUserCredits = async () => {
-    try {
-      // TODO: Replace with actual credits fetching from your database
-      // For now, we'll simulate with a default value
-      setCredits(10); // Default credits
-    } catch (error) {
-      console.error('Error fetching credits:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, fetchUserCredits]);
 
   const handlePurchaseSuccess = () => {
     // Refresh credits after successful purchase
@@ -38,11 +55,7 @@ export default function CreditsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-stone-900 to-stone-800 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading credits..." fullPage />;
   }
 
   return (
@@ -89,14 +102,25 @@ export default function CreditsPage() {
         <h3 className="text-xl font-semibold mb-4" style={{ color: 'var(--foreground)' }}>
           How Credits Work
         </h3>
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           <div>
             <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-              Comic Generation
+              AI Panel Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 1 credit per panel generation</li>
-              <li>• 6 panels = 6 credits per comic</li>
+              <li>• 1 credit per panel</li>
+              <li>• 6 panels = 6 credits</li>
+              <li>• Includes context awareness</li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+              Thumbnail Generation
+            </h4>
+            <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
+              <li>• 1 credit per thumbnail</li>
+              <li>• 3:4 portrait format</li>
+              <li>• Comic book cover style</li>
             </ul>
           </div>
           <div>
@@ -104,9 +128,24 @@ export default function CreditsPage() {
               Voice Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 2 credits per voice scene</li>
+              <li>• 0.1 credits per narration</li>
               <li>• High-quality AI voices</li>
+              <li>• 10 narrations = 1 credit</li>
             </ul>
+          </div>
+        </div>
+        
+        <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: 'var(--background-secondary)' }}>
+          <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
+            Example: Full Comic Creation
+          </h4>
+          <div className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
+            <p>• 6 AI panels: 6 credits</p>
+            <p>• 1 thumbnail: 1 credit</p>
+            <p>• 6 voice narrations: 0.6 credits</p>
+            <p className="font-semibold mt-2" style={{ color: 'var(--accent)' }}>
+              Total: 7.6 credits (~$0.76)
+            </p>
           </div>
         </div>
       </div>
