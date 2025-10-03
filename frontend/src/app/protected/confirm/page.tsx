@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
+import AlertBanner from '@/components/ui/AlertBanner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import type { PanelData } from '@/types';
 
@@ -20,6 +22,7 @@ export default function ConfirmComicPage() {
   const [panelsData, setPanelsData] = useState<PanelData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
   
   // Narration states
   const [generatingNarrations, setGeneratingNarrations] = useState(false);
@@ -175,12 +178,12 @@ export default function ConfirmComicPage() {
 
   const handleSaveComic = async () => {
     if (!title.trim()) {
-      alert('Please enter a title for your comic.');
+      setError('Please enter a title for your comic.');
       return;
     }
 
     if (panelsData.length === 0) {
-      alert('No comic panels found. Please go back to create panels.');
+      setError('No comic panels found. Please go back to create panels.');
       return;
     }
 
@@ -227,7 +230,15 @@ export default function ConfirmComicPage() {
   };
 
   const handleGoBack = () => {
-    router.back();
+    setShowConfirmClear(true);
+  };
+
+  const confirmClearAndBack = () => {
+    try {
+      sessionStorage.removeItem('comicPanelsData');
+    } catch {}
+    setShowConfirmClear(false);
+    router.push('/protected/create');
   };
 
   if (error && panelsData.length === 0) {
@@ -258,8 +269,21 @@ export default function ConfirmComicPage() {
             <span>›</span>
             <span className="text-foreground">Publish Comic</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Publish Your Comic</h1>
-          <p className="text-foreground-secondary">Configure your comic details and publish it to the world.</p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Publish Your Comic</h1>
+              <p className="text-foreground-secondary">Configure your comic details and publish it to the world.</p>
+            </div>
+            <button
+              onClick={handleGoBack}
+              className="flex items-center space-x-2 px-4 py-2 bg-background-secondary hover:bg-background-tertiary text-foreground rounded-lg border border-border transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Edit</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-8">
@@ -309,7 +333,7 @@ export default function ConfirmComicPage() {
                       {panel.narration ? (
                         <textarea
                           value={panel.narration}
-                          onChange={(e) => updatePanelNarration(panel.id, e.target.value)}
+                          onChange={(e) => updatePanelNarration(Number(panel.id), e.target.value)}
                           placeholder="Edit narration for this panel..."
                           className="w-full text-xs text-foreground bg-background-secondary rounded p-2 border border-border hover:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent resize-none transition-colors"
                           rows={2}
@@ -317,7 +341,7 @@ export default function ConfirmComicPage() {
                       ) : (
                         <textarea
                           value=""
-                          onChange={(e) => updatePanelNarration(panel.id, e.target.value)}
+                          onChange={(e) => updatePanelNarration(Number(panel.id), e.target.value)}
                           placeholder="Click to add narration or generate using the button..."
                           className="w-full text-xs text-foreground-muted bg-background-secondary rounded p-2 border border-dashed border-border hover:border-accent/50 focus:outline-none focus:ring-2 focus:ring-accent focus:border-solid focus:border-accent resize-none transition-colors italic"
                           rows={2}
@@ -465,7 +489,7 @@ export default function ConfirmComicPage() {
                 <p className="text-sm font-medium text-foreground mb-3">Before Publishing:</p>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center space-x-2">
-                    {renderChecklistIcon(title.trim())}
+                    {renderChecklistIcon(Boolean(title.trim()))}
                     <span className={title.trim() ? 'text-foreground' : 'text-foreground-muted'}>
                       Add comic title
                     </span>
@@ -494,9 +518,7 @@ export default function ConfirmComicPage() {
               </div>
               
               {error && (
-                <div className="mb-4 p-3 bg-error/10 border border-error/20 rounded-lg">
-                  <p className="text-error text-sm">{error}</p>
-                </div>
+                <AlertBanner type="error" message={error} />
               )}
 
               <div className="space-y-3">
@@ -517,21 +539,26 @@ export default function ConfirmComicPage() {
                   )}
                 </button>
                 
-                <button
-                  onClick={handleGoBack}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-background-secondary hover:bg-background-tertiary disabled:opacity-50 text-foreground rounded-lg transition-colors font-medium border border-border"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  <span>Back to Edit</span>
-                </button>
+                
               </div>
             </div>
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={showConfirmClear}
+        title="Leave Publish Flow?"
+        message={
+          <div>
+            <p className="mb-2">Going back to edit will clear the current publish session.</p>
+            <p className="text-sm text-foreground-muted">Your in-progress narrations and generated thumbnail on this page will be discarded.</p>
+          </div>
+        }
+        confirmText="Yes, clear and go back"
+        cancelText="Stay here"
+        onConfirm={confirmClearAndBack}
+        onCancel={() => setShowConfirmClear(false)}
+      />
     </div>
   );
 }

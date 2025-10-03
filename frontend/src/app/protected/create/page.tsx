@@ -3,6 +3,8 @@
 import { useState, useEffect, createRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { buildApiUrl, API_CONFIG } from '../../../config/api';
+import AlertBanner from '@/components/ui/AlertBanner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import ActionBar from '@/components/create/ActionBar';
 import PanelGrid from '@/components/create/PanelGrid';
 import DrawingToolbar from '@/components/create/DrawingToolbar';
@@ -84,6 +86,8 @@ export default function CreatePage() {
   // Generation state
   const [textPrompt, setTextPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   
   
   // Audio state
@@ -124,7 +128,7 @@ export default function CreatePage() {
     const dataURL = canvas.toDataURL();
 
     updatePanel(panelId, {
-      [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL
+            [isLargeCanvas ? 'largeCanvasData' : 'smallCanvasData']: dataURL
     });
 
     if (dataURL && dataURL.length > 100) {
@@ -366,7 +370,7 @@ export default function CreatePage() {
   const createComic = async () => {
     const panelsWithData = panels.filter(panel => panel.largeCanvasData);
     if (panelsWithData.length === 0) {
-      alert('Please create at least one panel before proceeding.');
+      setError('Please create at least one panel before proceeding.');
       return;
     }
 
@@ -375,10 +379,14 @@ export default function CreatePage() {
       .map(panel => ({ id: panel.id, largeCanvasData: panel.largeCanvasData }));
 
     if (panelsDataForSave.length === 0) {
-      alert('No panels have been drawn yet. Please draw something before saving.');
+      setError('No panels have been drawn yet. Please draw something before saving.');
       return;
     }
 
+    setShowPublishConfirm(true);
+  };
+
+  const handleConfirmPublish = () => {
     try {
       const panelsData = panels
         .filter(panel => !!panel.largeCanvasData)
@@ -390,17 +398,25 @@ export default function CreatePage() {
         }));
 
       sessionStorage.setItem('comicPanelsData', JSON.stringify(panelsData));
+      // Show a warning banner on the confirm page that panels cannot be edited there
+      sessionStorage.setItem('showPanelEditWarning', '1');
 
       router.push('/protected/confirm');
       
     } catch (error) {
-      alert(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setError(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setShowPublishConfirm(false);
     }
+  };
+
+  const handleCancelPublish = () => {
+    setShowPublishConfirm(false);
   };
 
   const generateComicArt = async (panelId: number) => {
     if (!textPrompt.trim()) {
-      alert('Please enter a text prompt');
+      setError('Please enter a text prompt');
       return;
     }
 
@@ -473,10 +489,10 @@ export default function CreatePage() {
         };
         img.src = `data:image/png;base64,${result.image_data}`;
       } else {
-        alert(`Error generating comic art: ${result.error}`);
+        setError(result.error || 'Error generating comic art');
       }
     } catch {
-      alert('Failed to generate comic art. Make sure the backend server is running.');
+      setError('Failed to generate comic art. Make sure the backend server is running.');
     } finally {
       setIsGenerating(false);
     }
@@ -487,6 +503,11 @@ export default function CreatePage() {
 
   return (
     <div className="h-full">
+      {error && (
+        <div className="p-4">
+          <AlertBanner type="error" message={error} onClose={() => setError(null)} />
+        </div>
+      )}
       {!zoomedPanel ? (
         <div className="h-full flex flex-col">
           <ActionBar onCreate={createComic} />
@@ -561,6 +582,15 @@ export default function CreatePage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={showPublishConfirm}
+        title="Continue to Publish?"
+        message="Note: Your comic panels are not editable during publishing. Make sure your panels are complete before proceeding."
+        confirmText="Continue to Publish"
+        cancelText="Keep Editing"
+        onConfirm={handleConfirmPublish}
+        onCancel={handleCancelPublish}
+      />
     </div>
   );
 }

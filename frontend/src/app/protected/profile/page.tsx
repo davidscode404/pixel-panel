@@ -151,22 +151,7 @@ export default function ProfilePage() {
             />
           </div>
           
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
-              Member Since
-            </label>
-            <input
-              type="text"
-              value={user?.user_metadata?.created_at ? new Date(user.user_metadata.created_at as string).toLocaleDateString() : 'Unknown'}
-              disabled
-              className="w-full px-3 py-2 border rounded-md"
-              style={{
-                borderColor: 'var(--border)',
-                backgroundColor: 'var(--background-secondary)',
-                color: 'var(--foreground-secondary)'
-              }}
-            />
-          </div>
+          
         </div>
       </div>
     </div>
