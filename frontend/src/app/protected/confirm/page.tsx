@@ -289,7 +289,7 @@ export default function ConfirmComicPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[60%_40%] gap-8">
           {/* Left Side - Comic Preview */}
           <div className="space-y-6">
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Comic Preview</h2>
               
               {/* Panels Preview - 2x3 Grid */}
@@ -297,7 +297,7 @@ export default function ConfirmComicPage() {
                 {panelsData.map((panel) => (
                   <div 
                     key={panel.id}
-                    className="bg-background-tertiary rounded-lg border-2 border-black overflow-hidden"
+                    className="bg-background-tertiary border-2 border-black overflow-hidden"
                   >
                     {/* Panel Image */}
                     <div className="aspect-[4/3] bg-background-tertiary overflow-hidden relative">
@@ -323,7 +323,7 @@ export default function ConfirmComicPage() {
                     </div>
                     
                     {/* Panel Narration - Editable */}
-                    <div className="p-3 border-t border-border">
+                    <div className="p-3 border-t-4 border-black">
                       <div className="text-xs font-medium text-foreground-secondary mb-1 flex items-center justify-between">
                         <span>Narration:</span>
                         <svg className="w-3 h-3 text-foreground-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,7 +357,7 @@ export default function ConfirmComicPage() {
           {/* Right Side - Comic Configuration Form */}
           <div className="space-y-6">
             {/* Generate Thumbnail Section */}
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Comic Thumbnail</h2>
               <p className="text-sm text-foreground-secondary mb-4">
                 Generate a cover image for your comic that will be displayed in the comics gallery.
@@ -382,9 +382,9 @@ export default function ConfirmComicPage() {
 
               {/* Thumbnail Preview */}
               {thumbnailData && (
-                <div className="mt-4 p-4 bg-background-tertiary rounded-lg border-2 border-border">
+                <div className="mt-4 p-4 bg-background-tertiary border-4 border-black">
                   <p className="text-sm font-medium text-foreground-secondary mb-2">Generated Thumbnail:</p>
-                  <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border-2 border-black">
+                  <div className="relative w-full aspect-[3/4] overflow-hidden border-2 border-black">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={thumbnailData}
@@ -398,7 +398,7 @@ export default function ConfirmComicPage() {
             </div>
 
             {/* Comic Details Form */}
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Comic Details</h2>
               
               <div className="space-y-4">
@@ -450,7 +450,7 @@ export default function ConfirmComicPage() {
             </div>
 
             {/* Generation Actions */}
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Generation Actions</h2>
               <p className="text-sm text-foreground-secondary mb-4">
                 Generate content for your comic before publishing.
@@ -481,11 +481,11 @@ export default function ConfirmComicPage() {
             </div>
 
             {/* Publish Section */}
-            <div className="bg-background-card rounded-xl p-6 border border-border">
+            <div className="bg-background-card p-6 border-4 border-black">
               <h2 className="text-xl font-bold text-foreground mb-4">Publish Comic</h2>
               
               {/* Publishing Checklist */}
-              <div className="mb-4 p-4 bg-background-tertiary rounded-lg border border-border">
+                <div className="mb-4 p-4 bg-background-tertiary border-4 border-black">
                 <p className="text-sm font-medium text-foreground mb-3">Before Publishing:</p>
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center space-x-2">
