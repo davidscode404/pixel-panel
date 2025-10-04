@@ -153,14 +153,14 @@ async def generate_thumbnail(raw_request: Request, request: ThumbnailRequest, cu
 
 @router.post("/save-comic")
 @limiter.limit("30/minute")
-async def save_comic(raw_request: Request, current_user: dict = Depends(get_current_user)):
+async def save_comic(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Save a comic to the database
     Requires authentication via JWT token
     """
     try:
         # First, let's see the raw request data
-        raw_data = await raw_request.json()
+        raw_data = await request.json()
         logger.debug(f"Raw request data: {json.dumps(raw_data, indent=2)}")
         logger.debug(f"Raw data keys: {list(raw_data.keys())}")
         logger.info(f"Authenticated user: {current_user.get('email', 'Unknown')} (ID: {current_user.get('id', 'Unknown')})")
