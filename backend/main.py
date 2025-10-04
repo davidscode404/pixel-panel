@@ -38,8 +38,7 @@ app.add_middleware(
         "http://localhost:3000",  # Development frontend
         "https://pixelpanel.onrender.com",  # Production backend (for health checks)
         "http://0.0.0.0:8000",  # Production backend (for health checks)
-        # Add your frontend production URL here when you deploy it
-        # "https://your-frontend-domain.com",
+        "https://www.pixelpanel.co",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
