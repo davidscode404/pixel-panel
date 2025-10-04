@@ -34,10 +34,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=[
+        "http://localhost:3000",  # Development frontend
+        "https://pixelpanel.onrender.com",  # Production backend (for health checks)
+        "http://0.0.0.0:8000",  # Production backend (for health checks)
+        # Add your frontend production URL here when you deploy it
+        # "https://your-frontend-domain.com",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
 )
 
 # Health check endpoint
