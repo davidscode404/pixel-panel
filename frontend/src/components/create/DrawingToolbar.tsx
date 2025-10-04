@@ -45,7 +45,7 @@ export default function DrawingToolbar({
   };
 
   return (
-    <div className="bg-background-secondary p-4 flex flex-col gap-4 items-center">
+    <div className="h-full flex flex-col p-4 gap-4 border-2 border-border rounded-xl bg-background-secondary">
       {/* Figma-style Toolbar */}
       <div className="bg-background-card rounded-xl px-3 py-2 flex items-center gap-1 shadow-lg border-2 border-border">
         <button
@@ -94,80 +94,87 @@ export default function DrawingToolbar({
         </button>
       </div>
 
-      {/* Generate Scene Section */}
-      <div className="w-full max-w-2xl space-y-2">
-        <div className="flex items-center gap-3 bg-background-card rounded-lg border-2 border-border p-3">
+      {/* Generate Scene Section - Takes up remaining space */}
+      <div className="flex-1 flex flex-col space-y-4">
+        <div className="bg-background-card rounded-lg border-2 border-border p-3 space-y-3">
           <textarea
             value={textPrompt}
             onChange={(e) => setTextPrompt(e.target.value)}
             placeholder={placeholder}
-            className="flex-1 bg-transparent text-foreground placeholder-foreground-muted focus:outline-none resize-none text-sm leading-relaxed min-h-[60px]"
-            rows={3}
+            className="w-full bg-transparent text-foreground placeholder-foreground-muted focus:outline-none resize-none text-sm leading-relaxed min-h-[100px]"
+            rows={5}
           />
           <button
             onClick={onGenerate}
             disabled={isGenerating || !textPrompt.trim()}
-            className="flex p-2.5 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-all disabled:bg-background-muted disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full p-3 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-all disabled:bg-background-muted disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
             title="Generate"
           >
             {isGenerating ? (
-              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <>
+                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Generating...
+              </>
             ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.996.996 0 00-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 000-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
-              </svg>
+              <>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M7.5 5.6L10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a.996.996 0 00-1.41 0L1.29 18.96c-.39.39-.39 1.02 0 1.41l2.34 2.34c.39.39 1.02.39 1.41 0L16.7 11.05a.996.996 0 000-1.41l-2.33-2.35zm-1.03 5.49l-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/>
+                </svg>
+                Generate Art
+              </>
             )}
           </button>
         </div>
 
-        {/* Art Style Suggestions */}
-        <div className="px-2 space-y-2">
+        {/* Art Style Suggestions - Takes up remaining space */}
+        <div className="flex-1 flex flex-col space-y-3">
           <div className="text-xs font-medium text-foreground-secondary">Quick Styles:</div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => appendStyle('in Marvel Comics style')}
               className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
             >
-              Marvel Style
+              Marvel
             </button>
             <button
               onClick={() => appendStyle('in DC Comics style')}
               className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
             >
-              DC Style
+              DC
             </button>
             <button
               onClick={() => appendStyle('in Japanese manga style')}
               className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
             >
-              Manga Style
+              Manga
             </button>
             <button
               onClick={() => appendStyle('in Korean manhwa style')}
               className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
             >
-              Manhwa Style
+              Manhwa
             </button>
             <button
               onClick={() => appendStyle('in anime style')}
               className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
             >
-              Anime Style
+              Anime
             </button>
             <button
               onClick={() => appendStyle('in retro comic book style')}
               className="px-3 py-1.5 text-xs bg-background-tertiary hover:bg-accent hover:text-foreground-inverse text-foreground rounded-full border border-border transition-colors"
             >
-              Retro Style
+              Retro
             </button>
           </div>
         </div>
 
-        <div className="px-2 text-xs text-foreground-muted">
-          Tip: Be specific about characters, actions, lighting, and emotions for best results
+        {/* Tip at bottom */}
+        <div className="text-xs text-foreground-muted leading-relaxed">
+          💡 Tip: Be specific about characters, actions, lighting, and emotions for best results
         </div>
       </div>
     </div>

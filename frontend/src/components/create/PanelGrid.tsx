@@ -26,6 +26,7 @@ export default function PanelGrid({ panels, onPanelClick, onClearPanel }: PanelG
               ? 'cursor-pointer hover:bg-background-tertiary hover:scale-[1.02] border-black'
               : 'cursor-not-allowed opacity-40 border-gray-400'
           }`}
+          style={{ aspectRatio: '4/3' }}
           onClick={() => onPanelClick(panel.id)}
         >
           <canvas

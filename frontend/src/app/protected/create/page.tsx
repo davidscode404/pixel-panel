@@ -387,7 +387,7 @@ export default function CreatePage() {
   };
 
   // Helper function to compress canvas data
-  const compressCanvasData = (canvasData: string, quality: number = 0.8): string => {
+  const compressCanvasData = (canvasData: string, quality: number = 0.8): Promise<string> => {
     return new Promise<string>((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -570,41 +570,44 @@ export default function CreatePage() {
         </div>
       ) : (
         // Zoomed Panel View with Drawing Toolbar
-        <div className="h-full flex flex-col">
-          <div className="flex-shrink-0 p-6 flex justify-between items-center">
-            <button
-              onClick={() => handlePanelClick(zoomedPanel.id)}
-              className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
-            >
-              <svg 
-                className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-            >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-              </svg>
-              Back to Canvas
-            </button>
-            <h2 className="text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-3">
-              <div className="w-8 h-8 bg-accent backdrop-blur-sm flex items-center justify-center text-sm font-bold text-foreground-inverse border-2 border-black">
-                {zoomedPanel.id}
-              </div>
-              Panel {zoomedPanel.id}
-            </h2>
-          </div>
-          
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Canvas Area */}
+        <div className="h-full flex">
+          {/* Canvas Area */}
+          <div className="flex-1 flex flex-col">
+            <div className="flex-shrink-0 p-6 flex justify-between items-center">
+              <button
+                onClick={() => handlePanelClick(zoomedPanel.id)}
+                className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+              >
+                <svg 
+                  className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+              >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                </svg>
+                Back to Canvas
+              </button>
+              <h2 className="text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-3">
+                <div className="w-8 h-8 bg-accent backdrop-blur-sm flex items-center justify-center text-sm font-bold text-foreground-inverse border-2 border-black">
+                  {zoomedPanel.id}
+                </div>
+                Panel {zoomedPanel.id}
+              </h2>
+            </div>
+            
             <div className="flex-1 flex items-center justify-center p-4 min-w-0 min-h-0">
               <canvas
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="bg-background-card max-w-full max-h-full w-auto h-auto border-4 border-black"
+                className="bg-white border-4 border-black shadow-lg"
                 style={{ 
-                  width: '65%', 
-                  height: '100%', 
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  aspectRatio: '4/3',
                   display: 'block',
                   cursor: currentTool === 'eraser' ? 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\'><rect x=\'8\' y=\'8\' width=\'8\' height=\'8\' fill=\'white\' stroke=\'black\' stroke-width=\'2\'/></svg>") 12 12, auto' : 'crosshair'
                 }}
@@ -614,8 +617,10 @@ export default function CreatePage() {
                 onMouseLeave={() => handleMouseUp(zoomedPanel.id)}
               />
             </div>
+          </div>
 
-            {/* Combined Tools and Generate Section - Bottom */}
+          {/* Drawing Tools Panel - Right Side - Full Height */}
+          <div className="w-80 flex flex-col h-full p-4">
             <DrawingToolbar
               currentTool={currentTool}
               onToolChange={handleToolChange}
