@@ -1,23 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 import { createClient } from '@/lib/supabase/client';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 
 interface CreditsPurchaseProps {
   onSuccess?: () => void;
+  selectedPackage?: string;
 }
 
 const CREDIT_PACKAGES = [
   { id: 'credits_50', name: 'Starter', price: 4.99, credits: 50, popular: false, description: 'Perfect for trying out' },
-  { id: 'credits_120', name: 'Popular', price: 9.99, credits: 120, popular: true, description: 'Most popular choice' },
-  { id: 'credits_280', name: 'Pro', price: 19.99, credits: 280, popular: false, description: 'For regular creators' },
-  { id: 'credits_800', name: 'Creator', price: 49.99, credits: 800, popular: false, description: 'For power users' },
+  { id: 'credits_120', name: 'Pro', price: 9.99, credits: 120, popular: true, description: 'Most popular choice' },
+  { id: 'credits_280', name: 'Creator', price: 19.99, credits: 280, popular: false, description: 'For regular creators' },
+  { id: 'credits_800', name: 'Content Machine', price: 49.99, credits: 800, popular: false, description: 'For large-scale content creation' },
 ];
 
-export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
-  const [selectedPackage, setSelectedPackage] = useState(CREDIT_PACKAGES[1]);
+export default function CreditsPurchase({ onSuccess, selectedPackage: initialSelectedPackage }: CreditsPurchaseProps) {
+  const [selectedPackage, setSelectedPackage] = useState(() => {
+    if (initialSelectedPackage) {
+      return CREDIT_PACKAGES.find(pkg => pkg.id === initialSelectedPackage) || CREDIT_PACKAGES[1];
+    }
+    return CREDIT_PACKAGES[1];
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -26,120 +32,76 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
   const elements = useElements();
   const supabase = createClient();
 
+  // Update selected package when prop changes
+  useEffect(() => {
+    if (initialSelectedPackage) {
+      const packageToSelect = CREDIT_PACKAGES.find(pkg => pkg.id === initialSelectedPackage);
+      if (packageToSelect) {
+        setSelectedPackage(packageToSelect);
+      }
+    }
+  }, [initialSelectedPackage]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!stripe || !elements) {
+    // Handle Starter plan with direct Stripe link
+    if (selectedPackage.id === 'credits_50') {
+      window.open('https://buy.stripe.com/test_8x2aER4m93o2cWX8Om0Jq00', '_blank');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Get current user and session
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('Please sign in to purchase credits');
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session found');
-      }
-
-      // Create payment intent on FastAPI backend
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.CREATE_PAYMENT_INTENT), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          packageId: selectedPackage.id,
-          userId: user.id,
-        }),
-      });
-
-      const { clientSecret, error: paymentError } = await response.json();
-
-      if (paymentError) {
-        throw new Error(paymentError);
-      }
-
-      // Confirm the payment
-      const { error: stripeError } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement)!,
-        },
-      });
-
-      if (stripeError) {
-        throw new Error(stripeError.message);
-      }
-
-      // Success!
-      setSuccess(true);
-      setError(null);
-      
-      // Wait a moment before calling onSuccess to show the success message
-      setTimeout(() => {
-        onSuccess?.();
-      }, 2000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
-      setSuccess(false);
-    } finally {
-      setLoading(false);
-    }
+    // For other plans, you can add direct Stripe links later
+    // For now, just show a message
+    setError('Payment method not yet configured for this plan');
   };
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="p-8 rounded-lg border" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>
-            Purchase Credits
-          </h2>
+        <div className="flex items-center justify-center mb-6">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: 'var(--success)', color: 'white' }}>
             <span>Secure Payment</span>
           </div>
         </div>
         
         {/* Credit Packages */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-6 mb-8">
           {CREDIT_PACKAGES.map((pkg) => (
             <button
               key={pkg.id}
               onClick={() => setSelectedPackage(pkg)}
-              className="relative p-4 rounded-lg border-2 transition-all hover:shadow-lg"
+              className={`relative p-6 rounded-2xl border-2 transition-all duration-200 hover:shadow-xl hover:scale-105 ${
+                pkg.popular ? 'ring-2 ring-orange-500/20' : ''
+              }`}
               style={{
-                borderColor: selectedPackage.id === pkg.id ? 'var(--accent)' : 'var(--border)',
-                backgroundColor: selectedPackage.id === pkg.id ? 'var(--background-secondary)' : 'var(--background)',
+                borderColor: selectedPackage.id === pkg.id ? 'var(--accent)' : pkg.popular ? '#f97316' : 'var(--border)',
+                backgroundColor: selectedPackage.id === pkg.id ? 'var(--background-secondary)' : pkg.popular ? 'rgba(249, 115, 22, 0.05)' : 'var(--background)',
               }}
             >
               {pkg.popular && (
                 <div 
-                  className="absolute -top-2 left-1/2 transform -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: 'var(--accent)', color: 'var(--foreground-on-accent)' }}
+                  className="absolute -top-3 left-1/2 transform -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold shadow-lg"
+                  style={{ backgroundColor: '#f97316', color: 'white' }}
                 >
-                  POPULAR
+                  MOST POPULAR
                 </div>
               )}
               <div className="text-center">
                 <div className="font-bold text-lg mb-1" style={{ color: 'var(--foreground)' }}>
                   {pkg.name}
                 </div>
-                <div className="text-2xl font-bold mb-1" style={{ color: 'var(--accent)' }}>
+                <div className="text-3xl font-bold mb-2" style={{ color: pkg.popular ? '#f97316' : 'var(--accent)' }}>
                   ${pkg.price}
+                  <span className="text-lg font-normal ml-1" style={{ color: 'var(--foreground-secondary)' }}>/month</span>
                 </div>
-                <div className="text-sm mb-2" style={{ color: 'var(--foreground-secondary)' }}>
+                <div className="text-lg font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
                   {pkg.credits} credits
                 </div>
-                <div className="text-xs" style={{ color: 'var(--foreground-muted)' }}>
+                <div className="text-sm mb-3" style={{ color: 'var(--foreground-secondary)' }}>
                   {pkg.description}
                 </div>
-                <div className="text-xs mt-1" style={{ color: 'var(--accent)' }}>
+                <div className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: 'var(--background-secondary)', color: 'var(--foreground-muted)' }}>
                   ${(pkg.price / pkg.credits).toFixed(3)} per credit
                 </div>
               </div>
@@ -149,35 +111,11 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
 
         {/* Payment Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="p-4 rounded-lg border" style={{ backgroundColor: 'var(--background-secondary)', borderColor: 'var(--border)' }}>
-            <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--foreground)' }}>
-              Card Information
-            </label>
-            <div className="p-3 rounded border" style={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}>
-              <CardElement
-                options={{
-                  style: {
-                    base: {
-                      fontSize: '16px',
-                      color: '#0f172a', // Will work in light mode
-                      '::placeholder': {
-                        color: '#64748b',
-                      },
-                    },
-                    invalid: {
-                      color: '#ef4444',
-                    },
-                  },
-                  hidePostalCode: true,
-                }}
-              />
-            </div>
-          </div>
 
           {success && (
             <div className="p-3 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'var(--success)', color: 'var(--success)' }}>
               <div className="text-sm font-semibold">
-                Payment successful! Your credits will be added shortly.
+                Subscription successful! Your credits will be added shortly.
               </div>
             </div>
           )}
@@ -200,9 +138,9 @@ export default function CreditsPurchase({ onSuccess }: CreditsPurchaseProps) {
             {loading ? (
               'Processing...'
             ) : success ? (
-              'Payment Successful!'
+              'Subscription Successful!'
             ) : (
-              `Pay $${selectedPackage.price} - Get ${selectedPackage.credits} Credits`
+              `Subscribe $${selectedPackage.price}/month - ${selectedPackage.credits} Credits`
             )}
           </button>
         </form>

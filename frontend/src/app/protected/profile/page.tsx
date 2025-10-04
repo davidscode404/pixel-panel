@@ -10,7 +10,6 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 export default function ProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [credits, setCredits] = useState<number | null>(null)
   const [userName, setUserName] = useState<string>('')
   const [isEditingName, setIsEditingName] = useState(false)
   const [tempName, setTempName] = useState('')
@@ -38,10 +37,8 @@ export default function ProfilePage() {
       }
 
       const data = await response.json();
-      setCredits(data.credits || 0);
       setUserName(data.name || '');
     } catch (error) {
-      setCredits(0); // Default to 0 if fetch fails
       setUserName('');
     } finally {
       setLoading(false);
@@ -82,6 +79,7 @@ export default function ProfilePage() {
     }
   }
 
+
   useEffect(() => {
     if (user) {
       fetchUserProfile()
@@ -97,67 +95,6 @@ export default function ProfilePage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Profile</h1>
         <p style={{ color: 'var(--foreground-secondary)' }}>Manage your account settings</p>
-      </div>
-
-      {/* Credits Section */}
-      <div className="p-6 rounded-lg border mb-6" style={{ backgroundColor: 'transparent', borderColor: 'var(--border)' }}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center justify-center w-20 h-20 rounded-full font-bold text-2xl" style={{ backgroundColor: 'var(--accent)', color: 'var(--foreground-on-accent)' }}>
-              {credits !== null ? credits : '0'}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold mb-1" style={{ color: 'var(--foreground)' }}>
-                Credits Available
-              </h2>
-              <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-                For comic and voice generation
-              </p>
-              <div className="mt-2 flex gap-4 text-xs" style={{ color: 'var(--foreground-muted)' }}>
-                <span>1 credit per panel</span>
-                <span>•</span>
-                <span>1 credit per thumbnail</span>
-                <span>•</span>
-                <span>1 credit per voice narration</span>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={() => router.push('/protected/credits')}
-            className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
-            style={{
-              backgroundColor: 'var(--accent)',
-              color: 'var(--foreground-on-accent)'
-            }}
-          >
-            Purchase Credits
-          </button>
-        </div>
-        
-        {/* Credit Usage Examples */}
-        <div className="mt-4 p-4 rounded-lg" style={{ backgroundColor: 'transparent' }}>
-          <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--foreground)' }}>
-            Common Operations
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs" style={{ color: 'var(--foreground-secondary)' }}>
-            <div className="flex justify-between">
-              <span>Single panel generation</span>
-              <span className="font-medium">1 credit</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Comic thumbnail</span>
-              <span className="font-medium">1 credit</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Voice narration</span>
-              <span className="font-medium">1 credit</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Full comic (6 panels + thumbnail + 6 narrations)</span>
-              <span className="font-medium">13 credits</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="p-6 rounded-lg border" style={{ backgroundColor: 'transparent', borderColor: 'var(--border)' }}>

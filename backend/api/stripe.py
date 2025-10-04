@@ -20,9 +20,9 @@ limiter = Limiter(key_func=get_remote_address)
 # Credit packages configuration
 CREDIT_PACKAGES = {
     "credits_50": {"price": 499, "credits": 50},    # $4.99 in cents - Starter
-    "credits_120": {"price": 999, "credits": 120},  # $9.99 in cents - Popular
-    "credits_280": {"price": 1999, "credits": 280}, # $19.99 in cents - Pro
-    "credits_800": {"price": 4999, "credits": 800}, # $49.99 in cents - Creator
+    "credits_120": {"price": 999, "credits": 120},  # $9.99 in cents - Pro
+    "credits_280": {"price": 1999, "credits": 280}, # $19.99 in cents - Creator
+    "credits_800": {"price": 4999, "credits": 800}, # $49.99 in cents - Content Machine
 }
 
 class PaymentIntentRequest(BaseModel):

@@ -13,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from api.comics import router as comics_router
 from api.voice_over import router as voice_over_router
 from api.stripe import router as stripe_router
+from api.stripe_webhook import router as stripe_webhook_router
 
 # Configure logging
 logging.basicConfig(
@@ -57,6 +58,7 @@ async def health_check(request: Request):
 app.include_router(comics_router)
 app.include_router(voice_over_router)
 app.include_router(stripe_router)
+app.include_router(stripe_webhook_router)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

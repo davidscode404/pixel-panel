@@ -75,7 +75,6 @@ export default function TermsOfService() {
                 <p>You retain ownership of your original comic content. By using our service, you grant us a license to:</p>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li>Process and store your content to provide our service</li>
-                  <li>Use your content to improve our AI models (anonymized)</li>
                   <li>Display your content as part of our service features</li>
                 </ul>
 
