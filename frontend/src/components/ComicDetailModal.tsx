@@ -71,6 +71,8 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
     if (audioElement) {
       audioElement.pause()
       audioElement.currentTime = 0
+      audioElement.onended = null
+      audioElement.onerror = null
       setAudioElement(null)
     }
     setPlayingAudio(null)
@@ -82,6 +84,8 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
     if (audioElement) {
       audioElement.pause()
       audioElement.currentTime = 0
+      audioElement.onended = null
+      audioElement.onerror = null
     }
 
     // If already playing this comic, stop it
@@ -116,20 +120,26 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
       setCurrentPlayingPanel(panel.panel_number)
 
       const audio = new Audio(panel.audio_url!)
-      setAudioElement(audio)
-      setPlayingAudio(`comic-${comic.id}`)
-
+      
+      // Set up event handlers before setting state
       audio.onended = () => {
         currentIndex++
         playNextPanel()
       }
 
       audio.onerror = () => {
+        console.error('Audio playback error for panel:', panel.panel_number)
         currentIndex++
         playNextPanel()
       }
 
-      audio.play().catch(() => {
+      // Set state after setting up handlers
+      setAudioElement(audio)
+      setPlayingAudio(`comic-${comic.id}`)
+
+      // Play the audio
+      audio.play().catch((error) => {
+        console.error('Failed to play audio:', error)
         currentIndex++
         playNextPanel()
       })

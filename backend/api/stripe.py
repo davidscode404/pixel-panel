@@ -118,6 +118,47 @@ async def get_user_credits(request: Request, current_user: dict = Depends(get_cu
         logger.error(f"Error getting credits for user {current_user['id']}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve credits")
 
+@router.get("/user-profile")
+@limiter.limit("50/minute")
+async def get_user_profile(request: Request, current_user: dict = Depends(get_current_user)):
+    """Get the current user's profile information"""
+    try:
+        logger.info(f"Getting profile for user: {current_user['id']}")
+        credits_service = UserCreditsService()
+        credits = await credits_service.get_user_credits(current_user["id"])
+        name = await credits_service.get_user_name(current_user["id"])
+        logger.info(f"Retrieved profile for user {current_user['id']}: credits={credits}, name={name}")
+        return {"credits": credits, "name": name}
+    except Exception as e:
+        logger.error(f"Error getting profile for user {current_user['id']}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to retrieve profile")
+
+@router.patch("/user-profile")
+@limiter.limit("20/minute")
+async def update_user_profile(request: Request, current_user: dict = Depends(get_current_user)):
+    """Update the current user's profile information"""
+    try:
+        body = await request.json()
+        name = body.get("name")
+        
+        if not name or not name.strip():
+            raise HTTPException(status_code=400, detail="Name is required")
+        
+        logger.info(f"Updating profile for user: {current_user['id']}, name: {name}")
+        credits_service = UserCreditsService()
+        success = await credits_service.update_user_name(current_user["id"], name.strip())
+        
+        if success:
+            logger.info(f"Successfully updated name for user {current_user['id']}")
+            return {"success": True, "message": "Profile updated successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update profile")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating profile for user {current_user['id']}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+
 @router.get("/test-db")
 @limiter.limit("20/minute")
 async def test_database_connection(request: Request):

@@ -15,7 +15,8 @@ export const API_CONFIG = {
     
     // Stripe endpoints
     CREATE_PAYMENT_INTENT: '/api/stripe/create-payment-intent',
-    USER_CREDITS: '/api/stripe/user-credits'
+    USER_CREDITS: '/api/stripe/user-credits',
+    USER_PROFILE: '/api/stripe/user-profile'
   }
 };
 

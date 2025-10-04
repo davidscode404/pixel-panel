@@ -11,10 +11,14 @@ export default function ProfilePage() {
   const { user } = useAuth()
   const router = useRouter()
   const [credits, setCredits] = useState<number | null>(null)
+  const [userName, setUserName] = useState<string>('')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [tempName, setTempName] = useState('')
+  const [isUpdatingName, setIsUpdatingName] = useState(false)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
-  const fetchUserCredits = useCallback(async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
@@ -22,7 +26,7 @@ export default function ProfilePage() {
         throw new Error('No active session found');
       }
 
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_CREDITS), {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_PROFILE), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -30,23 +34,59 @@ export default function ProfilePage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch credits');
+        throw new Error('Failed to fetch profile');
       }
 
       const data = await response.json();
       setCredits(data.credits || 0);
+      setUserName(data.name || '');
     } catch (error) {
       setCredits(0); // Default to 0 if fetch fails
+      setUserName('');
     } finally {
       setLoading(false);
     }
   }, [supabase])
 
+  const updateUserName = async () => {
+    if (!tempName.trim()) return;
+    
+    setIsUpdatingName(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_PROFILE), {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: tempName.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update name');
+      }
+
+      setUserName(tempName.trim());
+      setIsEditingName(false);
+      setTempName('');
+    } catch (error) {
+      console.error('Error updating name:', error);
+      alert('Failed to update name. Please try again.');
+    } finally {
+      setIsUpdatingName(false);
+    }
+  }
+
   useEffect(() => {
     if (user) {
-      fetchUserCredits()
+      fetchUserProfile()
     }
-  }, [user, fetchUserCredits])
+  }, [user, fetchUserProfile])
 
   if (loading) {
     return <LoadingSpinner message="Loading profile..." fullPage />;
@@ -134,6 +174,77 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
+              Display Name
+            </label>
+            {isEditingName ? (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  placeholder="Enter your name"
+                  className="flex-1 px-3 py-2 border rounded-md"
+                  style={{
+                    borderColor: 'var(--border)',
+                    backgroundColor: 'var(--background)',
+                    color: 'var(--foreground)'
+                  }}
+                />
+                <button
+                  onClick={updateUserName}
+                  disabled={isUpdatingName || !tempName.trim()}
+                  className="px-4 py-2 rounded-md font-medium transition-colors"
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--foreground-on-accent)',
+                    opacity: isUpdatingName || !tempName.trim() ? 0.5 : 1
+                  }}
+                >
+                  {isUpdatingName ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingName(false);
+                    setTempName('');
+                  }}
+                  className="px-4 py-2 rounded-md font-medium border transition-colors"
+                  style={{
+                    borderColor: 'var(--border)',
+                    backgroundColor: 'var(--background)',
+                    color: 'var(--foreground)'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-2 border rounded-md flex-1" style={{
+                  borderColor: 'var(--border)',
+                  backgroundColor: 'var(--background-secondary)',
+                  color: userName ? 'var(--foreground)' : 'var(--foreground-secondary)'
+                }}>
+                  {userName || 'No name set'}
+                </span>
+                <button
+                  onClick={() => {
+                    setTempName(userName);
+                    setIsEditingName(true);
+                  }}
+                  className="px-4 py-2 rounded-md font-medium border transition-colors"
+                  style={{
+                    borderColor: 'var(--border)',
+                    backgroundColor: 'var(--background)',
+                    color: 'var(--foreground)'
+                  }}
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--foreground)' }}>
               Email Address

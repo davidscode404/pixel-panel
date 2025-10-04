@@ -96,6 +96,39 @@ class UserCreditsService:
             logger.error(f"Error checking credits for user {user_id}: {e}")
             return False
     
+    async def get_user_name(self, user_id: str) -> Optional[str]:
+        """Get the user's name from their profile"""
+        try:
+            result = self.supabase.table('user_profiles').select('name').eq('user_id', user_id).execute()
+            
+            if result.data and len(result.data) > 0:
+                name = result.data[0].get('name')
+                logger.info(f"User {user_id} name: {name}")
+                return name
+            else:
+                logger.info(f"No name found for user {user_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Error getting name for user {user_id}: {e}")
+            return None
+    
+    async def update_user_name(self, user_id: str, name: str) -> bool:
+        """Update the user's name in their profile"""
+        try:
+            # Ensure profile exists first
+            await self.ensure_user_profile(user_id)
+            
+            # Update the name
+            result = self.supabase.table('user_profiles').update({
+                'name': name
+            }).eq('user_id', user_id).execute()
+            
+            logger.info(f"Updated name for user {user_id} to: {name}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating name for user {user_id}: {e}")
+            return False
+    
     async def ensure_user_profile(self, user_id: str) -> bool:
         """Ensure a user has a profile record (creates one if it doesn't exist)"""
         try:
