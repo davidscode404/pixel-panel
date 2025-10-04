@@ -64,6 +64,9 @@ export default function ConfirmComicPage() {
     setError(null);
     
     try {
+      // Get access token for authentication
+      const accessToken = await getAccessToken();
+      
       const updatedPanels = await Promise.all(
         panelsData.map(async (panel) => {
           try {
@@ -71,6 +74,7 @@ export default function ConfirmComicPage() {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
               },
               body: JSON.stringify({ story: panel.prompt }),
             });
@@ -118,11 +122,15 @@ export default function ConfirmComicPage() {
     try {
       // Collect prompts from all panels
       const prompts = panelsData.map(panel => panel.prompt);
+      
+      // Get access token for authentication
+      const accessToken = await getAccessToken();
 
       const response = await fetch(buildApiUrl('/api/comics/generate-thumbnail'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
         },
         body: JSON.stringify({ prompts }),
       });
