@@ -1,5 +1,6 @@
 # backend/api/comics.py
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
+from starlette.requests import Request
 from schemas.comic import ComicArtRequest, ComicRequest, ThumbnailRequest
 from services.comic_storage import ComicStorageService
 from services.comic_generator import ComicArtGenerator
@@ -25,7 +26,7 @@ credits_service = UserCreditsService()
 
 @router.post("/generate")
 @limiter.limit("10/minute")
-async def generate_comic_art(raw_request: Request, request: ComicArtRequest, current_user: dict = Depends(get_current_user)):
+async def generate_comic_art(request: Request, comic_request: ComicArtRequest, current_user: dict = Depends(get_current_user)):
     """
     Generate comic art from text prompt and optional reference image
     """
@@ -36,10 +37,10 @@ async def generate_comic_art(raw_request: Request, request: ComicArtRequest, cur
                 status_code=402, 
                 detail="Insufficient credits. Please purchase more credits to generate comic panels."
             )
-        text_prompt = request.text_prompt
-        reference_image_data = request.reference_image
-        panel_id = request.panel_id
-        previous_panel_context = request.previous_panel_context
+        text_prompt = comic_request.text_prompt
+        reference_image_data = comic_request.reference_image
+        panel_id = comic_request.panel_id
+        previous_panel_context = comic_request.previous_panel_context
         
         logger.debug(f"panel_id={panel_id}, has_previous_context={previous_panel_context is not None}")
         
@@ -93,7 +94,7 @@ async def generate_comic_art(raw_request: Request, request: ComicArtRequest, cur
 
 @router.post("/generate-thumbnail")
 @limiter.limit("10/minute")
-async def generate_thumbnail(raw_request: Request, request: ThumbnailRequest, current_user: dict = Depends(get_current_user)):
+async def generate_thumbnail(request: Request, thumbnail_request: ThumbnailRequest, current_user: dict = Depends(get_current_user)):
     """
     Generate a thumbnail image based on comic prompts
     Returns a 3:4 aspect ratio image suitable for comic book covers
@@ -106,7 +107,7 @@ async def generate_thumbnail(raw_request: Request, request: ThumbnailRequest, cu
                 detail="Insufficient credits. Please purchase more credits to generate thumbnails."
             )
         # Combine all prompts into a single prompt for thumbnail generation
-        combined_prompt = f"Comic book cover art featuring: {', '.join(request.prompts[:3])}"  # Use first 3 prompts
+        combined_prompt = f"Comic book cover art featuring: {', '.join(thumbnail_request.prompts[:3])}"  # Use first 3 prompts
         logger.debug(f"Generating thumbnail with prompt: {combined_prompt}")
 
         # Generate comic art using the service
