@@ -3,8 +3,7 @@ from fastapi.responses import JSONResponse
 import stripe
 import os
 import json
-from ..services.user_credits import UserCreditsService
-from ..auth_shared import get_current_user_from_webhook
+from services.user_credits import UserCreditsService
 
 router = APIRouter()
 
@@ -89,6 +88,8 @@ async def handle_subscription_updated(subscription):
     status = subscription.get('status')
     
     print(f"Subscription {subscription_id} updated to status: {status}")
+    # Note: Do NOT modify user credits when subscription is updated
+    # Users keep their existing credits when changing plans
 
 async def handle_subscription_cancelled(subscription):
     """Handle subscription cancellation"""

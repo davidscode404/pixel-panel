@@ -7,7 +7,13 @@ CREATE TABLE user_profiles (
     user_id UUID REFERENCES auth.users(id) UNIQUE NOT NULL,
     credits INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    -- Subscription fields
+    stripe_subscription_id TEXT,
+    stripe_customer_id TEXT,
+    plan_type TEXT DEFAULT 'free',
+    status TEXT DEFAULT 'inactive'
 );
 
 -- Comics table

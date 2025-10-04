@@ -45,15 +45,21 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Handle Starter plan with direct Stripe link
-    if (selectedPackage.id === 'credits_50') {
-      window.open('https://buy.stripe.com/test_8x2aER4m93o2cWX8Om0Jq00', '_blank');
+    // Handle plans with direct Stripe checkout links
+    const stripeCheckoutLinks = {
+      'credits_50': 'https://buy.stripe.com/8x2aER4m93o2cWX8Om0Jq00',   // Starter plan
+      'credits_120': 'https://buy.stripe.com/bJe14h6uh5wa0ab2pY0Jq01',  // Pro plan
+      'credits_280': 'https://buy.stripe.com/eVqdR3cSFbUycWX6Ge0Jq04',  // Creator plan
+      'credits_800': 'https://buy.stripe.com/8x26oBaKx1fU4qrd4C0Jq03',  // Content Machine plan
+    };
+
+    if (stripeCheckoutLinks[selectedPackage.id as keyof typeof stripeCheckoutLinks]) {
+      window.open(stripeCheckoutLinks[selectedPackage.id as keyof typeof stripeCheckoutLinks], '_blank');
       return;
     }
 
-    // For other plans, you can add direct Stripe links later
-    // For now, just show a message
-    setError('Payment method not yet configured for this plan');
+    // Fallback - should not reach here with current plan setup
+    setError('Payment method not configured for this plan. Please contact support.');
   };
 
   return (

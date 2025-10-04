@@ -97,22 +97,36 @@ export default function BillingPage() {
   }, [user]);
 
   const fetchCurrentPlan = async () => {
+    console.log('🔍 fetchCurrentPlan called');
     try {
-      if (!user) return;
+      if (!user) {
+        console.log('❌ No user found - setting to free plan');
+        setCurrentPlan('free');
+        return;
+      }
+      console.log('✅ User found:', user.email);
       
       // Get access token for API calls
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
+      if (!session?.access_token) {
+        console.log('❌ No session token - setting to free plan');
+        setCurrentPlan('free');
+        return;
+      }
+      console.log('✅ Session token found');
 
       // Fetch subscription status from backend
+      console.log('🌐 Making API call to:', buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS));
       const subscriptionResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS), {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
       });
+      console.log('📡 Response status:', subscriptionResponse.status);
 
       if (subscriptionResponse.ok) {
         const status: SubscriptionStatus = await subscriptionResponse.json();
+        console.log('📊 Subscription status response:', status);
         setSubscriptionStatus(status);
         setCurrentPlan(status.plan);
       } else {

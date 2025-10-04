@@ -41,6 +41,15 @@ export default function SideBar({
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null)
   const supabase = createClient()
 
+  // Plan name mapping for proper capitalization
+  const planNames: { [key: string]: string } = {
+    free: 'Free',
+    starter: 'Starter',
+    pro: 'Pro',
+    creator: 'Creator',
+    contentMachine: 'Content Machine'
+  };
+
   // Load theme from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme
@@ -464,7 +473,7 @@ export default function SideBar({
                     {user?.email?.split('@')[0] || 'User'}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
-                    {subscriptionStatus?.plan || 'Free'} Plan
+                    {planNames[subscriptionStatus?.plan || 'free'] || 'Free'} Plan
                   </p>
                 </div>
                 {getIcon(isUserMenuOpen ? 'chevronUp' : 'chevronDown')}
@@ -491,7 +500,7 @@ export default function SideBar({
                   <div className="flex justify-between text-xs">
                     <span style={{ color: 'var(--foreground-secondary)' }}>Plan</span>
                     <span style={{ color: 'var(--foreground)' }}>
-                      {subscriptionStatus?.plan || 'Free'}
+                      {planNames[subscriptionStatus?.plan || 'free'] || 'Free'}
                     </span>
                   </div>
                 </div>
@@ -589,6 +598,18 @@ export default function SideBar({
                 >
                   {getIcon('upgrade')}
                   <span>Upgrade plan</span>
+                </Link>
+
+                <Link 
+                  href="/protected/billing"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  style={{ color: 'var(--foreground)' }}
+                  onClick={() => setIsUserMenuOpen(false)}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                  <span>Manage subscription</span>
                 </Link>
 
                 <Link 

@@ -2,7 +2,7 @@
 // Change this port to easily switch between different backend servers
 export const API_CONFIG = {
   // BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://pixelpanel.onrender.com', // Use environment variable for production
-  BASE_URL: 'http://0.0.0.0:8000', // Use this for development
+  BASE_URL: 'http://localhost:8000', // Use this for development
   ENDPOINTS: {
     // New modular API endpoints
     GENERATE: '/api/comics/generate',
@@ -17,7 +17,10 @@ export const API_CONFIG = {
     CREATE_PAYMENT_INTENT: '/api/stripe/create-payment-intent',
     USER_CREDITS: '/api/stripe/user-credits',
     USER_PROFILE: '/api/stripe/user-profile',
-    STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status'
+    STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status',
+    CANCEL_SUBSCRIPTION: '/api/stripe/cancel-subscription',
+    UPDATE_SUBSCRIPTION: '/api/stripe/update-subscription',
+    SUBSCRIPTION_PORTAL: '/api/stripe/subscription-portal'
   }
 };
 
