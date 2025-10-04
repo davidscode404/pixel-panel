@@ -386,18 +386,67 @@ export default function CreatePage() {
     setShowPublishConfirm(true);
   };
 
-  const handleConfirmPublish = () => {
-    try {
-      const panelsData = panels
-        .filter(panel => !!panel.largeCanvasData)
-        .map(panel => ({ 
-          id: panel.id, 
-          prompt: panel.prompt || `Panel ${panel.id}`,
-          image_data: panel.largeCanvasData,
-          is_zoomed: false
-        }));
+  // Helper function to compress canvas data
+  const compressCanvasData = (canvasData: string, quality: number = 0.8): string => {
+    return new Promise<string>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(canvasData);
+          return;
+        }
+        
+        // Set canvas size to a reasonable resolution for storage
+        const maxWidth = 800;
+        const maxHeight = 600;
+        let { width, height } = img;
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio;
+          height *= ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to compressed JPEG
+        const compressedData = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedData);
+      };
+      img.src = canvasData;
+    });
+  };
 
-      sessionStorage.setItem('comicPanelsData', JSON.stringify(panelsData));
+  const handleConfirmPublish = async () => {
+    try {
+      // Compress all panel images before storing
+      const compressedPanels = await Promise.all(
+        panels
+          .filter(panel => !!panel.largeCanvasData)
+          .map(async (panel) => {
+            const compressedImage = await compressCanvasData(panel.largeCanvasData!);
+            return { 
+              id: panel.id, 
+              prompt: panel.prompt || `Panel ${panel.id}`,
+              image_data: compressedImage,
+              is_zoomed: false
+            };
+          })
+      );
+
+      const compressedData = JSON.stringify(compressedPanels);
+      
+      // Check if data is still too large for sessionStorage
+      if (compressedData.length > 4 * 1024 * 1024) { // 4MB threshold
+        setError('Comic data is too large to save. Please reduce the number of panels or try again.');
+        return;
+      }
+
+      sessionStorage.setItem('comicPanelsData', compressedData);
       // Show a warning banner on the confirm page that panels cannot be edited there
       sessionStorage.setItem('showPanelEditWarning', '1');
 
