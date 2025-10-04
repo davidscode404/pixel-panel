@@ -11,6 +11,8 @@ interface ConfirmDialogProps {
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  isConfirming?: boolean;
+  confirmButtonStyle?: 'default' | 'danger';
 }
 
 export default function ConfirmDialog({
@@ -21,6 +23,8 @@ export default function ConfirmDialog({
   isOpen,
   onConfirm,
   onCancel,
+  isConfirming = false,
+  confirmButtonStyle = 'default',
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -32,13 +36,19 @@ export default function ConfirmDialog({
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-border bg-background-secondary text-foreground hover:bg-background-tertiary transition-colors"
+            disabled={isConfirming}
+            className="px-4 py-2 rounded-lg border border-border bg-background-secondary text-foreground hover:bg-background-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelText}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-accent text-foreground-inverse hover:bg-accent-hover transition-colors"
+            disabled={isConfirming}
+            className={`px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              confirmButtonStyle === 'danger'
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-accent text-foreground-inverse hover:bg-accent-hover'
+            }`}
           >
             {confirmText}
           </button>

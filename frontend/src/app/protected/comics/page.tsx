@@ -7,7 +7,7 @@ import { buildApiUrl, API_CONFIG } from '@/config/api'
 import Image from 'next/image'
 import ComicDetailModal from '@/components/ComicDetailModal'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import type { Comic } from '@/types'
+import type { Comic, ComicPanel } from '@/types'
 
 export default function MyComicsPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -79,7 +79,7 @@ export default function MyComicsPage() {
         // Transform the data to match our interface
         const transformedComics = (data.comics || []).map((comic: any) => ({
           ...comic,
-          panels: (comic.comic_panels || []).sort((a: Panel, b: Panel) => a.panel_number - b.panel_number)
+          panels: (comic.comic_panels || []).sort((a: ComicPanel, b: ComicPanel) => a.panel_number - b.panel_number)
         }));
         
         setComics(transformedComics);
@@ -164,6 +164,11 @@ export default function MyComicsPage() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedComic(null);
+  };
+
+  const handleComicDeleted = () => {
+    // Refresh the comics list after deletion
+    fetchUserAndComics();
   };
 
 
@@ -340,6 +345,8 @@ export default function MyComicsPage() {
             onClose={closeModal}
             showVisibilityToggle={true}
             showEditButton={true}
+            showDeleteButton={true}
+            onDelete={handleComicDeleted}
           />
         )}
       </div>

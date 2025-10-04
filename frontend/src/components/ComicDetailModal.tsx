@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
+import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { buildApiUrl } from '@/config/api'
@@ -13,9 +14,11 @@ interface ComicDetailModalProps {
   onClose: () => void
   showVisibilityToggle?: boolean
   showEditButton?: boolean
+  showDeleteButton?: boolean
+  onDelete?: () => void
 }
 
-export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilityToggle = false, showEditButton = false }: ComicDetailModalProps) {
+export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilityToggle = false, showEditButton = false, showDeleteButton = false, onDelete }: ComicDetailModalProps) {
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [playingAudio, setPlayingAudio] = useState<string | null>(null)
@@ -23,6 +26,8 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
   const [currentPlayingPanel, setCurrentPlayingPanel] = useState<number | null>(null)
   const [isPublic, setIsPublic] = useState(comic.is_public ?? false)
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Check if comic can be published (has title, narrations, and thumbnail)
   const canPublish = () => {
@@ -175,6 +180,45 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
     }
   }
 
+  const handleDeleteComic = async () => {
+    if (!comic.id) return;
+    
+    try {
+      setIsDeleting(true);
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        alert('You must be logged in to delete comics');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl(`/api/comics/user-comics/${comic.id}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        alert('Comic deleted successfully!');
+        setShowDeleteConfirm(false);
+        onClose(); // Close the modal
+        if (onDelete) {
+          onDelete(); // Call the parent's delete callback to refresh the list
+        }
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete comic: ${errorData.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      alert('Failed to delete comic. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   // Sync isPublic state when comic changes
   useEffect(() => {
     setIsPublic(comic.is_public ?? false)
@@ -271,6 +315,19 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                   <span>Edit</span>
                 </button>
               )}
+
+              {showDeleteButton && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start bg-red-500/20 text-red-600 hover:bg-red-500/30"
+                  title="Delete comic"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  <span>Delete</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -365,6 +422,25 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
             })}
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        title="Delete Comic"
+        message={
+          <div>
+            Are you sure you want to delete &ldquo;{comic.title}&rdquo;? 
+            <br />
+            <span className="text-red-500 font-medium">This action cannot be undone.</span>
+          </div>
+        }
+        confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+        cancelText="Cancel"
+        isOpen={showDeleteConfirm}
+        onConfirm={handleDeleteComic}
+        onCancel={() => setShowDeleteConfirm(false)}
+        isConfirming={isDeleting}
+        confirmButtonStyle="danger"
+      />
     </Modal>
   )
 }
