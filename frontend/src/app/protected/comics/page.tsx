@@ -16,10 +16,9 @@ export default function MyComicsPage() {
   const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [error, setError] = useState<string | null>(null)
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null)
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
   const [selectedComic, setSelectedComic] = useState<Comic | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [autoPlay, setAutoPlay] = useState(false)
 
   const supabase = createClient()
 
@@ -110,42 +109,6 @@ export default function MyComicsPage() {
     setImageErrors(prev => ({ ...prev, [imageId]: false }))
   }
 
-  const playAudio = (comicId: string, audioUrl: string) => {
-    // Stop any currently playing audio
-    if (audioElement) {
-      audioElement.pause()
-      audioElement.currentTime = 0
-    }
-
-    // If clicking the same audio that's playing, stop it
-    if (playingAudio === comicId) {
-      setPlayingAudio(null)
-      setAudioElement(null)
-      return
-    }
-
-    // Create and play new audio
-    const audio = new Audio(audioUrl)
-    audio.play()
-    setAudioElement(audio)
-    setPlayingAudio(comicId)
-
-    // Reset state when audio ends
-    audio.onended = () => {
-      setPlayingAudio(null)
-      setAudioElement(null)
-    }
-  }
-
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      if (audioElement) {
-        audioElement.pause()
-        audioElement.currentTime = 0
-      }
-    }
-  }, [audioElement])
 
   const formatComicTitle = (title: string | undefined): string => {
     if (!title) return 'Unknown Comic';
@@ -158,12 +121,28 @@ export default function MyComicsPage() {
 
   const openModal = (comic: Comic) => {
     setSelectedComic(comic);
+    setAutoPlay(false);
+    setShowModal(true);
+  };
+
+  const openModalAndPlay = (comic: Comic, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent the card click from firing
+    setSelectedComic(comic);
+    setAutoPlay(true);
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
     setSelectedComic(null);
+    setAutoPlay(false);
+  };
+
+  const handleComicUpdated = (updatedComic: Comic) => {
+    setComics(prev => prev.map(comic => 
+      comic.id === updatedComic.id ? updatedComic : comic
+    ));
+    setSelectedComic(updatedComic);
   };
 
   const handleComicDeleted = () => {
@@ -204,7 +183,7 @@ export default function MyComicsPage() {
   }
 
   return (
-    <div className="w-full h-full overflow-auto">
+    <div className="w-full h-full overflow-auto scrollbar-hide">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>My Comics</h1>
@@ -239,10 +218,6 @@ export default function MyComicsPage() {
         ) : (
           <div className="columns-2 md:columns-5 lg:columns-5 xl:columns-5 gap-6 space-y-6 w-full">
             {comics.map((comic, index) => {
-              // Find first panel with audio
-              const audioPanel = comic.panels.find(p => p.audio_url);
-              const hasAudio = !!audioPanel;
-              const isPlaying = playingAudio === comic.id;
 
               return (
               <div
@@ -298,28 +273,20 @@ export default function MyComicsPage() {
                     })()
                   )}
 
-                  {/* Play button overlay */}
-                  {hasAudio && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (audioPanel?.audio_url) {
-                          playAudio(comic.id, audioPanel.audio_url);
-                        }
-                      }}
-                      className="absolute top-2 right-2 z-20 bg-black/70 hover:bg-black/90 text-white rounded-full p-2 transition-all duration-200 hover:scale-110"
-                      aria-label={isPlaying ? "Pause audio" : "Play audio"}
-                    >
-                      {isPlaying ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  {/* Play button overlay - only show if comic has audio */}
+                  {comic.panels.some(p => p.audio_url && p.panel_number > 0) && (
+                    <div className="absolute top-3 right-3">
+                      <button
+                        onClick={(e) => openModalAndPlay(comic, e)}
+                        className="bg-accent hover:bg-accent-hover text-white rounded-full p-2 transition-all duration-200 hover:scale-110 shadow-lg"
+                        aria-label="Play comic"
+                        title="Play comic with audio"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M8 5v14l11-7z" />
                         </svg>
-                      )}
-                    </button>
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -347,6 +314,8 @@ export default function MyComicsPage() {
             showEditButton={true}
             showDeleteButton={true}
             onDelete={handleComicDeleted}
+            autoPlay={autoPlay}
+            onComicUpdated={handleComicUpdated}
           />
         )}
       </div>

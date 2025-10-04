@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import Image from 'next/image'
@@ -16,16 +16,23 @@ interface ComicDetailModalProps {
   showEditButton?: boolean
   showDeleteButton?: boolean
   onDelete?: () => void
+  autoPlay?: boolean
+  onComicUpdated?: (updatedComic: Comic) => void
 }
 
-export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilityToggle = false, showEditButton = false, showDeleteButton = false, onDelete }: ComicDetailModalProps) {
-  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({})
+export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilityToggle = false, showEditButton = false, showDeleteButton = false, onDelete, autoPlay = false, onComicUpdated }: ComicDetailModalProps) {
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({})
   const [playingAudio, setPlayingAudio] = useState<string | null>(null)
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
   const [currentPlayingPanel, setCurrentPlayingPanel] = useState<number | null>(null)
   const [isPublic, setIsPublic] = useState(comic.is_public ?? false)
   const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingPanel, setEditingPanel] = useState<ComicPanel | null>(null)
+  const [editingNarration, setEditingNarration] = useState('')
+  const [editingPrompt, setEditingPrompt] = useState('')
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
+  const [isUpdatingNarration, setIsUpdatingNarration] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -56,18 +63,8 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
     }
   }
 
-  const handleImageLoad = (imageId: string) => {
-    setImageLoading(prev => ({ ...prev, [imageId]: false }))
-  }
-
   const handleImageError = (imageId: string) => {
-    setImageLoading(prev => ({ ...prev, [imageId]: false }))
     setImageErrors(prev => ({ ...prev, [imageId]: true }))
-  }
-
-  const handleImageLoadStart = (imageId: string) => {
-    setImageLoading(prev => ({ ...prev, [imageId]: true }))
-    setImageErrors(prev => ({ ...prev, [imageId]: false }))
   }
 
   const stopAudio = () => {
@@ -80,7 +77,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
     setCurrentPlayingPanel(null)
   }
 
-  const playComicSequentially = (comic: Comic) => {
+  const playComicSequentially = useCallback((comic: Comic) => {
     // Stop any currently playing audio
     if (audioElement) {
       audioElement.pause()
@@ -139,11 +136,170 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
     }
 
     playNextPanel()
-  }
+  }, [audioElement, playingAudio])
 
   const handleClose = () => {
     stopAudio()
     onClose()
+  }
+
+  const handleEditComic = () => {
+    setIsEditMode(true)
+    setEditingPanel(null)
+    setEditingNarration('')
+    setEditingPrompt('')
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false)
+    setEditingPanel(null)
+    setEditingNarration('')
+    setEditingPrompt('')
+  }
+
+  const handleEditPanel = (panel: ComicPanel) => {
+    setEditingPanel(panel)
+    setEditingNarration(panel.narration || '')
+    setEditingPrompt(panel.prompt || '')
+  }
+
+  const handleSaveNarration = async () => {
+    if (!editingPanel || !editingNarration.trim()) return
+
+    setIsUpdatingNarration(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Update the panel narration in the database
+      const response = await fetch(buildApiUrl(`/api/comics/panels/${editingPanel.id}`), {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ narration: editingNarration.trim() })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `Failed to update narration (${response.status})`)
+      }
+
+      const respJson = await response.json().catch(() => ({}))
+      const newAudioUrl = respJson?.audio_url as string | undefined
+
+      // Update local comic data (also refresh audio if returned)
+      const updatedComic = {
+        ...comic,
+        panels: comic.panels.map(p => 
+          p.id === editingPanel.id 
+            ? { ...p, narration: editingNarration.trim(), ...(newAudioUrl ? { audio_url: newAudioUrl } : {}) }
+            : p
+        )
+      }
+
+      if (onComicUpdated) {
+        onComicUpdated(updatedComic)
+      }
+
+      setEditingPanel(null)
+      setEditingNarration('')
+    } catch (error) {
+      console.error('Error updating narration:', error)
+      alert('Failed to update narration. Please try again.')
+    } finally {
+      setIsUpdatingNarration(false)
+    }
+  }
+
+  const handleRegenerateImage = async () => {
+    if (!editingPanel || !editingPrompt.trim()) return
+
+    setIsGeneratingImage(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Get the previous panel for context
+      // For panel 1, use thumbnail (panel 0) as context
+      // For other panels, use the previous panel
+      let previousPanel = null
+      
+      if (editingPanel.panel_number === 1) {
+        // Panel 1 should use thumbnail (panel 0) for context
+        previousPanel = comic.panels.find(p => p.panel_number === 0)
+      } else if (editingPanel.panel_number > 1) {
+        // Other panels use the previous story panel
+        previousPanel = comic.panels
+          .filter(p => p.panel_number > 0)
+          .sort((a, b) => a.panel_number - b.panel_number)
+          .find(p => p.panel_number === editingPanel.panel_number - 1)
+      }
+
+      // Prepare context from previous panel
+      let previousPanelContext = null
+      if (previousPanel) {
+        previousPanelContext = {
+          image_data: previousPanel.public_url,
+          prompt: previousPanel.prompt || 'Comic book cover art'
+        }
+      }
+
+      // Regenerate the panel image with the new prompt
+      const response = await fetch(buildApiUrl(`/api/comics/panels/${editingPanel.id}/regenerate`), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text_prompt: editingPrompt.trim(),
+          previous_panel_context: previousPanelContext
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `Failed to regenerate image (${response.status})`)
+      }
+
+      const result = await response.json()
+      
+      // Add cache-busting parameter to force image reload
+      const newImageUrl = result.public_url + `?t=${Date.now()}`
+      
+      // Update the panel with new image and prompt
+      const updatedComic = {
+        ...comic,
+        panels: comic.panels.map(p => 
+          p.id === editingPanel.id 
+            ? { ...p, public_url: newImageUrl, prompt: editingPrompt.trim() }
+            : p
+        )
+      }
+
+      if (onComicUpdated) {
+        onComicUpdated(updatedComic)
+      }
+
+      // Clear the editing state
+      setEditingPanel(null)
+      setEditingPrompt('')
+    } catch (error) {
+      console.error('Error regenerating image:', error)
+      alert('Failed to regenerate image. Please try again.')
+    } finally {
+      setIsGeneratingImage(false)
+    }
   }
 
   const toggleVisibility = async () => {
@@ -213,6 +369,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
         alert(`Failed to delete comic: ${errorData.detail || 'Unknown error'}`);
       }
     } catch (error) {
+      console.error('Error deleting comic:', error);
       alert('Failed to delete comic. Please try again.');
     } finally {
       setIsDeleting(false);
@@ -223,6 +380,17 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
   useEffect(() => {
     setIsPublic(comic.is_public ?? false)
   }, [comic.id, comic.is_public])
+
+  // Auto-play when modal opens with autoPlay enabled
+  useEffect(() => {
+    if (isOpen && autoPlay && comic.panels.some(p => p.audio_url && p.panel_number > 0)) {
+      // Small delay to ensure modal is fully rendered
+      const timer = setTimeout(() => {
+        playComicSequentially(comic)
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, autoPlay, comic, playComicSequentially])
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -238,7 +406,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
 
   return (
     <Modal onClose={handleClose}>
-      <div className="max-w-4xl max-h-[90vh] overflow-y-auto p-6">
+      <div className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 scrollbar-hide">
         <div className="flex justify-between items-start mb-6">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -303,16 +471,29 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                 </button>
               )}
 
-              {showEditButton && (
+              {showEditButton && !isEditMode && (
                 <button
-                  disabled
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start bg-gray-500/20 text-gray-600 opacity-50 cursor-not-allowed"
-                  title="Edit functionality coming soon"
+                  onClick={handleEditComic}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start bg-orange-500/20 text-orange-600 hover:bg-orange-500/30"
+                  title="Edit this comic"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                   </svg>
                   <span>Edit</span>
+                </button>
+              )}
+
+              {showEditButton && isEditMode && (
+                <button
+                  onClick={handleCancelEdit}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors self-start bg-gray-500/20 text-gray-600 hover:bg-gray-500/30"
+                  title="Cancel editing"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                  </svg>
+                  <span>Cancel</span>
                 </button>
               )}
 
@@ -378,16 +559,55 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
           </div>
         )}
 
+
+        {/* Image Regeneration Interface - only show when editing and not editing narration */}
+        {editingPanel && (
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <h3 className="text-lg font-semibold text-orange-800 mb-4">
+              Regenerate Image for Panel {editingPanel.panel_number}
+            </h3>
+            
+            {/* Context Information banner removed per request */}
+            
+            <textarea
+              value={editingPrompt}
+              onChange={(e) => setEditingPrompt(e.target.value)}
+              className="w-full p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              rows={3}
+              placeholder="Enter a new prompt to regenerate this panel's image..."
+            />
+            
+            
+            <div className="mt-3">
+              <button
+                onClick={handleRegenerateImage}
+                disabled={isGeneratingImage || !editingPrompt.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isGeneratingImage ? 'Generating...' : 'Regenerate Image'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {comic.panels
             .filter(panel => panel.panel_number > 0)
             .sort((a, b) => a.panel_number - b.panel_number)
             .map((panel) => {
               const isCurrentlyPlaying = currentPlayingPanel === panel.panel_number;
+              const isEditing = editingPanel?.id === panel.id;
+              const isFirstPanel = panel.panel_number === 1;
+              const isEditable = isEditMode && !isFirstPanel;
               return (
               <div
                 key={panel.id}
-                className="bg-background-tertiary overflow-hidden transition-all duration-300 relative border-4 border-black"
+                className={`bg-background-tertiary overflow-hidden transition-all duration-300 relative border-4 ${
+                  isEditable
+                    ? 'border-orange-400 cursor-pointer hover:border-orange-500' 
+                    : 'border-black'
+                } ${isEditing ? 'ring-2 ring-orange-500' : ''}`}
+                onClick={isEditable ? () => handleEditPanel(panel) : undefined}
               >
                 {imageErrors[`${comic.id}-${panel.id}`] ? (
                   <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
@@ -404,15 +624,52 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                       width={400}
                       height={192}
                       className="w-full h-full object-cover bg-white"
-                      onLoad={() => handleImageLoad(`${comic.id}-${panel.id}`)}
                       onError={() => handleImageError(`${comic.id}-${panel.id}`)}
-                      onLoadStart={() => handleImageLoadStart(`${comic.id}-${panel.id}`)}
                     />
                     {panel.narration && (
                       <div className={`absolute bottom-0 left-0 right-0 backdrop-blur-sm px-3 py-2 transition-all duration-300 ${
                         isCurrentlyPlaying ? 'bg-accent ring-2 ring-accent' : 'bg-black/80'
                       }`}>
-                        <p className="text-white text-sm italic leading-tight">{panel.narration}</p>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={editingNarration}
+                              onChange={(e) => setEditingNarration(e.target.value)}
+                              className="w-full p-2 text-sm bg-white/90 text-black rounded border-0 focus:ring-2 focus:ring-orange-500 resize-none"
+                              rows={2}
+                              placeholder="Enter narration..."
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSaveNarration();
+                                }}
+                                disabled={isUpdatingNarration || !editingNarration.trim()}
+                                className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                              >
+                                {isUpdatingNarration ? 'Saving...' : 'Save'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPanel(null);
+                                }}
+                                className="px-2 py-1 text-xs bg-orange-400 text-white rounded hover:bg-orange-500"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-white text-sm italic leading-tight">{panel.narration}</p>
+                        )}
+                      </div>
+                    )}
+                    {isEditable && (
+                      <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium">
+                        Click to Edit
                       </div>
                     )}
                   </div>

@@ -13,6 +13,7 @@ export default function ExplorePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedComic, setSelectedComic] = useState<Comic | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(false);
   const [imageLoading, setImageLoading] = useState<{[key: string]: boolean}>({});
   const [imageErrors, setImageErrors] = useState<{[key: string]: boolean}>({});
 
@@ -62,12 +63,21 @@ export default function ExplorePage() {
 
   const openModal = (comic: Comic) => {
     setSelectedComic(comic);
+    setAutoPlay(false);
+    setShowModal(true);
+  };
+
+  const openModalAndPlay = (comic: Comic, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent the card click from firing
+    setSelectedComic(comic);
+    setAutoPlay(true);
     setShowModal(true);
   };
 
   const closeModal = () => {
     setSelectedComic(null);
     setShowModal(false);
+    setAutoPlay(false);
   };
 
   const handleImageLoadStart = (key: string) => {
@@ -119,7 +129,7 @@ export default function ExplorePage() {
   }
 
   return (
-    <div className="w-full h-full overflow-auto">
+    <div className="w-full h-full overflow-auto scrollbar-hide">
       <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>Explore Comics</h1>
@@ -191,6 +201,22 @@ export default function ExplorePage() {
                 )}
               </div>
 
+              {/* Play button overlay - only show if comic has audio */}
+              {comic.panels.some(p => p.audio_url && p.panel_number > 0) && (
+                <div className="absolute top-3 right-3">
+                  <button
+                    onClick={(e) => openModalAndPlay(comic, e)}
+                    className="bg-accent hover:bg-accent-hover text-white rounded-full p-2 transition-all duration-200 hover:scale-110 shadow-lg"
+                    aria-label="Play comic"
+                    title="Play comic with audio"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
               {/* Title and date at bottom with overlay */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
                 <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{comic.title}</h3>
@@ -211,6 +237,7 @@ export default function ExplorePage() {
             comic={selectedComic}
             isOpen={showModal}
             onClose={closeModal}
+            autoPlay={autoPlay}
           />
         )}
       </div>

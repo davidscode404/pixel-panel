@@ -1,7 +1,8 @@
 // API Configuration
 // Change this port to easily switch between different backend servers
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://pixelpanel.onrender.com', // Use environment variable for production
+  // BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://pixelpanel.onrender.com', // Use environment variable for production
+  BASE_URL: 'http://0.0.0.0:8000', // Use this for development
   ENDPOINTS: {
     // New modular API endpoints
     GENERATE: '/api/comics/generate',

@@ -56,7 +56,7 @@ export default function ProtectedLayout({
       
       {/* Main Content - Scrollable */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 p-6 overflow-y-auto" style={{ backgroundColor: 'var(--background)' }}>
+        <main className="flex-1 p-6 overflow-y-auto scrollbar-hide" style={{ backgroundColor: 'var(--background)' }}>
           {children}
         </main>
       </div>
