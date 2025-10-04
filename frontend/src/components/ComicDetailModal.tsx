@@ -272,7 +272,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                     isPublic
                       ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30'
                       : canPublish()
-                        ? 'bg-gray-500/20 text-gray-600 hover:bg-gray-500/30'
+                        ? 'bg-orange-500/20 text-orange-600 hover:bg-orange-500/30'
                         : 'bg-red-500/20 text-red-600 opacity-50 cursor-not-allowed'
                   } ${isUpdatingVisibility ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title={
