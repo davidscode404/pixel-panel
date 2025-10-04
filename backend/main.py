@@ -1,7 +1,9 @@
-from fastapi import HTTPException, FastAPI, Request
+from fastapi import HTTPException, FastAPI
+from starlette.requests import Request
 import uvicorn
 import logging
 import sys
+import os
 
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -51,4 +53,5 @@ app.include_router(voice_over_router)
 app.include_router(stripe_router)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
