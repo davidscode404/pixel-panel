@@ -58,14 +58,6 @@ export default function SideBar({
     }
   }, [])
 
-  // Fetch user credits and subscription status
-  useEffect(() => {
-    if (user) {
-      fetchUserCredits()
-      fetchSubscriptionStatus()
-    }
-  }, [user])
-
   const fetchUserCredits = async () => {
     try {
       setCreditsLoading(true)
@@ -109,6 +101,15 @@ export default function SideBar({
       console.error('Error fetching subscription status:', error);
     }
   };
+
+  // Fetch user credits and subscription status - only once when user is available
+  useEffect(() => {
+    if (user) {
+      fetchUserCredits()
+      fetchSubscriptionStatus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   // Apply theme changes
   useEffect(() => {

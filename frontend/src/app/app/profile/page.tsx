@@ -37,13 +37,14 @@ export default function ProfilePage() {
       }
 
       const data = await response.json();
+      console.log('Fetched profile data:', data);
       setUserName(data.name || '');
     } catch (error) {
       setUserName('');
     } finally {
       setLoading(false);
     }
-  }, [supabase])
+  }, [])
 
   const updateUserName = async () => {
     if (!tempName.trim()) return;
@@ -71,6 +72,9 @@ export default function ProfilePage() {
       setUserName(tempName.trim());
       setIsEditingName(false);
       setTempName('');
+      
+      // Refetch profile to ensure UI is in sync
+      await fetchUserProfile();
     } catch (error) {
       console.error('Error updating name:', error);
       alert('Failed to update name. Please try again.');
@@ -84,7 +88,8 @@ export default function ProfilePage() {
     if (user) {
       fetchUserProfile()
     }
-  }, [user, fetchUserProfile])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   if (loading) {
     return <LoadingSpinner message="Loading profile..." fullPage />;

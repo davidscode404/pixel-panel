@@ -217,12 +217,17 @@ export default function ExplorePage() {
                 </div>
               )}
 
-              {/* Title and date at bottom with overlay */}
+              {/* Title, author, and date at bottom with overlay */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
                 <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{comic.title}</h3>
-                <p className="text-foreground-secondary text-xs">
-                  {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                </p>
+                <div className="flex items-center justify-between text-xs">
+                  <p className="text-white/80 font-medium">
+                    {comic.user_profiles?.name || 'Anonymous'}
+                  </p>
+                  <p className="text-foreground-secondary">
+                    {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
               </div>
 
             </div>
