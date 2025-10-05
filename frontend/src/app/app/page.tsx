@@ -11,12 +11,12 @@ export default function ProtectedPage() {
     const lastVisitedPage = localStorage.getItem('lastVisitedPage')
 
     // If user was on a specific page, redirect back to it
-    if (lastVisitedPage && lastVisitedPage !== '/protected') {
+    if (lastVisitedPage && lastVisitedPage !== '/app') {
       router.replace(lastVisitedPage)
     }
     // Default to explore page for new users or direct navigation
     else {
-      router.replace('/protected/explore')
+      router.replace('/app/explore')
     }
   }, [router])
 

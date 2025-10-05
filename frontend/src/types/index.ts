@@ -53,6 +53,9 @@ export interface Comic {
   updated_at?: string;
   panels: ComicPanel[];
   comic_panels?: ComicPanel[]; // Alternative field name for API responses
+  user_profiles?: {
+    name?: string;
+  };
 }
 
 // Type aliases for specific use cases

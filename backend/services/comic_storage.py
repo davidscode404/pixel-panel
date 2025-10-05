@@ -178,13 +178,31 @@ class ComicStorageService:
         return response.data
     
     async def get_public_comics(self) -> List[dict]:
-        """Get all public comics from all users"""
-        response = self.supabase.table('comics').select("""
+        """Get all public comics from all users with user display names"""
+        # First get the comics
+        comics_response = self.supabase.table('comics').select("""
             id, title, user_id, is_public, created_at, updated_at,
             comic_panels(id, panel_number, public_url, storage_path, file_size, created_at, narration, audio_url)
         """).eq('is_public', True).order('created_at', desc=True).execute()
         
-        return response.data
+        comics = comics_response.data
+        
+        # Get unique user IDs
+        user_ids = list(set(comic['user_id'] for comic in comics if comic.get('user_id')))
+        
+        # Fetch user names
+        user_names = {}
+        if user_ids:
+            profiles_response = self.supabase.table('user_profiles').select('user_id, name').in_('user_id', user_ids).execute()
+            user_names = {profile['user_id']: profile.get('name') for profile in profiles_response.data}
+        
+        # Add user names to comics
+        for comic in comics:
+            comic['user_profiles'] = {
+                'name': user_names.get(comic.get('user_id'))
+            }
+        
+        return comics
     
     async def get_all_comics(self) -> List[dict]:
         """Get all comics from all users for exploration"""

@@ -16,7 +16,7 @@ function LoginFormContent() {
   const searchParams = useSearchParams()
   
   // Get the intended destination from URL params, default to /protected
-  const redirectTo = searchParams.get('redirect') || '/protected'
+  const redirectTo = searchParams.get('redirect') || '/app'
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

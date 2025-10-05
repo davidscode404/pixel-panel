@@ -240,7 +240,7 @@ export default function ComicPreview() {
 
       if (response.ok) {
         alert('Comic deleted successfully!');
-        router.push('/protected/comics');
+        router.push('/app/comics');
       } else {
         const errorData = await response.json();
         alert(`Failed to delete comic: ${errorData.detail || 'Unknown error'}`);
@@ -294,7 +294,7 @@ export default function ComicPreview() {
               <div className="flex items-center space-x-2">
                 {/* Edit Button */}
                 <button
-                  onClick={() => router.push(`/protected/edit/${comicId}`)}
+                  onClick={() => router.push(`/app/edit/${comicId}`)}
                   className="flex items-center space-x-2 px-3 py-1 rounded-md transition-colors text-sm"
                   style={{
                     backgroundColor: 'var(--accent)',

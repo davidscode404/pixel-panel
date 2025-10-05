@@ -24,7 +24,7 @@ export default function ProtectedLayout({
 
   // Track the current page for navigation purposes
   useEffect(() => {
-    if (pathname && pathname !== '/protected') {
+    if (pathname && pathname !== '/app') {
       localStorage.setItem('lastVisitedPage', pathname)
     }
   }, [pathname])
