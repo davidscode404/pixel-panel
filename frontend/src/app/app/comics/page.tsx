@@ -198,7 +198,7 @@ export default function MyComicsPage() {
               <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--foreground)' }}>No Comics Yet</h2>
               <p className="mb-6" style={{ color: 'var(--foreground-secondary)' }}>Start creating your first comic story! Let your imagination run wild and bring your ideas to life.</p>
               <a
-                href="/protected/create"
+                href="/app/create"
                 className="inline-block px-6 py-3 rounded-lg transition-colors"
                 style={{ 
                   backgroundColor: 'var(--accent)',

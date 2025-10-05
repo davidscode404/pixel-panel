@@ -228,7 +228,7 @@ export default function ConfirmComicPage() {
       sessionStorage.removeItem('comicPanelsData');
 
       // Redirect to success page or comics list
-      router.push('/protected/comics');
+      router.push('/app/comics');
 
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to save comic');
@@ -246,7 +246,7 @@ export default function ConfirmComicPage() {
       sessionStorage.removeItem('comicPanelsData');
     } catch {}
     setShowConfirmClear(false);
-    router.push('/protected/create');
+    router.push('/app/create');
   };
 
   if (error && panelsData.length === 0) {
@@ -257,7 +257,7 @@ export default function ConfirmComicPage() {
           <h2 className="text-2xl font-bold text-foreground mb-4">No Comic Data Found</h2>
           <p className="text-foreground-secondary mb-6">{error}</p>
           <Link
-            href="/protected/create"
+            href="/app/create"
             className="px-6 py-3 bg-accent hover:bg-accent-hover text-foreground-inverse rounded-lg transition-colors"
           >
             Back to Create
@@ -273,7 +273,7 @@ export default function ConfirmComicPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-2 text-sm text-foreground-muted mb-4">
-            <Link href="/protected/create" className="hover:text-foreground transition-colors">Create</Link>
+            <Link href="/app/create" className="hover:text-foreground transition-colors">Create</Link>
             <span>›</span>
             <span className="text-foreground">Publish Comic</span>
           </div>

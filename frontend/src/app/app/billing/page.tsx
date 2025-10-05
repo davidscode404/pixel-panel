@@ -222,7 +222,7 @@ export default function BillingPage() {
             </div>
           </div>
           <button
-            onClick={() => router.push('/protected/credits')}
+            onClick={() => router.push('/app/credits')}
             className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
             style={{
               backgroundColor: 'var(--accent)',

@@ -31,13 +31,13 @@ export default function EditComicPage() {
 
         <div className="space-y-3">
           <a 
-            href="/protected/create" 
+            href="/app/create" 
             className="block w-full bg-accent text-accent-foreground py-3 px-4 rounded-lg font-medium hover:bg-accent/90 transition-colors"
           >
             Go to Create Page
           </a>
           <a 
-            href="/protected/comics" 
+            href="/app/comics" 
             className="block w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 transition-colors"
           >
             View My Comics

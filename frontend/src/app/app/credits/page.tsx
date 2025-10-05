@@ -62,7 +62,7 @@ export default function CreditsPage() {
     <div className="max-w-4xl mx-auto py-8">
       <div className="mb-8">
         <button
-          onClick={() => router.push('/protected/profile')}
+          onClick={() => router.push('/app/profile')}
           className="mb-4 flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:opacity-80"
           style={{
             color: 'var(--foreground-secondary)',

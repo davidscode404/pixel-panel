@@ -450,7 +450,7 @@ export default function CreatePage() {
       // Show a warning banner on the confirm page that panels cannot be edited there
       sessionStorage.setItem('showPanelEditWarning', '1');
 
-      router.push('/protected/confirm');
+      router.push('/app/confirm');
       
     } catch (error) {
       setError(`Failed to prepare comic data: ${error instanceof Error ? error.message : 'Unknown error'}`);

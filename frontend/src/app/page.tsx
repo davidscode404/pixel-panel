@@ -15,7 +15,7 @@ export default function Home() {
   // Redirect authenticated users to protected area
   useEffect(() => {
     if (!loading && user) {
-      router.push('/protected');
+      router.push('/app');
     }
   }, [user, loading, router]);
 

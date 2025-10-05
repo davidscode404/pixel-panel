@@ -198,7 +198,7 @@ export default function SideBar({
   }> = [
     {
       name: 'Explore',
-      href: '/protected/explore',
+      href: '/app/explore',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -207,7 +207,7 @@ export default function SideBar({
     },
     {
       name: 'Create Comic',
-      href: '/protected/create',
+      href: '/app/create',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -216,7 +216,7 @@ export default function SideBar({
     },
     {
       name: 'My Comics',
-      href: '/protected/comics',
+      href: '/app/comics',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -225,7 +225,7 @@ export default function SideBar({
     },
     {
       name: 'Profile',
-      href: '/protected/profile',
+      href: '/app/profile',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -234,7 +234,7 @@ export default function SideBar({
     },
     {
       name: 'Billing',
-      href: '/protected/billing',
+      href: '/app/billing',
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -343,11 +343,11 @@ export default function SideBar({
       }`}
       style={{ borderColor: 'var(--border)' }}>
          <Link 
-           href="/protected/explore" 
+           href="/app/explore" 
            className={`flex items-center transition-all duration-300 ${isMinimized ? 'justify-center' : 'gap-2'}`}
            onClick={(e) => {
              e.stopPropagation()
-             localStorage.setItem('lastVisitedPage', '/protected/explore')
+             localStorage.setItem('lastVisitedPage', '/app/explore')
            }}
          >
            <Image 
@@ -591,7 +591,7 @@ export default function SideBar({
                 </button>
 
                 <Link 
-                  href="/protected/profile"
+                  href="/app/profile"
                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}
@@ -601,7 +601,7 @@ export default function SideBar({
                 </Link>
 
                 <Link 
-                  href="/protected/billing"
+                  href="/app/billing"
                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}

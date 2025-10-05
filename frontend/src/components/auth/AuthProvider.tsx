@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'SIGNED_IN') {
           // Only redirect to protected area if we're not already in a protected route
           const currentPath = window.location.pathname
-          if (!currentPath.startsWith('/protected')) {
-            router.push('/protected')
+          if (!currentPath.startsWith('/app')) {
+            router.push('/app')
           }
         } else if (event === 'SIGNED_OUT') {
           // Redirect to home page when user signs out
