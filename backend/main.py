@@ -46,6 +46,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Root endpoint
+@app.get("/")
+@limiter.limit("100/minute")
+async def root(request: Request):
+    """Root endpoint"""
+    return {"message": "PixelPanel API", "version": "1.0.0", "status": "running"}
+
 # Health check endpoint
 @app.get("/health")
 @limiter.limit("100/minute")

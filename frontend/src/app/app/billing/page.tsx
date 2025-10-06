@@ -198,10 +198,10 @@ export default function BillingPage() {
     <div className="max-w-6xl mx-auto py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>
-          Billing & Subscriptions
+          Billing & Payments
         </h1>
         <p style={{ color: 'var(--foreground-secondary)' }}>
-          Manage your subscription and billing preferences
+          Manage your billing and payment preferences
         </p>
       </div>
 
@@ -266,7 +266,7 @@ export default function BillingPage() {
           Upgrade Your Plan
         </h3>
         <p className="text-center mb-8 text-lg" style={{ color: 'var(--foreground-secondary)' }}>
-          Get more credits and premium features with our subscription plans
+          Get more credits and premium features with our billing plans
         </p>
         
         <StripeProvider>
