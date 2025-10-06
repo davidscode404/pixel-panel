@@ -39,12 +39,19 @@ SUPABASE_URL="your_supabase_url"
 SUPABASE_ANON_KEY="your_supabase_anon_key"
 SUPABASE_SERVICE_ROLE_KEY="your_supabase_service_key"
 ELEVENLABS_API_KEY="your_elevenlabs_key"  # Optional
+# Stripe (for billing/credits)
+STRIPE_SECRET_KEY="sk_live_or_test_key"
+STRIPE_WEBHOOK_SECRET="whsec_..."
+
+# Dev helpers (optional)
+DEV_MODE=true  # enables simple local testing endpoints
 ```
 
 **Frontend** - Create `frontend/.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL="your_supabase_url"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="your_supabase_anon_key"
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_or_live_key"
 ```
 
 ### 6. Database Setup
@@ -71,6 +78,33 @@ npm run dev
 ```
 
 Visit `http://localhost:3000`
+
+## Billing & Credits (Stripe)
+
+Keep it simple:
+- Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in `backend/.env`.
+- Configure a Stripe webhook to POST to `/api/stripe/webhook` on your deployed backend.
+- Credit amounts map to plans (50/120/280/800) and are added on successful payment/renewal.
+
+### Local Dev: Quick Credit Test (no Stripe needed)
+With the backend running and `DEV_MODE=true` in `backend/.env`:
+
+1) Check current credits
+```bash
+curl "http://localhost:8000/api/stripe/dev-get-credits?user_id=YOUR_USER_ID"
+```
+
+2) Simulate a purchase (adds credits immediately)
+```bash
+curl -X POST http://localhost:8000/api/stripe/dev-simulate-payment \
+  -H "Content-Type: application/json" \
+  -d '{"userId":"YOUR_USER_ID","packageId":"credits_120"}'
+```
+
+3) Verify credits increased
+```bash
+curl "http://localhost:8000/api/stripe/dev-get-credits?user_id=YOUR_USER_ID"
+```
 
 ## How to Use
 

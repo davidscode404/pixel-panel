@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { API_CONFIG, buildApiUrl } from '@/config/api';
 import ComicDetailModal from '@/components/ComicDetailModal';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import KanVibeShowcase from '@/components/KanVibeShowcase';
+import KanVibeModal from '@/components/KanVibeModal';
 import type { Comic, ComicPanel } from '@/types';
 
 export default function ExplorePage() {
@@ -16,6 +18,8 @@ export default function ExplorePage() {
   const [autoPlay, setAutoPlay] = useState(false);
   const [imageLoading, setImageLoading] = useState<{[key: string]: boolean}>({});
   const [imageErrors, setImageErrors] = useState<{[key: string]: boolean}>({});
+  const [showKanVibeModal, setShowKanVibeModal] = useState(false);
+  const [kanVibeAutoPlay, setKanVibeAutoPlay] = useState(false);
 
   // Fetch public comics on component mount
   useEffect(() => {
@@ -72,6 +76,21 @@ export default function ExplorePage() {
     setSelectedComic(comic);
     setAutoPlay(true);
     setShowModal(true);
+  };
+
+  const openKanVibeModal = () => {
+    setKanVibeAutoPlay(false);
+    setShowKanVibeModal(true);
+  };
+
+  const openKanVibeModalAndPlay = () => {
+    setKanVibeAutoPlay(true);
+    setShowKanVibeModal(true);
+  };
+
+  const closeKanVibeModal = () => {
+    setShowKanVibeModal(false);
+    setKanVibeAutoPlay(false);
   };
 
   const closeModal = () => {
@@ -145,7 +164,13 @@ export default function ExplorePage() {
           </div>
         ) : (
           <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6 space-y-6 w-full">
-          {comics.map((comic, index) => {
+          {/* Kan Vibe Featured Card */}
+          <KanVibeShowcase 
+            onOpenModal={openKanVibeModal}
+            onOpenModalAndPlay={openKanVibeModalAndPlay}
+          />
+          
+          {comics.map((comic) => {
             return (
             <div
               key={comic.id}
@@ -245,6 +270,13 @@ export default function ExplorePage() {
             autoPlay={autoPlay}
           />
         )}
+
+        {/* Kan Vibe Modal */}
+        <KanVibeModal
+          isOpen={showKanVibeModal}
+          onClose={closeKanVibeModal}
+          autoPlay={kanVibeAutoPlay}
+        />
       </div>
     </div>
   );
