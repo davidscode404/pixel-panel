@@ -35,8 +35,6 @@ const formatComicTitle = (title: string): string => {
 export default function BookSlider() {
   const [books, setBooks] = useState<Book[]>(booksData.books);
   const [currentIndex, setCurrentIndex] = useState(Math.floor(booksData.books.length / 2));
-  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   // Load user's saved comic and replace "Where the Crawdads Sing"
   useEffect(() => {
@@ -76,25 +74,21 @@ export default function BookSlider() {
           }));
           
           // Create a new books array with user comics
-          // Put the most recent comic in the center (index 4)
-          const updatedBooks = [...booksData.books];
+          const updatedBooks: Book[] = [...booksData.books];
           
-          // If we have more user comics than available slots, just use the first few
-          const maxUserComics = Math.min(userComics.length, 6); // Limit to 6 user comics max
+          const maxUserComics = Math.min(userComics.length, 6); 
           const comicsToShow = userComics.slice(0, maxUserComics);
           
-          // Replace books with user comics, starting from the center
           const centerIndex = 4;
           const halfUserComics = Math.floor(comicsToShow.length / 2);
           
-          // Calculate starting position to center the comics
           const startIndex = Math.max(0, centerIndex - halfUserComics);
           
           // Replace books with user comics
           comicsToShow.forEach((userComic, index) => {
             const bookIndex = startIndex + index;
             if (bookIndex < updatedBooks.length) {
-              updatedBooks[bookIndex] = userComic as any;
+              updatedBooks[bookIndex] = userComic;
             }
           });
           
@@ -108,43 +102,12 @@ export default function BookSlider() {
       } else {
         setBooks(booksData.books);
       }
-    } catch (error) {
+    } catch {
       // If there's an error, just use the default books
       setBooks(booksData.books);
     }
   };
 
-  const getAllComicsFromDB = async () => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('ComicDatabase', 1);
-      
-      request.onerror = () => reject(request.error);
-      
-      request.onsuccess = () => {
-        const db = request.result;
-        const transaction = db.transaction(['comics'], 'readonly');
-        const store = transaction.objectStore('comics');
-        const index = store.index('date');
-        
-        const getAllRequest = index.getAll();
-        getAllRequest.onsuccess = () => {
-          // Sort by date descending (newest first)
-          const comics = getAllRequest.result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          resolve(comics);
-        };
-        getAllRequest.onerror = () => reject(getAllRequest.error);
-      };
-      
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains('comics')) {
-          const store = db.createObjectStore('comics', { keyPath: 'id' });
-          store.createIndex('title', 'title', { unique: false });
-          store.createIndex('date', 'date', { unique: false });
-        }
-      };
-    });
-  };
 
   const nextBook = () => {
     setCurrentIndex((prev) => (prev < books.length - 1 ? prev + 1 : 0));
@@ -156,57 +119,6 @@ export default function BookSlider() {
 
   const goToBook = (index: number) => {
     setCurrentIndex(index);
-  };
-
-  const openBookPopup = async (book: Book) => {
-    if (book.isUserComic) {
-      // For user comics, redirect to preview page
-      try {
-        // Use the original title (with underscores) for the backend
-        const originalTitle = book.id as string; // The ID contains the original title
-        const encodedTitle = encodeURIComponent(originalTitle);
-        
-        // Redirect to preview page
-        window.location.href = `/preview/${encodedTitle}`;
-      } catch (error) {
-        alert(`Failed to load comic: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    } else {
-      setSelectedBook(book);
-      setIsPopupOpen(true);
-    }
-  };
-
-  const getComicFromDB = async (id: number) => {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('ComicDatabase', 1);
-      
-      request.onerror = () => reject(request.error);
-      
-      request.onsuccess = () => {
-        const db = request.result;
-        const transaction = db.transaction(['comics'], 'readonly');
-        const store = transaction.objectStore('comics');
-        
-        const getRequest = store.get(id);
-        getRequest.onsuccess = () => resolve(getRequest.result);
-        getRequest.onerror = () => reject(getRequest.error);
-      };
-      
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains('comics')) {
-          const store = db.createObjectStore('comics', { keyPath: 'id' });
-          store.createIndex('title', 'title', { unique: false });
-          store.createIndex('date', 'date', { unique: false });
-        }
-      };
-    });
-  };
-
-  const closePopup = () => {
-    setIsPopupOpen(false);
-    setSelectedBook(null);
   };
 
   return (
@@ -249,13 +161,12 @@ export default function BookSlider() {
             return (
               <div
                 key={book.id}
-                className="absolute w-80 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out cursor-pointer hover:shadow-2xl hover:scale-110 hover:brightness-110 group"
+                className="absolute w-80 h-80 rounded-lg overflow-hidden shadow-xl transition-all duration-500 ease-out group"
                 style={{
                   transform: `translateX(${translateX}px) scale(${scale})`,
                   zIndex: zIndex,
                   opacity: opacity,
                 }}
-                onClick={() => openBookPopup(book)}
                 onMouseEnter={() => goToBook(index)}
               >
                 {/* Book Image or Gradient Background */}
@@ -293,12 +204,6 @@ export default function BookSlider() {
                   )}
                 </div>
                 
-                {/* Top Right Arrow */}
-                <div className="absolute top-4 right-4 opacity-70 group-hover:opacity-100 transition-opacity duration-300">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17L17 7M17 7H7M17 7V17" />
-                  </svg>
-                </div>
 
                 {/* Content */}
                 <div className="relative h-full p-6 flex flex-col justify-end text-white">
@@ -335,143 +240,6 @@ export default function BookSlider() {
         </div>
       </div>
 
-      {/* Book Popup Modal */}
-      {isPopupOpen && selectedBook && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-300"
-            onClick={closePopup}
-          />
-          
-          {/* Modal Content */}
-          <div className="relative bg-stone-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
-            {/* Close Button */}
-            <button
-              onClick={closePopup}
-              className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/20 hover:bg-black/30 rounded-full flex items-center justify-center transition-colors"
-            >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* Book Content */}
-            <div className="flex flex-col md:flex-row h-full">
-              {/* Book Cover */}
-              <div className={`md:w-2/3 h-80 md:h-auto relative flex items-center justify-center ${
-                selectedBook.isUserComic && (!selectedBook.image || selectedBook.image === '/api/placeholder/400/600') ? `bg-gradient-to-br ${selectedBook.gradient}` : ''
-              }`}>
-                {selectedBook.isUserComic && selectedBook.image && selectedBook.image !== '/api/placeholder/400/600' ? (
-                  // User comic with cover image
-                  <>
-                    <Image 
-                      src={selectedBook.image} 
-                      alt={selectedBook.title}
-                      fill
-                      className="object-cover"
-                    />
-                    {/* Overlay for better text readability */}
-                    <div className="absolute inset-0 bg-black/40" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center text-white p-8">
-                        <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                          {selectedBook.title}
-                        </h2>
-                        <p className="text-lg opacity-90 drop-shadow-md">
-                          by {selectedBook.author}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : selectedBook.isUserComic ? (
-                  // User comic with gradient background (fallback)
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center text-white p-8">
-                      <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                        {selectedBook.title}
-                      </h2>
-                      <p className="text-lg opacity-90 drop-shadow-md">
-                        by {selectedBook.author}
-                      </p>
-                    </div>
-                  </div>
-                ) : selectedBook.image ? (
-                  // Regular book with image
-                  <>
-                    <Image 
-                      src={selectedBook.image} 
-                      alt={selectedBook.title}
-                      fill
-                      className="object-cover"
-                    />
-                    {/* Overlay for better text readability */}
-                    <div className="absolute inset-0 bg-black/40" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center text-white p-8">
-                        <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                          {selectedBook.title}
-                        </h2>
-                        <p className="text-lg opacity-90 drop-shadow-md">
-                          by {selectedBook.author}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  // Regular book with gradient background (fallback)
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center text-white p-8">
-                      <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">
-                        {selectedBook.title}
-                      </h2>
-                      <p className="text-lg opacity-90 drop-shadow-md">
-                        by {selectedBook.author}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Decorative Elements */}
-              </div>
-
-              {/* Book Details */}
-              <div className="md:w-1/3 p-8 flex flex-col justify-center">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-2xl font-bold mb-2 text-white">
-                      Book Details
-                    </h3>
-                    <div className="space-y-3">
-                      <div>
-                        <span className="font-semibold text-stone-400">Title:</span>
-                        <p className="text-stone-100">{selectedBook.title}</p>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-stone-400">Author:</span>
-                        <p className="text-stone-100">{selectedBook.author}</p>
-                      </div>
-                      <div>
-                        <span className="font-semibold text-stone-400">Genre:</span>
-                        <p className="text-stone-100">Featured Comic</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-semibold text-stone-400 mb-2">Description:</h4>
-                    <p className="text-stone-300 leading-relaxed">
-                      Discover this amazing comic story filled with adventure, mystery, and unforgettable characters. 
-                      Perfect for readers who love engaging narratives and beautiful artwork.
-                    </p>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
