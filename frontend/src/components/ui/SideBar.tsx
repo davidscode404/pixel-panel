@@ -18,10 +18,10 @@ interface SidebarProps {
 type Theme = 'light' | 'dark' | 'system'
 
 interface SubscriptionStatus {
-  plan: string;
+  plan_type: string;
   status: string;
-  credits: number;
-  next_billing_date?: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
 }
 
 export default function SideBar({ 
@@ -49,7 +49,7 @@ export default function SideBar({
     starter: 'Starter',
     pro: 'Pro',
     creator: 'Creator',
-    contentMachine: 'Content Machine'
+    content_machine: 'Content Machine'
   };
 
   // Load theme from localStorage on mount
@@ -103,10 +103,15 @@ export default function SideBar({
 
   const fetchSubscriptionStatus = async (forceRefresh = false) => {
     try {
+      const now = Date.now();
+      
       // Check cache first, but allow force refresh
       const cachedStatus = localStorage.getItem('subscriptionStatus');
+      const cacheTimestamp = localStorage.getItem('subscriptionStatusTimestamp');
+      const cacheAge = cacheTimestamp ? now - parseInt(cacheTimestamp) : Infinity;
+      const cacheValid = cacheAge < 300000; // 5 minutes cache validity
 
-      if (cachedStatus && !forceRefresh) {
+      if (cachedStatus && !forceRefresh && cacheValid) {
         setSubscriptionStatus(JSON.parse(cachedStatus));
         return;
       }
@@ -124,8 +129,9 @@ export default function SideBar({
         const status: SubscriptionStatus = await response.json();
         setSubscriptionStatus(status);
         
-        // Cache the subscription status (no timestamp - cache until manually cleared)
+        // Cache the subscription status with timestamp
         localStorage.setItem('subscriptionStatus', JSON.stringify(status));
+        localStorage.setItem('subscriptionStatusTimestamp', now.toString());
       }
     } catch (error) {
       console.error('Error fetching subscription status:', error);
@@ -173,9 +179,10 @@ export default function SideBar({
     if (user && !isLoadingRef.current) {
       isLoadingRef.current = true
       
-      // Only fetch display name once per session
+      // Only fetch display name and subscription status once per session
       if (!isDataLoaded) {
         fetchUserDisplayName()
+        fetchSubscriptionStatus() // Fetch subscription status on initial load
         setIsDataLoaded(true)
       }
       
@@ -218,17 +225,43 @@ export default function SideBar({
     }
   }, [isMinimized])
 
+  // Listen for storage changes and custom events to refresh subscription status
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'subscriptionStatus' && e.newValue === null) {
+        // Subscription status was cleared, refresh it
+        fetchSubscriptionStatus(true)
+      }
+      if (e.key === 'userCredits' && e.newValue === null) {
+        // Credits were cleared, refresh them
+        fetchUserCredits(true)
+      }
+    }
+
+    const handleSubscriptionSync = () => {
+      // Subscription was synced, refresh both status and credits
+      fetchSubscriptionStatus(true)
+      fetchUserCredits(true)
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('subscriptionSynced', handleSubscriptionSync)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('subscriptionSynced', handleSubscriptionSync)
+    }
+  }, [])
+
 
   const toggleUserMenu = () => {
     const newMenuState = !isUserMenuOpen
     setIsUserMenuOpen(newMenuState)
     
-    // Fetch credits and subscription status when opening the menu
+    // Fetch credits when opening the menu (subscription status is always visible)
     if (newMenuState) {
       // Fetch credits (will use cache if valid)
       fetchUserCredits()
-      // Fetch subscription status (will use cache if valid)
-      fetchSubscriptionStatus()
     }
   }
 
@@ -238,6 +271,7 @@ export default function SideBar({
     localStorage.removeItem('userCredits')
     localStorage.removeItem('userCreditsTimestamp')
     localStorage.removeItem('subscriptionStatus')
+    localStorage.removeItem('subscriptionStatusTimestamp')
     setIsDataLoaded(false)
     signOut()
     setIsUserMenuOpen(false)
@@ -563,7 +597,7 @@ export default function SideBar({
                     {userDisplayName || user?.email?.split('@')[0] || 'User'}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
-                    {planNames[subscriptionStatus?.plan || 'free'] || 'Free'} Plan
+                    {planNames[subscriptionStatus?.plan_type || 'free'] || 'Free'} Plan
                   </p>
                 </div>
                 {getIcon(isUserMenuOpen ? 'chevronUp' : 'chevronDown')}
@@ -583,14 +617,14 @@ export default function SideBar({
                     <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Credits</span>
                   </div>
                   <div className="flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm" style={{ backgroundColor: '#f97316', color: 'white' }}>
-                    {creditsLoading ? '...' : credits !== null ? credits : subscriptionStatus?.credits || 0}
+                    {creditsLoading ? '...' : credits !== null ? credits : 0}
                   </div>
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
                     <span style={{ color: 'var(--foreground-secondary)' }}>Plan</span>
                     <span style={{ color: 'var(--foreground)' }}>
-                      {planNames[subscriptionStatus?.plan || 'free'] || 'Free'}
+                      {planNames[subscriptionStatus?.plan_type || 'free'] || 'Free'}
                     </span>
                   </div>
                 </div>

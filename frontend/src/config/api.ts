@@ -2,13 +2,13 @@
 // Change this port to easily switch between different backend servers
 export const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL,
-  // BASE_URL: 'http://localhost:8000', // Use this for development
+  // BASE_URL: 'http://localhost:8000', 
   ENDPOINTS: {
     // New modular API endpoints
     GENERATE: '/api/comics/generate',
     SAVE_COMIC: '/api/comics/save-comic',
     MY_COMICS: '/api/comics/user-comics',
-    USER_COMICS: '/api/comics/user-comics',  // Alias for MY_COMICS
+    USER_COMICS: '/api/comics/user-comics', 
     PUBLIC_COMICS: '/api/comics/public-comics',
     LIST_COMICS: '/api/comics/list-comics',  // New endpoint for saved-comics directory
     GENERATE_VOICE: '/api/voice-over/generate-voiceover',

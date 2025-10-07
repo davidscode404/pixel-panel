@@ -19,9 +19,12 @@ interface SubscriptionPlan {
 }
 
 interface SubscriptionStatus {
-  plan: string;
+  plan_type: string;
   status: string;
-  credits: number;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  current_period_start?: string;
+  current_period_end?: string;
   next_billing_date?: string;
 }
 
@@ -54,27 +57,38 @@ const subscriptionPlans: SubscriptionPlan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 19.99,
-    credits: 2800,
+    price: 9.99,
+    credits: 1200,
     popular: true,
     features: [
-      '2800 credits per month',
-      'Premium comic generation',
-      'Advanced voice features',
-      'Custom character training',
+      '1200 credits per month',
+      'Premium features',
+      'Advanced voice',
+      'Custom training',
       'Priority support'
     ]
   },
   {
     id: 'creator',
     name: 'Creator',
+    price: 19.99,
+    credits: 2800,
+    features: [
+      '2800 credits per month',
+      'All Pro features',
+      'Enhanced capabilities',
+      'Priority support'
+    ]
+  },
+  {
+    id: 'content_machine',
+    name: 'Content Machine',
     price: 49.99,
     credits: 8000,
     features: [
       '8000 credits per month',
-      'Premium comic generation',
-      'Advanced voice features',
-      'Custom character training',
+      'Maximum credits',
+      'All premium features',
       'Priority support'
     ]
   }
@@ -88,6 +102,7 @@ export default function BillingPage() {
   const [credits, setCredits] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPackage, setSelectedPackage] = useState<string>('credits_1200'); // Default to pro plan
+  const [syncing, setSyncing] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -119,12 +134,15 @@ export default function BillingPage() {
 
       // Check cache for subscription status first
       const cachedSubscriptionStatus = localStorage.getItem('subscriptionStatus');
+      const subscriptionCacheTimestamp = localStorage.getItem('subscriptionStatusTimestamp');
+      const subscriptionCacheAge = subscriptionCacheTimestamp ? now - parseInt(subscriptionCacheTimestamp) : Infinity;
+      const subscriptionCacheValid = subscriptionCacheAge < 300000; // 5 minutes cache validity
 
-      if (cachedSubscriptionStatus) {
+      if (cachedSubscriptionStatus && subscriptionCacheValid) {
         const status: SubscriptionStatus = JSON.parse(cachedSubscriptionStatus);
         console.log('📊 Using cached subscription status:', status);
         setSubscriptionStatus(status);
-        setCurrentPlan(status.plan);
+        setCurrentPlan(status.plan_type);
       } else {
         // Fetch subscription status from backend
         console.log('🌐 Making API call to:', buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS));
@@ -139,10 +157,11 @@ export default function BillingPage() {
           const status: SubscriptionStatus = await subscriptionResponse.json();
           console.log('📊 Subscription status response:', status);
           setSubscriptionStatus(status);
-          setCurrentPlan(status.plan);
+          setCurrentPlan(status.plan_type);
           
-          // Cache the subscription status (no timestamp - cache until manually cleared)
+          // Cache the subscription status with timestamp
           localStorage.setItem('subscriptionStatus', JSON.stringify(status));
+          localStorage.setItem('subscriptionStatusTimestamp', now.toString());
         } else {
           // Fallback to free plan if API fails
           setCurrentPlan('free');
@@ -200,7 +219,7 @@ export default function BillingPage() {
       starter: 'credits_500',
       pro: 'credits_1200',
       creator: 'credits_2800',
-      contentMachine: 'credits_8000'
+      content_machine: 'credits_8000'
     };
 
     const packageId = planToPackageMap[planId as keyof typeof planToPackageMap];
@@ -215,6 +234,7 @@ export default function BillingPage() {
   const handlePurchaseSuccess = () => {
     // Clear subscription status cache since subscription may have changed
     localStorage.removeItem('subscriptionStatus');
+    localStorage.removeItem('subscriptionStatusTimestamp');
     
     // Refresh credits after successful purchase
     fetchCurrentPlan();
@@ -222,6 +242,54 @@ export default function BillingPage() {
     // Show success message
     alert('Payment successful! Your credits have been added to your account.');
   };
+
+  const handleSyncSubscription = async () => {
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Please log in to sync your subscription');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/api/stripe/sync-customer-subscription'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Sync result:', result);
+        
+        // Clear caches and refresh data
+        localStorage.removeItem('subscriptionStatus');
+        localStorage.removeItem('subscriptionStatusTimestamp');
+        localStorage.removeItem('userCredits');
+        localStorage.removeItem('userCreditsTimestamp');
+        
+        // Refresh the page data
+        await fetchCurrentPlan();
+        
+        // Dispatch custom event to notify sidebar to refresh
+        window.dispatchEvent(new CustomEvent('subscriptionSynced'));
+        
+        alert(`Subscription synced successfully! Plan: ${result.plan_type}, Status: ${result.status}`);
+      } else {
+        const error = await response.json();
+        console.error('Sync error:', error);
+        alert(`Failed to sync subscription: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error syncing subscription:', error);
+      alert('Failed to sync subscription. Please try again.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
 
   if (loading) {
     return <LoadingSpinner message="Loading billing information..." fullPage />;
@@ -278,22 +346,50 @@ export default function BillingPage() {
           <div>
             <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Current Plan</h2>
             <p style={{ color: 'var(--foreground-secondary)' }}>You're currently on the {subscriptionPlans.find(p => p.id === currentPlan)?.name} plan</p>
-            {subscriptionStatus?.status && (
+            {/* {subscriptionStatus?.status && (
               <p className="text-xs mt-1" style={{ color: 'var(--foreground-muted)' }}>Status: {subscriptionStatus.status}</p>
-            )}
+            )} */}
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold" style={{ color: 'var(--accent)' }}>
               ${subscriptionPlans.find(p => p.id === currentPlan)?.price}/month
             </div>
             <div className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              {subscriptionStatus?.credits || subscriptionPlans.find(p => p.id === currentPlan)?.credits} credits
+              {subscriptionPlans.find(p => p.id === currentPlan)?.credits} credits per month
             </div>
-            {subscriptionStatus?.next_billing_date && (
+            {subscriptionStatus?.current_period_start && subscriptionStatus?.current_period_end && (
               <div className="text-xs mt-1" style={{ color: 'var(--foreground-muted)' }}>
-                Next billing: {new Date(subscriptionStatus.next_billing_date).toLocaleDateString()}
+                Billing period: {new Date(subscriptionStatus.current_period_start).toLocaleDateString()} - {new Date(subscriptionStatus.current_period_end).toLocaleDateString()}
               </div>
             )}
+            {subscriptionStatus?.next_billing_date && (
+              <div className="text-xs mt-1" style={{ color: 'var(--foreground-muted)' }}>
+                Next charge: {new Date(subscriptionStatus.next_billing_date).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Restore Purchase Button */}
+        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Restore Purchase</h3>
+              <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
+                If you've made a payment but your status hasn't updated, click here to restore your purchase
+              </p>
+            </div>
+            <button
+              onClick={handleSyncSubscription}
+              disabled={syncing}
+              className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: syncing ? 'var(--foreground-muted)' : 'var(--accent)',
+                color: 'var(--foreground-on-accent)'
+              }}
+            >
+              {syncing ? 'Restoring...' : 'Restore Purchase'}
+            </button>
           </div>
         </div>
       </div>
