@@ -34,7 +34,6 @@ export default function SideBar({
   const router = useRouter()
   const { user, signOut } = useAuth()
   const [theme, setTheme] = useState<Theme>('system')
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [credits, setCredits] = useState<number | null>(null)
   const [creditsLoading, setCreditsLoading] = useState(false)
@@ -123,39 +122,27 @@ export default function SideBar({
     }
     
     localStorage.setItem('theme', theme)
+    
+    // Clear any stuck hover states when theme changes (only for buttons in the user menu)
+    const userMenuButtons = document.querySelectorAll('.user-menu button, .user-menu a')
+    userMenuButtons.forEach(el => {
+      if (el.style.backgroundColor && el.style.backgroundColor !== 'transparent') {
+        el.style.setProperty('background-color', 'transparent', 'important')
+      }
+    })
   }, [theme])
 
-  // Handle click outside to close menus
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (isThemeMenuOpen) {
-        const target = event.target as Element
-        if (!target.closest('.theme-menu')) {
-          setIsThemeMenuOpen(false)
-        }
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isThemeMenuOpen])
 
   // Close menus when sidebar is minimized
   useEffect(() => {
     if (isMinimized) {
       setIsUserMenuOpen(false)
-      setIsThemeMenuOpen(false)
     }
   }, [isMinimized])
 
-  const handleThemeChange = (newTheme: Theme) => {
-    setTheme(newTheme)
-    setIsThemeMenuOpen(false)
-  }
 
   const toggleUserMenu = () => {
     setIsUserMenuOpen(!isUserMenuOpen)
-    setIsThemeMenuOpen(false)
   }
 
   const handleSignOut = () => {
@@ -451,19 +438,25 @@ export default function SideBar({
             onClick={toggleUserMenu}
             className={`w-full flex items-center transition-all duration-300 ${
               isMinimized ? 'justify-center' : 'space-x-3'
-            } p-3 rounded-lg transition-colors ${
-              isUserMenuOpen 
-                ? 'bg-stone-200 dark:bg-stone-700' 
-                : 'hover:bg-stone-200 dark:hover:bg-stone-700'
-            }`}
+            } p-3 rounded-lg transition-colors`}
             style={{ 
               backgroundColor: isUserMenuOpen ? 'var(--background-tertiary)' : 'transparent',
               color: 'var(--foreground)'
             }}
+            onMouseEnter={(e) => {
+              if (!isUserMenuOpen) {
+                e.currentTarget.style.backgroundColor = 'var(--background-tertiary)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isUserMenuOpen) {
+                e.currentTarget.style.backgroundColor = 'transparent'
+              }
+            }}
             title={isMinimized ? 'User Profile' : undefined}
           >
-            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>
-              <span className="text-sm font-medium" style={{ color: 'var(--foreground-on-accent)' }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#f97316' }}>
+              <span className="text-sm font-medium" style={{ color: 'white' }}>
                 {getUserInitials()}
               </span>
             </div>
@@ -485,7 +478,7 @@ export default function SideBar({
 
         {/* Expanded User Menu - positioned absolutely above the button */}
         {isUserMenuOpen && !isMinimized && (
-          <div className="absolute bottom-full left-2 right-2 p-2 shadow-lg rounded-lg z-50" style={{ backgroundColor: 'var(--background-card)', border: '1px solid var(--border)' }}>
+          <div className="user-menu absolute bottom-full left-2 right-2 p-2 shadow-lg rounded-lg z-50" style={{ backgroundColor: 'var(--background-card)', border: '1px solid var(--border)' }}>
             <div className="space-y-4">
               {/* Credits Section */}
               <div className="p-3 rounded-lg shadow-sm" style={{ backgroundColor: 'var(--background-secondary)', border: '1px solid var(--border)' }}>
@@ -493,7 +486,7 @@ export default function SideBar({
                   <div className="flex items-center space-x-2">
                     <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Credits</span>
                   </div>
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm" style={{ backgroundColor: 'var(--accent)', color: 'var(--foreground-on-accent)' }}>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm" style={{ backgroundColor: '#f97316', color: 'white' }}>
                     {creditsLoading ? '...' : credits !== null ? credits : subscriptionStatus?.credits || 0}
                   </div>
                 </div>
@@ -510,82 +503,70 @@ export default function SideBar({
               {/* Menu Items */}
               <div className="space-y-1">
 
-                <div className="relative">
-                  <div 
-                    onMouseEnter={() => setIsThemeMenuOpen(true)}
-                    onMouseLeave={() => setIsThemeMenuOpen(false)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
-                    style={{ color: 'var(--foreground)' }}
-                  >
-                    <span className="flex items-center space-x-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                      </svg>
-                      <span>Theme</span>
-                    </span>
-                    {getIcon(isThemeMenuOpen ? 'chevronLeft' : 'chevronRight')}
-                  </div>
-
-                  {isThemeMenuOpen && (
-                    <>
-                      {/* Invisible bridge to maintain hover */}
-                      <div 
-                        className="absolute left-full top-0 w-4 h-10 z-40" 
-                        onMouseEnter={() => setIsThemeMenuOpen(true)}
-                        onMouseLeave={() => setIsThemeMenuOpen(false)}
-                      />
-                      <div 
-                        className="absolute left-full top-0 ml-4 rounded-lg shadow-lg overflow-hidden min-w-[120px] z-50" 
-                        style={{ backgroundColor: 'var(--background-card)', border: '1px solid var(--border)' }}
-                        onMouseEnter={() => setIsThemeMenuOpen(true)}
-                        onMouseLeave={() => setIsThemeMenuOpen(false)}
-                      >
-              <button
-                onClick={() => handleThemeChange('light')}
-                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm transition-colors rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700"
-                        style={{ color: 'var(--foreground)' }}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span>Light</span>
-              </button>
-              <button
-                onClick={() => handleThemeChange('dark')}
-                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm transition-colors rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700"
-                        style={{ color: 'var(--foreground)' }}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-                <span>Dark</span>
-              </button>
-              <button
-                onClick={() => handleThemeChange('system')}
-                        className="w-full flex items-center space-x-2 px-3 py-2 text-sm transition-colors rounded-lg hover:bg-stone-200 dark:hover:bg-stone-700"
-                        style={{ color: 'var(--foreground)' }}
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <span>System</span>
-              </button>
-            </div>
-                    </>
-          )}
-        </div>
+                <button 
+                  onClick={() => {
+                    const themes: Theme[] = ['light', 'dark', 'system']
+                    const currentIndex = themes.indexOf(theme)
+                    const nextIndex = (currentIndex + 1) % themes.length
+                    setTheme(themes[nextIndex])
+                  }}
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
+                  style={{ color: 'var(--foreground)' }}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
+                >
+                  {getThemeIcon()}
+                  <span>Theme</span>
+                </button>
 
                 <button 
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   {getIcon('language')}
                   <span>Language</span>
                 </button>
 
                 <button 
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   {getIcon('help')}
                   <span>Get help</span>
@@ -593,9 +574,22 @@ export default function SideBar({
 
                 <Link 
                   href="/app/profile"
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   {getIcon('upgrade')}
                   <span>Upgrade plan</span>
@@ -603,9 +597,22 @@ export default function SideBar({
 
                 <Link 
                   href="/app/billing"
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -615,9 +622,22 @@ export default function SideBar({
 
                 <Link 
                   href="/privacy-policy"
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   {getIcon('learn')}
                   <span>Privacy Policy</span>
@@ -625,9 +645,22 @@ export default function SideBar({
 
           <Link
                   href="/terms-of-service"
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   {getIcon('learn')}
                   <span>Terms of Service</span>
@@ -637,8 +670,21 @@ export default function SideBar({
 
                 <button 
                   onClick={handleSignOut}
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors hover:bg-stone-200 dark:hover:bg-stone-700"
+                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
+                  onMouseEnter={(e) => {
+                    // Check if dark class is applied to the document root
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
+                  }}
+                  onMouseMove={(e) => {
+                    // Re-evaluate theme on mouse move to handle theme changes while hovering
+                    const isDark = document.documentElement.classList.contains('dark')
+                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
+                  }}
                 >
                   {getIcon('logout')}
                   <span>Log out</span>

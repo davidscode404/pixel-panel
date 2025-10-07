@@ -209,7 +209,7 @@ export default function BillingPage() {
       <div className="p-6 rounded-lg border mb-8" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-6">
-            <div className="flex items-center justify-center w-20 h-20 rounded-full font-bold text-3xl" style={{ backgroundColor: 'var(--accent)', color: 'var(--foreground-on-accent)' }}>
+            <div className="flex items-center justify-center w-20 h-20 rounded-full font-bold text-3xl" style={{ backgroundColor: '#f97316', color: 'white' }}>
               {credits !== null ? credits : '0'}
             </div>
             <div>
@@ -383,7 +383,14 @@ export default function BillingPage() {
           <div>
             <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>What happens to unused credits?</h4>
             <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              Credits roll over to the next month, so you never lose what you've paid for. Credits expire after 12 months of inactivity.
+              Unused credits are always preserved and added to your account. When your subscription renews each month, you get a new allotment of credits that are added to your existing balance. You never lose credits you've paid for.
+            </p>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>What happens when I upgrade my plan?</h4>
+            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
+              When you upgrade your plan, you keep all your existing credits. Your new monthly credit allotment will be added to your current balance starting from your next billing cycle.
             </p>
           </div>
           
@@ -391,6 +398,13 @@ export default function BillingPage() {
             <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Can I change my plan anytime?</h4>
             <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
               Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any differences.
+            </p>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>What happens if I downgrade or cancel?</h4>
+            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
+              If you downgrade or cancel your subscription, you keep all your existing credits and can continue using them. However, you won't receive new monthly credit allotments until you resubscribe.
             </p>
           </div>
           
