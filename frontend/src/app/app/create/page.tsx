@@ -560,7 +560,7 @@ export default function CreatePage() {
       {!zoomedPanel ? (
         <div className="h-full flex flex-col">
           <ActionBar onCreate={createComic} />
-          <div className="flex-1 p-6 overflow-hidden">
+          <div className="flex-1 p-2 sm:p-4 lg:p-6 overflow-hidden">
             <PanelGrid 
               panels={panels}
               onPanelClick={handlePanelClick}
@@ -570,13 +570,13 @@ export default function CreatePage() {
         </div>
       ) : (
         // Zoomed Panel View with Drawing Toolbar
-        <div className="h-full flex">
+        <div className="h-full flex flex-col lg:flex-row">
           {/* Canvas Area */}
           <div className="flex-1 flex flex-col">
-            <div className="flex-shrink-0 p-6 flex justify-between items-center">
+            <div className="flex-shrink-0 p-4 lg:p-6 flex justify-between items-center">
               <button
                 onClick={() => handlePanelClick(zoomedPanel.id)}
-                className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-4 lg:px-6 shadow-xl hover:shadow-2xl hover:scale-105"
               >
                 <svg 
                   className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
@@ -586,22 +586,24 @@ export default function CreatePage() {
               >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                 </svg>
-                Back to Canvas
+                <span className="hidden sm:inline">Back to Canvas</span>
+                <span className="sm:hidden">Back</span>
               </button>
-              <h2 className="text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-3">
-                <div className="w-8 h-8 bg-accent backdrop-blur-sm flex items-center justify-center text-sm font-bold text-foreground-inverse border-2 border-black">
+              <h2 className="text-lg lg:text-xl font-bold text-foreground drop-shadow-lg flex items-center gap-2 lg:gap-3">
+                <div className="w-6 h-6 lg:w-8 lg:h-8 bg-accent backdrop-blur-sm flex items-center justify-center text-xs lg:text-sm font-bold text-foreground-inverse border-2 border-black">
                   {zoomedPanel.id}
                 </div>
-                Panel {zoomedPanel.id}
+                <span className="hidden sm:inline">Panel {zoomedPanel.id}</span>
+                <span className="sm:hidden">P{zoomedPanel.id}</span>
               </h2>
             </div>
             
-            <div className="flex-1 flex items-center justify-center p-4 min-w-0 min-h-0">
+            <div className="flex-1 flex items-center justify-center p-2 lg:p-4 min-w-0 min-h-0">
               <canvas
                 ref={zoomedPanel.canvasRef}
                 width={800}
                 height={600}
-                className="bg-white border-4 border-black shadow-lg"
+                className="bg-white border-2 lg:border-4 border-black shadow-lg"
                 style={{ 
                   maxWidth: '100%',
                   maxHeight: '100%',
@@ -619,8 +621,8 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* Drawing Tools Panel - Right Side - Full Height */}
-          <div className="w-80 flex flex-col h-full p-4">
+          {/* Drawing Tools Panel - Right Side on desktop, Bottom on mobile */}
+          <div className="w-full lg:w-80 flex flex-col h-auto lg:h-full p-2 lg:p-4 border-t lg:border-t-0 lg:border-l border-border">
             <DrawingToolbar
               currentTool={currentTool}
               onToolChange={handleToolChange}
