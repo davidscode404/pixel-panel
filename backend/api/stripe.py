@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 import stripe
+from stripe import error as stripe_error
 import os
 import logging
 import json
@@ -239,7 +240,7 @@ async def create_checkout_session(
             url=session.url
         )
         
-    except stripe.error.StripeError as e:
+    except stripe_error.StripeError as e:
         logger.error(f"Stripe error creating checkout session: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -335,11 +336,52 @@ async def handle_subscription_created(subscription_data):
     customer_id = subscription_data.get("customer")
     subscription_id = subscription_data.get("id")
     
+    if not customer_id:
+        logger.error("No customer_id in subscription data")
+        return
+    
     # Find user by customer_id
     result = supabase.table("user_profiles").select("*").eq("stripe_customer_id", customer_id).execute()
     
     if not result.data:
-        logger.warning(f"No user found for customer {customer_id}")
+        # For new customers, we need to get the customer details from Stripe
+        # and create a user profile if possible
+        try:
+            customer = stripe.Customer.retrieve(customer_id)
+            user_email = customer.get("email")
+            
+            if not user_email:
+                logger.warning(f"No email found for customer {customer_id}, cannot create user profile")
+                return
+            
+            # Try to find user by email in auth system
+            auth_result = supabase.auth.admin.list_users()
+            user_id = None
+            
+            for user in auth_result:
+                if user.email == user_email:
+                    user_id = user.id
+                    break
+            
+            if not user_id:
+                logger.warning(f"No user found with email {user_email} for customer {customer_id}")
+                return
+            
+            # Create user profile for new customer
+            await get_or_create_user_profile(user_id, customer_id)
+            logger.info(f"Created user profile for new customer {customer_id} with user_id {user_id}")
+            
+        except Exception as e:
+            logger.error(f"Error handling new customer {customer_id}: {e}")
+            return
+    
+    # Get user_id from existing profile or newly created one
+    if not result.data:
+        # Re-query after potentially creating the profile
+        result = supabase.table("user_profiles").select("*").eq("stripe_customer_id", customer_id).execute()
+    
+    if not result.data:
+        logger.error(f"Still no user profile found for customer {customer_id}")
         return
     
     user_id = result.data[0]["user_id"]
@@ -496,7 +538,7 @@ async def create_customer_portal_session(
         
         return CustomerPortalResponse(url=session.url)
         
-    except stripe.error.StripeError as e:
+    except stripe_error.StripeError as e:
         logger.error(f"Stripe error creating portal session: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -630,7 +672,7 @@ async def sync_customer_subscription(
             "stripe_subscription_id": subscription_id
         }
         
-    except stripe.error.StripeError as e:
+    except stripe_error.StripeError as e:
         logger.error(f"Stripe error syncing subscription: {e}")
         raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
     except Exception as e:
