@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
@@ -19,6 +19,7 @@ export default function MyComicsPage() {
   const [selectedComic, setSelectedComic] = useState<Comic | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [autoPlay, setAutoPlay] = useState(false)
+  const isLoadingRef = useRef(false)
 
   const supabase = createClient()
 
@@ -48,7 +49,12 @@ export default function MyComicsPage() {
   };
 
   const fetchUserAndComics = async () => {
+    if (isLoadingRef.current) return; // Prevent duplicate calls
+    
     try {
+      isLoadingRef.current = true;
+      setLoading(true);
+      
       // Clear any previous errors
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -86,7 +92,8 @@ export default function MyComicsPage() {
     } catch (error) {
       // Error loading comics
     } finally {
-      setLoading(false)
+      setLoading(false);
+      isLoadingRef.current = false;
     }
   }
 
@@ -147,6 +154,7 @@ export default function MyComicsPage() {
 
   const handleComicDeleted = () => {
     // Refresh the comics list after deletion
+    isLoadingRef.current = false; // Reset the loading flag to allow refresh
     fetchUserAndComics();
   };
 

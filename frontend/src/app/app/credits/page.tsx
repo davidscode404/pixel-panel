@@ -16,8 +16,21 @@ export default function CreditsPage() {
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
-  const fetchUserCredits = useCallback(async () => {
+  const fetchUserCredits = useCallback(async (forceRefresh = false) => {
     try {
+      // Check cache first, but allow force refresh
+      const cachedCredits = localStorage.getItem('userCredits');
+      const cacheTimestamp = localStorage.getItem('userCreditsTimestamp');
+      const now = Date.now();
+      const cacheAge = cacheTimestamp ? now - parseInt(cacheTimestamp) : Infinity;
+      const cacheValid = cacheAge < 300000; // 5 minutes cache validity
+
+      if (cachedCredits && !forceRefresh && cacheValid) {
+        setCredits(parseInt(cachedCredits));
+        setLoading(false);
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session found');
@@ -35,7 +48,12 @@ export default function CreditsPage() {
       }
 
       const data = await response.json();
-      setCredits(data.credits || 0);
+      const creditsValue = data.credits || 0;
+      setCredits(creditsValue);
+      
+      // Cache the credits
+      localStorage.setItem('userCredits', creditsValue.toString());
+      localStorage.setItem('userCreditsTimestamp', now.toString());
     } catch (error) {
       setCredits(0); // Default to 0 if fetch fails
     } finally {
@@ -50,8 +68,8 @@ export default function CreditsPage() {
   }, [user, fetchUserCredits]);
 
   const handlePurchaseSuccess = () => {
-    // Refresh credits after successful purchase
-    fetchUserCredits();
+    // Force refresh credits after successful purchase
+    fetchUserCredits(true);
   };
 
   if (loading) {

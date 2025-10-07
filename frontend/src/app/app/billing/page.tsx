@@ -115,38 +115,68 @@ export default function BillingPage() {
       }
       console.log('✅ Session token found');
 
-      // Fetch subscription status from backend
-      console.log('🌐 Making API call to:', buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS));
-      const subscriptionResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS), {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-      console.log('📡 Response status:', subscriptionResponse.status);
+      const now = Date.now();
 
-      if (subscriptionResponse.ok) {
-        const status: SubscriptionStatus = await subscriptionResponse.json();
-        console.log('📊 Subscription status response:', status);
+      // Check cache for subscription status first
+      const cachedSubscriptionStatus = localStorage.getItem('subscriptionStatus');
+
+      if (cachedSubscriptionStatus) {
+        const status: SubscriptionStatus = JSON.parse(cachedSubscriptionStatus);
+        console.log('📊 Using cached subscription status:', status);
         setSubscriptionStatus(status);
         setCurrentPlan(status.plan);
       } else {
-        // Fallback to free plan if API fails
-        setCurrentPlan('free');
+        // Fetch subscription status from backend
+        console.log('🌐 Making API call to:', buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS));
+        const subscriptionResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.STRIPE_SUBSCRIPTION_STATUS), {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+        console.log('📡 Response status:', subscriptionResponse.status);
+
+        if (subscriptionResponse.ok) {
+          const status: SubscriptionStatus = await subscriptionResponse.json();
+          console.log('📊 Subscription status response:', status);
+          setSubscriptionStatus(status);
+          setCurrentPlan(status.plan);
+          
+          // Cache the subscription status (no timestamp - cache until manually cleared)
+          localStorage.setItem('subscriptionStatus', JSON.stringify(status));
+        } else {
+          // Fallback to free plan if API fails
+          setCurrentPlan('free');
+        }
       }
 
-      // Fetch credits data
-      const creditsResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_CREDITS), {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+      // Use cached credits from localStorage (set by SideBar)
+      const cachedCredits = localStorage.getItem('userCredits');
+      const cacheTimestamp = localStorage.getItem('userCreditsTimestamp');
+      const cacheAge = cacheTimestamp ? now - parseInt(cacheTimestamp) : Infinity;
+      const cacheValid = cacheAge < 300000; // 5 minutes cache validity
 
-      if (creditsResponse.ok) {
-        const creditsData = await creditsResponse.json();
-        setCredits(creditsData.credits || 0);
+      if (cachedCredits && cacheValid) {
+        setCredits(parseInt(cachedCredits));
       } else {
-        setCredits(0);
+        // Only fetch if cache is invalid or missing
+        const creditsResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_CREDITS), {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (creditsResponse.ok) {
+          const creditsData = await creditsResponse.json();
+          const creditsValue = creditsData.credits || 0;
+          setCredits(creditsValue);
+          
+          // Cache the credits
+          localStorage.setItem('userCredits', creditsValue.toString());
+          localStorage.setItem('userCreditsTimestamp', now.toString());
+        } else {
+          setCredits(0);
+        }
       }
     } catch (error) {
       console.error('Error fetching current plan:', error);
@@ -183,6 +213,9 @@ export default function BillingPage() {
   };
 
   const handlePurchaseSuccess = () => {
+    // Clear subscription status cache since subscription may have changed
+    localStorage.removeItem('subscriptionStatus');
+    
     // Refresh credits after successful purchase
     fetchCurrentPlan();
     
@@ -221,16 +254,31 @@ export default function BillingPage() {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => router.push('/app/credits')}
-            className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
-            style={{
-              backgroundColor: 'var(--accent)',
-              color: 'var(--foreground-on-accent)'
-            }}
-          >
-            Purchase Credits
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/app/credits')}
+              className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: 'var(--foreground-on-accent)'
+              }}
+            >
+              Purchase Credits
+            </button>
+            <button
+              onClick={() => {
+                // Redirect to Stripe billing portal
+                window.open('https://billing.stripe.com/p/login/8x2aER4m93o2cWX8Om0Jq00', '_blank');
+              }}
+              className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: 'var(--foreground-on-accent)'
+              }}
+            >
+              Manage Subscription
+            </button>
+          </div>
         </div>
       </div>
 
@@ -261,14 +309,7 @@ export default function BillingPage() {
       </div>
 
       {/* Upgrade Your Plan Section */}
-      <div className="p-6 rounded-lg border mb-8" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
-        <h3 className="text-2xl font-bold mb-6 text-center" style={{ color: 'var(--foreground)' }}>
-          Upgrade Your Plan
-        </h3>
-        <p className="text-center mb-8 text-lg" style={{ color: 'var(--foreground-secondary)' }}>
-          Get more credits and premium features with our billing plans
-        </p>
-        
+      <div id="subscription-management" className="mb-8">
         <StripeProvider>
           <CreditsPurchase onSuccess={handlePurchaseSuccess} selectedPackage={selectedPackage} />
         </StripeProvider>

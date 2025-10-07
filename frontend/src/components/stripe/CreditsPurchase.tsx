@@ -63,8 +63,14 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="p-8 rounded-lg border" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
+    <div className="p-8 rounded-lg border" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
+        <h3 className="text-2xl font-bold mb-6 text-center" style={{ color: 'var(--foreground)' }}>
+          Upgrade Your Plan
+        </h3>
+        <p className="text-center mb-8 text-lg" style={{ color: 'var(--foreground-secondary)' }}>
+          Get more credits and premium features with our billing plans
+        </p>
+        
         <div className="flex items-center justify-center mb-6">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: 'var(--success)', color: 'white' }}>
             <span>Secure Payment</span>
@@ -161,7 +167,6 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
             <span>Powered by Stripe</span>
           </div>
         </div>
-      </div>
     </div>
   );
 }

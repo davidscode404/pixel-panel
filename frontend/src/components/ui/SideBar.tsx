@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/components/auth/AuthProvider'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { buildApiUrl, API_CONFIG } from '@/config/api'
 
@@ -38,6 +38,9 @@ export default function SideBar({
   const [credits, setCredits] = useState<number | null>(null)
   const [creditsLoading, setCreditsLoading] = useState(false)
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null)
+  const [userDisplayName, setUserDisplayName] = useState<string | null>(null)
+  const [isDataLoaded, setIsDataLoaded] = useState(false)
+  const isLoadingRef = useRef(false)
   const supabase = createClient()
 
   // Plan name mapping for proper capitalization
@@ -57,9 +60,23 @@ export default function SideBar({
     }
   }, [])
 
-  const fetchUserCredits = async () => {
+  const fetchUserCredits = async (forceRefresh = false) => {
     try {
       setCreditsLoading(true)
+      
+      // Check cache first, but allow force refresh
+      const cachedCredits = localStorage.getItem('userCredits')
+      const cacheTimestamp = localStorage.getItem('userCreditsTimestamp')
+      const now = Date.now()
+      const cacheAge = cacheTimestamp ? now - parseInt(cacheTimestamp) : Infinity
+      const cacheValid = cacheAge < 60000 // 1 minute cache validity
+      
+      if (cachedCredits && !forceRefresh && cacheValid) {
+        setCredits(parseInt(cachedCredits))
+        setCreditsLoading(false)
+        return
+      }
+
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
@@ -72,7 +89,10 @@ export default function SideBar({
 
       if (response.ok) {
         const data = await response.json()
-        setCredits(data.credits || 0)
+        const creditsValue = data.credits || 0
+        setCredits(creditsValue)
+        localStorage.setItem('userCredits', creditsValue.toString())
+        localStorage.setItem('userCreditsTimestamp', now.toString())
       }
     } catch (error) {
       // Error fetching credits
@@ -81,8 +101,16 @@ export default function SideBar({
     }
   }
 
-  const fetchSubscriptionStatus = async () => {
+  const fetchSubscriptionStatus = async (forceRefresh = false) => {
     try {
+      // Check cache first, but allow force refresh
+      const cachedStatus = localStorage.getItem('subscriptionStatus');
+
+      if (cachedStatus && !forceRefresh) {
+        setSubscriptionStatus(JSON.parse(cachedStatus));
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) return;
 
@@ -95,20 +123,69 @@ export default function SideBar({
       if (response.ok) {
         const status: SubscriptionStatus = await response.json();
         setSubscriptionStatus(status);
+        
+        // Cache the subscription status (no timestamp - cache until manually cleared)
+        localStorage.setItem('subscriptionStatus', JSON.stringify(status));
       }
     } catch (error) {
       console.error('Error fetching subscription status:', error);
     }
   };
 
-  // Fetch user credits and subscription status - only once when user is available
+  const fetchUserDisplayName = async () => {
+    try {
+      // Check cache first
+      const cachedName = localStorage.getItem('userDisplayName');
+      if (cachedName) {
+        setUserDisplayName(cachedName);
+        return;
+      }
+
+      // Only fetch if we don't have a cached name
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_PROFILE), {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        const name = userData.name || null;
+        setUserDisplayName(name);
+        
+        // Cache the name
+        if (name) {
+          localStorage.setItem('userDisplayName', name);
+        } else {
+          localStorage.removeItem('userDisplayName');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user display name:', error);
+    }
+  };
+
+  // Fetch display name on load, credits and subscription status only when menu opens
   useEffect(() => {
-    if (user) {
-      fetchUserCredits()
-      fetchSubscriptionStatus()
+    if (user && !isLoadingRef.current) {
+      isLoadingRef.current = true
+      
+      // Only fetch display name once per session
+      if (!isDataLoaded) {
+        fetchUserDisplayName()
+        setIsDataLoaded(true)
+      }
+      
+      // Reset loading flag after a short delay to allow for future loads
+      setTimeout(() => {
+        isLoadingRef.current = false
+      }, 1000)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user?.id]) // Only depend on user ID, not the entire user object
 
   // Apply theme changes
   useEffect(() => {
@@ -142,15 +219,33 @@ export default function SideBar({
 
 
   const toggleUserMenu = () => {
-    setIsUserMenuOpen(!isUserMenuOpen)
+    const newMenuState = !isUserMenuOpen
+    setIsUserMenuOpen(newMenuState)
+    
+    // Fetch credits and subscription status when opening the menu
+    if (newMenuState) {
+      // Fetch credits (will use cache if valid)
+      fetchUserCredits()
+      // Fetch subscription status (will use cache if valid)
+      fetchSubscriptionStatus()
+    }
   }
 
   const handleSignOut = () => {
+    // Clear all cached data
+    localStorage.removeItem('userDisplayName')
+    localStorage.removeItem('userCredits')
+    localStorage.removeItem('userCreditsTimestamp')
+    localStorage.removeItem('subscriptionStatus')
+    setIsDataLoaded(false)
     signOut()
     setIsUserMenuOpen(false)
   }
 
   const getUserInitials = () => {
+    if (userDisplayName) {
+      return userDisplayName.charAt(0).toUpperCase()
+    }
     if (!user?.email) return 'U'
     return user.email.charAt(0).toUpperCase()
   }
@@ -464,7 +559,7 @@ export default function SideBar({
               <>
                 <div className="flex-1 text-left">
                   <p className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
-                    {user?.email?.split('@')[0] || 'User'}
+                    {userDisplayName || user?.email?.split('@')[0] || 'User'}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
                     {planNames[subscriptionStatus?.plan || 'free'] || 'Free'} Plan
@@ -573,7 +668,7 @@ export default function SideBar({
                 </button>
 
                 <Link 
-                  href="/app/profile"
+                  href="/app/billing"
                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
                   style={{ color: 'var(--foreground)' }}
                   onClick={() => setIsUserMenuOpen(false)}
@@ -595,30 +690,6 @@ export default function SideBar({
                   <span>Upgrade plan</span>
                 </Link>
 
-                <Link 
-                  href="/app/billing"
-                  className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-colors"
-                  style={{ color: 'var(--foreground)' }}
-                  onClick={() => setIsUserMenuOpen(false)}
-                  onMouseEnter={(e) => {
-                    // Check if dark class is applied to the document root
-                    const isDark = document.documentElement.classList.contains('dark')
-                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(120 113 108)' : 'rgb(229 231 235)', 'important') // stone-500 (even lighter brown) for dark, gray-200 for light
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.setProperty('background-color', 'transparent', 'important')
-                  }}
-                  onMouseMove={(e) => {
-                    // Re-evaluate theme on mouse move to handle theme changes while hovering
-                    const isDark = document.documentElement.classList.contains('dark')
-                    e.currentTarget.style.setProperty('background-color', isDark ? 'rgb(87 83 78)' : 'rgb(229 231 235)', 'important')
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                  <span>Manage billing</span>
-                </Link>
 
                 <Link 
                   href="/privacy-policy"

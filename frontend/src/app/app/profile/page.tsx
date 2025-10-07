@@ -20,6 +20,15 @@ export default function ProfilePage() {
   const fetchUserProfile = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // Check cache first
+      const cachedName = localStorage.getItem('userDisplayName');
+      if (cachedName) {
+        setUserName(cachedName);
+        setLoading(false);
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session found');
@@ -38,7 +47,15 @@ export default function ProfilePage() {
 
       const data = await response.json();
       console.log('Fetched profile data:', data);
-      setUserName(data.name || '');
+      const name = data.name || '';
+      setUserName(name);
+      
+      // Cache the name
+      if (name) {
+        localStorage.setItem('userDisplayName', name);
+      } else {
+        localStorage.removeItem('userDisplayName');
+      }
     } catch (error) {
       setUserName('');
     } finally {
@@ -69,12 +86,13 @@ export default function ProfilePage() {
         throw new Error('Failed to update name');
       }
 
-      setUserName(tempName.trim());
+      const newName = tempName.trim();
+      setUserName(newName);
       setIsEditingName(false);
       setTempName('');
       
-      // Refetch profile to ensure UI is in sync
-      await fetchUserProfile();
+      // Update cache with new name
+      localStorage.setItem('userDisplayName', newName);
     } catch (error) {
       console.error('Error updating name:', error);
       alert('Failed to update name. Please try again.');
