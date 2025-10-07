@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 import stripe
-from stripe import error as stripe_error
 import os
 import logging
 import json
@@ -240,7 +239,7 @@ async def create_checkout_session(
             url=session.url
         )
         
-    except stripe_error.StripeError as e:
+    except stripe.error.StripeError as e:
         logger.error(f"Stripe error creating checkout session: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -538,7 +537,7 @@ async def create_customer_portal_session(
         
         return CustomerPortalResponse(url=session.url)
         
-    except stripe_error.StripeError as e:
+    except stripe.error.StripeError as e:
         logger.error(f"Stripe error creating portal session: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -672,7 +671,7 @@ async def sync_customer_subscription(
             "stripe_subscription_id": subscription_id
         }
         
-    except stripe_error.StripeError as e:
+    except stripe.error.StripeError as e:
         logger.error(f"Stripe error syncing subscription: {e}")
         raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
     except Exception as e:
