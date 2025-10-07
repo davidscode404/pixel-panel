@@ -190,7 +190,7 @@ export default function SubscriptionManagement({
               color: 'var(--foreground-on-accent)'
             }}
           >
-            {loading ? <LoadingSpinner size="sm" /> : 'Change Plan'}
+            {loading ? <LoadingSpinner /> : 'Change Plan'}
           </button>
 
           <button
@@ -202,7 +202,7 @@ export default function SubscriptionManagement({
               borderColor: 'var(--border)'
             }}
           >
-            {loading ? <LoadingSpinner size="sm" /> : 'Manage Billing'}
+            {loading ? <LoadingSpinner /> : 'Manage Billing'}
           </button>
 
           <button
@@ -218,57 +218,58 @@ export default function SubscriptionManagement({
       {/* Change Plan Dialog */}
       <ConfirmDialog
         isOpen={showChangeDialog}
-        onClose={() => setShowChangeDialog(false)}
+        onCancel={() => setShowChangeDialog(false)}
         onConfirm={() => {}} // Will be handled by individual plan buttons
         title="Change Subscription Plan"
-        message="Select a new plan. Your existing credits will be preserved when you change plans."
-        confirmText=""
-        showCancelButton={false}
-      >
-        <div className="space-y-3 mt-4">
-          {/* Credit preservation notice */}
-          <div className="p-3 rounded-lg border border-blue-500/30 bg-blue-500/10">
-            <div className="flex items-center space-x-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-sm text-blue-700 font-medium">
-                Your current credits will be preserved when changing plans
-              </span>
+        message={
+          <div className="space-y-3">
+            <div>Select a new plan. Your existing credits will be preserved when you change plans.</div>
+            {/* Credit preservation notice */}
+            <div className="p-3 rounded-lg border border-blue-500/30 bg-blue-500/10">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm text-blue-700 font-medium">
+                  Your current credits will be preserved when changing plans
+                </span>
+              </div>
             </div>
+            {Object.entries(planNames).map(([planId, planName]) => {
+              if (planId === 'free' || planId === currentPlan) return null;
+              
+              return (
+                <button
+                  key={planId}
+                  onClick={() => handleChangePlan(planId)}
+                  disabled={loading}
+                  className="w-full p-3 rounded-lg border text-left transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    color: 'var(--foreground)',
+                    borderColor: 'var(--border)',
+                    backgroundColor: 'var(--background-secondary)'
+                  }}
+                >
+                  <div className="font-semibold">{planName}</div>
+                  <div className="text-sm opacity-75">Switch to {planName} plan</div>
+                </button>
+              );
+            })}
           </div>
-          {Object.entries(planNames).map(([planId, planName]) => {
-            if (planId === 'free' || planId === currentPlan) return null;
-            
-            return (
-              <button
-                key={planId}
-                onClick={() => handleChangePlan(planId)}
-                disabled={loading}
-                className="w-full p-3 rounded-lg border text-left transition-all hover:opacity-90 disabled:opacity-50"
-                style={{
-                  color: 'var(--foreground)',
-                  borderColor: 'var(--border)',
-                  backgroundColor: 'var(--background-secondary)'
-                }}
-              >
-                <div className="font-semibold">{planName}</div>
-                <div className="text-sm opacity-75">Switch to {planName} plan</div>
-              </button>
-            );
-          })}
-        </div>
-      </ConfirmDialog>
+        }
+        confirmText=""
+        cancelText="Close"
+      />
 
       {/* Cancel Subscription Dialog */}
       <ConfirmDialog
         isOpen={showCancelDialog}
-        onClose={() => setShowCancelDialog(false)}
+        onCancel={() => setShowCancelDialog(false)}
         onConfirm={handleCancelSubscription}
         title="Cancel Subscription"
         message="Are you sure you want to cancel your subscription? You'll retain access to premium features until the end of your current billing period."
         confirmText="Cancel Subscription"
-        confirmButtonStyle="bg-red-600 hover:bg-red-700"
+        confirmButtonStyle="danger"
       />
     </div>
   );

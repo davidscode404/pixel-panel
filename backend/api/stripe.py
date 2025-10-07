@@ -25,10 +25,10 @@ limiter = Limiter(key_func=get_remote_address)
 
 # Credit packages configuration
 CREDIT_PACKAGES = {
-    "credits_50": {"price": 499, "credits": 50},    # $4.99 in cents - Starter
-    "credits_120": {"price": 999, "credits": 120},  # $9.99 in cents - Pro
-    "credits_280": {"price": 1999, "credits": 280}, # $19.99 in cents - Creator
-    "credits_800": {"price": 4999, "credits": 800}, # $49.99 in cents - Content Machine
+    "credits_500": {"price": 499, "credits": 500},    # $4.99 in cents - Starter
+    "credits_1200": {"price": 999, "credits": 1200},  # $9.99 in cents - Pro
+    "credits_2800": {"price": 1999, "credits": 2800}, # $19.99 in cents - Creator
+    "credits_8000": {"price": 4999, "credits": 8000}, # $49.99 in cents - Content Machine
 }
 
 class PaymentIntentRequest(BaseModel):
@@ -114,70 +114,46 @@ async def stripe_webhook(request: Request):
         
         # Handle direct Stripe checkout completion
         customer_email = session.get("customer_email")
+        customer_id = session.get("customer")  # Get customer ID from session
         session_id = session.get("id")
         
-        # Map checkout session URLs to credit amounts based on your Stripe links
-        checkout_url_to_credits = {
-            "https://buy.stripe.com/8x2aER4m93o2cWX8Om0Jq00": 50,   # Starter plan
-            "https://buy.stripe.com/bJe14h6uh5wa0ab2pY0Jq01": 120,  # Pro plan
-            "https://buy.stripe.com/eVqdR3cSFbUycWX6Ge0Jq04": 280,  # Creator plan
-            "https://buy.stripe.com/8x26oBaKx1fU4qrd4C0Jq03": 800,  # Content Machine plan
-        }
-        
-        # Try to get the checkout URL from the session metadata or use a default
-        # Since we can't easily get the URL from the session, we'll use the amount to determine credits
+        # Map amounts to credits based on your pricing
         amount_total = session.get("amount_total", 0)
         amount_in_cents = amount_total / 100  # Convert from cents to dollars
         
-        # Map amounts to credits based on your pricing
         amount_to_credits = {
-            4.99: 50,   # Starter plan: $4.99 → 50 credits
-            9.99: 120,  # Pro plan: $9.99 → 120 credits
-            19.99: 280, # Creator plan: $19.99 → 280 credits
-            49.99: 800, # Content Machine plan: $49.99 → 800 credits
+            4.99: 500,   # Starter plan: $4.99 → 500 credits
+            9.99: 1200,  # Pro plan: $9.99 → 1200 credits
+            19.99: 2800, # Creator plan: $19.99 → 2800 credits
+            49.99: 8000, # Content Machine plan: $49.99 → 8000 credits
         }
         
-        credits = amount_to_credits.get(amount_in_cents, 50)  # Default to 50 credits
+        credits = amount_to_credits.get(amount_in_cents, 500)  # Default to 500 credits
         
         logger.info(f"Checkout completed: {customer_email} purchased {credits} credits for ${amount_in_cents} via direct checkout (Session: {session_id})")
         
-        # Try to find user by email and add credits
-        if customer_email:
+        # Find user by customer_id only, create new user if not found
+        user_id = None
+        if customer_id:
+            user_id = await find_user_by_customer_id(customer_id)
+        
+        # If not found, create new user (for new customers who paid but don't have accounts)
+        if not user_id and customer_email and customer_id:
+            logger.info(f"Creating new user for customer {customer_id} with email {customer_email}")
+            user_id = await create_user_for_customer(customer_id, customer_email)
+        
+        if user_id:
+            # Add credits to the user's account
             try:
-                # Import Supabase client to find user by email
-                from supabase import create_client
-                supabase_url = os.getenv('SUPABASE_URL')
-                supabase_key = os.getenv('SUPABASE_ANON_KEY')
-                
-                if supabase_url and supabase_key:
-                    supabase = create_client(supabase_url, supabase_key)
-                    
-                    # Find user by email in Supabase auth
-                    auth_response = supabase.auth.admin.list_users()
-                    user_id = None
-                    
-                    for user in auth_response:
-                        if user.email == customer_email:
-                            user_id = user.id
-                            break
-                    
-                    if user_id:
-                        # Add credits to the user's account
-                        credits_service = UserCreditsService()
-                        new_balance = await credits_service.add_credits(user_id, credits)
-                        logger.info(f"Successfully added {credits} credits to user {user_id} (email: {customer_email}). New balance: {new_balance}")
-                        
-                        # Credits have been successfully added to user account
-                    else:
-                        logger.warning(f"User not found for email: {customer_email}. Credits not added.")
-                        
-                        # Optionally, you could store the purchase for later processing
-                        # or send an email to the customer with instructions
-                        
+                credits_service = UserCreditsService()
+                new_balance = await credits_service.add_credits(user_id, credits)
+                logger.info(f"Successfully added {credits} credits to user {user_id} (email: {customer_email}). New balance: {new_balance}")
             except Exception as e:
-                logger.error(f"Error processing checkout for {customer_email}: {e}")
-                # Log the purchase details for manual processing if needed
-                logger.info(f"Manual processing needed: {customer_email} - {credits} credits - ${amount_in_cents}")
+                logger.error(f"Error adding credits to user {user_id}: {e}")
+        else:
+            logger.warning(f"User not found for customer_id: {customer_id}. Credits not added.")
+            # Log the purchase details for manual processing if needed
+            logger.info(f"Manual processing needed: {customer_email} - {credits} credits - ${amount_in_cents} - customer_id: {customer_id}")
     
     # Handle subscription events for recurring billing
     elif event["type"] == "customer.subscription.created":
@@ -198,6 +174,106 @@ async def stripe_webhook(request: Request):
     
     return {"status": "success"}
 
+# Helper functions - Customer ID only, no email lookup
+async def find_user_by_customer_id(customer_id: str) -> str:
+    """
+    Find user_id by Stripe customer_id only
+    
+    Args:
+        customer_id: Stripe customer ID
+        
+    Returns:
+        user_id if found, None otherwise
+    """
+    try:
+        profile_result = supabase.table('user_profiles').select('user_id').eq('stripe_customer_id', customer_id).execute()
+        if profile_result.data and len(profile_result.data) > 0:
+            user_id = profile_result.data[0]['user_id']
+            logger.info(f"Found existing user {user_id} by stripe_customer_id {customer_id}")
+            return user_id
+    except Exception as e:
+        logger.warning(f"Error looking up user by stripe_customer_id: {e}")
+    
+    logger.warning(f"User not found for customer_id {customer_id}")
+    return None
+
+async def create_user_for_customer(customer_id: str, customer_email: str) -> str:
+    """
+    Create a new user for a Stripe customer who doesn't exist in our system
+    
+    Args:
+        customer_id: Stripe customer ID
+        customer_email: Customer email address
+        
+    Returns:
+        user_id if created successfully, None otherwise
+    """
+    try:
+        # Create user in Supabase auth
+        auth_response = supabase.auth.admin.create_user({
+            "email": customer_email,
+            "email_confirm": True,  # Auto-confirm since they paid
+            "user_metadata": {
+                "stripe_customer_id": customer_id,
+                "created_via_stripe": True
+            }
+        })
+        
+        if auth_response.user:
+            user_id = auth_response.user.id
+            logger.info(f"Created new user {user_id} for Stripe customer {customer_id}")
+            
+            # Create user profile with initial data
+            try:
+                supabase.table('user_profiles').insert({
+                    'user_id': user_id,
+                    'stripe_customer_id': customer_id,
+                    'credits': 0,  # Will be updated by the webhook
+                    'created_at': 'now()',
+                    'updated_at': 'now()'
+                }).execute()
+                logger.info(f"Created user profile for new user {user_id}")
+                return user_id
+            except Exception as e:
+                logger.error(f"Error creating user profile for {user_id}: {e}")
+                return None
+        else:
+            logger.error(f"Failed to create user for customer {customer_id}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error creating user for customer {customer_id}: {e}")
+        return None
+
+async def handle_credit_rollover(user_id: str, new_plan_credits: int, previous_plan_credits: int = None) -> int:
+    """
+    Handle credit rollover logic for subscription renewals and upgrades
+    Simple additive approach - users keep all existing credits
+    
+    Args:
+        user_id: User ID
+        new_plan_credits: Credits for the new/current plan
+        previous_plan_credits: Credits for the previous plan (for upgrades, unused)
+        
+    Returns:
+        Total credits after rollover
+    """
+    try:
+        credits_service = UserCreditsService()
+        
+        # Simply add new plan credits to existing balance (no limits, no complex logic)
+        new_balance = await credits_service.add_credits(user_id, new_plan_credits)
+        
+        logger.info(f"Credit rollover for user {user_id}: Added {new_plan_credits} new credits, total balance: {new_balance}")
+        
+        return new_balance
+        
+    except Exception as e:
+        logger.error(f"Error handling credit rollover for user {user_id}: {e}")
+        # Fallback to simple credit addition
+        credits_service = UserCreditsService()
+        return await credits_service.add_credits(user_id, new_plan_credits)
+
 async def handle_subscription_created(subscription):
     """Handle new subscription creation"""
     customer_id = subscription.get('customer')
@@ -207,18 +283,19 @@ async def handle_subscription_created(subscription):
     logger.info(f"New subscription created: {subscription_id} for customer {customer_id}, status: {status}")
     
     try:
-        # Get customer details from Stripe
-        customer = stripe.Customer.retrieve(customer_id)
-        customer_email = customer.email
+        # Find user by customer_id only
+        user_id = await find_user_by_customer_id(customer_id)
         
-        # Find user by email
-        auth_response = supabase.auth.admin.list_users()
-        user_id = None
-        
-        for user in auth_response:
-            if user.email == customer_email:
-                user_id = user.id
-                break
+        # If not found, try to create new user
+        if not user_id:
+            try:
+                customer = stripe.Customer.retrieve(customer_id)
+                customer_email = customer.email
+                if customer_email:
+                    logger.info(f"Creating new user for subscription customer {customer_id} with email {customer_email}")
+                    user_id = await create_user_for_customer(customer_id, customer_email)
+            except Exception as e:
+                logger.error(f"Error creating user for subscription customer {customer_id}: {e}")
         
         if user_id:
             # Determine credits based on subscription price
@@ -230,13 +307,13 @@ async def handle_subscription_created(subscription):
                 
                 # Map amount to credits
                 amount_to_credits = {
-                    4.99: 50,   # Starter plan
-                    9.99: 120,  # Pro plan
-                    19.99: 280, # Creator plan
-                    49.99: 800, # Content Machine plan
+                    4.99: 500,   # Starter plan
+                    9.99: 1200,  # Pro plan
+                    19.99: 2800, # Creator plan
+                    49.99: 8000, # Content Machine plan
                 }
                 
-                credits = amount_to_credits.get(amount, 50)
+                credits = amount_to_credits.get(amount, 500)
                 
                 # Add credits to user account
                 credits_service = UserCreditsService()
@@ -244,7 +321,7 @@ async def handle_subscription_created(subscription):
                 logger.info(f"Added {credits} credits for new subscription. User {user_id} now has {new_balance} credits")
                 
                 # Store subscription details in user_profiles table
-                plan_type = "starter" if credits == 50 else "pro" if credits == 120 else "creator" if credits == 280 else "contentMachine"
+                plan_type = "starter" if credits == 500 else "pro" if credits == 1200 else "creator" if credits == 2800 else "contentMachine"
                 
                 try:
                     # Update user profile with subscription data
@@ -261,11 +338,11 @@ async def handle_subscription_created(subscription):
             else:
                 logger.warning(f"No items found in subscription {subscription_id}")
         else:
-            logger.warning(f"User not found for email: {customer_email}")
+            logger.warning(f"User not found for customer_id: {customer_id}")
             
     except Exception as e:
         logger.error(f"Error handling subscription creation: {e}")
-    
+
 async def handle_subscription_updated(subscription):
     """Handle subscription updates (plan changes, status changes)"""
     customer_id = subscription.get('customer')
@@ -295,30 +372,31 @@ async def handle_subscription_updated(subscription):
                 
                 # Map amount to credits
                 amount_to_credits = {
-                    4.99: 50,   # Starter plan
-                    9.99: 120,  # Pro plan
-                    19.99: 280, # Creator plan
-                    49.99: 800, # Content Machine plan
+                    4.99: 500,   # Starter plan
+                    9.99: 1200,  # Pro plan
+                    19.99: 2800, # Creator plan
+                    49.99: 8000, # Content Machine plan
                 }
                 
-                credits = amount_to_credits.get(amount, 50)
+                new_credits = amount_to_credits.get(amount, 500)
+                
+                # For plan changes, we don't add credits automatically
+                # Credits are only added during subscription creation and monthly renewals
+                logger.info(f"Plan updated to {new_credits} credits per month. No credits added during plan change.")
                 
                 # Update plan type in user_profiles table
                 try:
                     supabase.table('user_profiles').update({
-                        "plan_type": "starter" if credits == 50 else "pro" if credits == 120 else "creator" if credits == 280 else "contentMachine",
+                        "plan_type": "starter" if new_credits == 500 else "pro" if new_credits == 1200 else "creator" if new_credits == 2800 else "contentMachine",
                         "updated_at": "now()"
                     }).eq('stripe_subscription_id', subscription_id).execute()
                     logger.info(f"Updated plan details for subscription {subscription_id}")
                 except Exception as e:
                     logger.error(f"Error updating plan details: {e}")
         
-        # IMPORTANT: Do NOT modify user credits when subscription is updated
-        # Users keep their existing credits when changing plans
-        
     except Exception as e:
         logger.error(f"Error handling subscription update: {e}")
-    
+
 async def handle_subscription_deleted(subscription):
     """Handle subscription cancellation"""
     customer_id = subscription.get('customer')
@@ -353,34 +431,23 @@ async def handle_invoice_payment_succeeded(invoice):
     logger.info(f"Invoice payment succeeded: ${amount_paid} for customer {customer_id}, subscription {subscription_id}")
     
     try:
-        # Get customer details from Stripe
-        customer = stripe.Customer.retrieve(customer_id)
-        customer_email = customer.email
-        
-        # Find user by email
-        auth_response = supabase.auth.admin.list_users()
-        user_id = None
-        
-        for user in auth_response:
-            if user.email == customer_email:
-                user_id = user.id
-                break
+        # Find user by customer_id only
+        user_id = await find_user_by_customer_id(customer_id)
         
         if user_id and subscription_id:
             # Map amount to credits for monthly allocation
             amount_to_credits = {
-                4.99: 50,   # Starter plan
-                9.99: 120,  # Pro plan
-                19.99: 280, # Creator plan
-                49.99: 800, # Content Machine plan
+                4.99: 500,   # Starter plan
+                9.99: 1200,  # Pro plan
+                19.99: 2800, # Creator plan
+                49.99: 8000, # Content Machine plan
             }
             
-            credits = amount_to_credits.get(amount_paid, 50)
+            credits = amount_to_credits.get(amount_paid, 500)
             
-            # Add monthly credits to user account
-            credits_service = UserCreditsService()
-            new_balance = await credits_service.add_credits(user_id, credits)
-            logger.info(f"Added {credits} monthly credits. User {user_id} now has {new_balance} credits")
+            # Handle credit rollover for subscription renewal
+            new_balance = await handle_credit_rollover(user_id, credits)
+            logger.info(f"Processed subscription renewal with rollover. User {user_id} now has {new_balance} credits")
             
             # Update user profile with last payment info
             try:
@@ -391,7 +458,7 @@ async def handle_invoice_payment_succeeded(invoice):
             except Exception as e:
                 logger.error(f"Error updating user profile: {e}")
         else:
-            logger.warning(f"User not found for email: {customer_email} or no subscription ID")
+            logger.warning(f"User not found for customer_id: {customer_id} or no subscription ID")
             
     except Exception as e:
         logger.error(f"Error handling invoice payment: {e}")
@@ -401,10 +468,8 @@ async def handle_invoice_payment_succeeded(invoice):
 async def get_user_credits(request: Request, current_user: dict = Depends(get_current_user)):
     """Get the current user's credit balance"""
     try:
-        logger.info(f"Getting credits for user: {current_user['id']}")
         credits_service = UserCreditsService()
         credits = await credits_service.get_user_credits(current_user["id"])
-        logger.info(f"Retrieved {credits} credits for user {current_user['id']}")
         return {"credits": credits}
     except Exception as e:
         logger.error(f"Error getting credits for user {current_user['id']}: {e}", exc_info=True)
@@ -415,11 +480,9 @@ async def get_user_credits(request: Request, current_user: dict = Depends(get_cu
 async def get_user_profile(request: Request, current_user: dict = Depends(get_current_user)):
     """Get the current user's profile information"""
     try:
-        logger.info(f"Getting profile for user: {current_user['id']}")
         credits_service = UserCreditsService()
         credits = await credits_service.get_user_credits(current_user["id"])
         name = await credits_service.get_user_name(current_user["id"])
-        logger.info(f"Retrieved profile for user {current_user['id']}: credits={credits}, name={name}")
         return {"credits": credits, "name": name}
     except Exception as e:
         logger.error(f"Error getting profile for user {current_user['id']}: {e}", exc_info=True)
@@ -514,7 +577,6 @@ async def get_subscription_status(request: Request, current_user: dict = Depends
         # Get current credits
         credits_service = UserCreditsService()
         current_credits = await credits_service.get_user_credits(user_id)
-        logger.info(f"User {user_id} has {current_credits} credits")
         
         # Get user's subscription plan from user_profiles table
         try:
@@ -556,14 +618,14 @@ async def get_subscription_status(request: Request, current_user: dict = Depends
         
         # Determine credits per month based on plan type
         plan_credits_map = {
-            "free": 10,
-            "starter": 50,
-            "pro": 120,
-            "creator": 280,
-            "contentMachine": 800
+            "free": 100,
+            "starter": 500,
+            "pro": 1200,
+            "creator": 2800,
+            "contentMachine": 8000
         }
         
-        credits_per_month = plan_credits_map.get(plan, 10)
+        credits_per_month = plan_credits_map.get(plan, 100)
         
         return {
             "plan": plan,
@@ -713,6 +775,6 @@ async def get_subscription_status_public():
         "status": "success",
         "message": "This is a public test endpoint",
         "test_plan": "free",
-        "test_credits": 10,
+        "test_credits": 100,
         "note": "Use /subscription-status with authentication for real data"
     }

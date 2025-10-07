@@ -22,17 +22,12 @@ class UserCreditsService:
         
         # Use service role key if available, otherwise fall back to anon key
         key_to_use = self.supabase_service_key or self.supabase_anon_key
-        key_type = "service_role" if self.supabase_service_key else "anon"
-        logger.info(f"Using {key_type} key for Supabase client")
         self.supabase: Client = create_client(self.supabase_url, key_to_use)
     
     async def get_user_credits(self, user_id: str) -> int:
         """Get the current credit balance for a user"""
         try:
-            logger.info(f"Getting credits for user {user_id}")
             result = self.supabase.rpc('get_user_credits', {'user_uuid': user_id}).execute()
-            logger.info(f"RPC result: {result}")
-            logger.info(f"RPC data: {result.data}")
             
             # Handle the result properly - RPC function returns integer directly
             if result.data is not None:
@@ -45,7 +40,6 @@ class UserCreditsService:
             else:
                 credits = 0
                 
-            logger.info(f"User {user_id} has {credits} credits")
             return credits
         except Exception as e:
             logger.error(f"Error getting credits for user {user_id}: {e}", exc_info=True)
@@ -90,7 +84,6 @@ class UserCreditsService:
             }).execute()
             
             has_credits = result.data if result.data is not None else False
-            logger.info(f"User {user_id} has sufficient credits ({required_credits}): {has_credits}")
             return has_credits
         except Exception as e:
             logger.error(f"Error checking credits for user {user_id}: {e}")
@@ -103,7 +96,6 @@ class UserCreditsService:
             
             if result.data and len(result.data) > 0:
                 name = result.data[0].get('name')
-                logger.info(f"User {user_id} name: {name}")
                 return name
             else:
                 logger.info(f"No name found for user {user_id}")
@@ -149,4 +141,21 @@ class UserCreditsService:
         except Exception as e:
             logger.error(f"Error ensuring profile for user {user_id}: {e}")
             return False
+    
+    async def set_user_credits(self, user_id: str, credits: int) -> int:
+        """Set user's credit balance to a specific amount"""
+        try:
+            # Ensure profile exists first
+            await self.ensure_user_profile(user_id)
+            
+            # Update the credits directly
+            result = self.supabase.table('user_profiles').update({
+                'credits': credits
+            }).eq('user_id', user_id).execute()
+            
+            logger.info(f"Set credits for user {user_id} to: {credits}")
+            return credits
+        except Exception as e:
+            logger.error(f"Error setting credits for user {user_id}: {e}")
+            raise
 

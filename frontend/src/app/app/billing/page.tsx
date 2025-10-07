@@ -228,7 +228,7 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-8">
+    <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--foreground)' }}>
           Billing & Payments
@@ -255,16 +255,6 @@ export default function BillingPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <button
-              onClick={() => router.push('/app/credits')}
-              className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
-              style={{
-                backgroundColor: 'var(--accent)',
-                color: 'var(--foreground-on-accent)'
-              }}
-            >
-              Purchase Credits
-            </button>
             <button
               onClick={() => {
                 // Redirect to Stripe billing portal
