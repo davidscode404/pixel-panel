@@ -203,8 +203,9 @@ export default function SideBar({
     // Clear any stuck hover states when theme changes (only for buttons in the user menu)
     const userMenuButtons = document.querySelectorAll('.user-menu button, .user-menu a')
     userMenuButtons.forEach(el => {
-      if (el.style.backgroundColor && el.style.backgroundColor !== 'transparent') {
-        el.style.setProperty('background-color', 'transparent', 'important')
+      const element = el as HTMLElement
+      if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent') {
+        element.style.setProperty('background-color', 'transparent', 'important')
       }
     })
   }, [theme])

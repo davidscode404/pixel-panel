@@ -35,6 +35,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
   const [isUpdatingNarration, setIsUpdatingNarration] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showNarration, setShowNarration] = useState(true)
 
   // Check if comic can be published (has title, narrations, and thumbnail)
   const canPublish = () => {
@@ -437,6 +438,26 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                   )}
                 </button>
               )}
+              <button
+                onClick={() => setShowNarration(!showNarration)}
+                className={`rounded-full p-2 transition-all duration-200 hover:scale-110 ${
+                  showNarration 
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                    : 'bg-gray-500 hover:bg-gray-600 text-white'
+                }`}
+                aria-label={showNarration ? "Hide narration text" : "Show narration text"}
+                title={showNarration ? "Hide narration text" : "Show narration text"}
+              >
+                {showNarration ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 001 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                  </svg>
+                )}
+              </button>
               <h2 className="text-2xl font-bold text-foreground">{comic.title}</h2>
             </div>
 
@@ -615,7 +636,9 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                 className={`bg-background-tertiary overflow-hidden transition-all duration-300 relative border-4 ${
                   isEditable
                     ? 'border-orange-400 cursor-pointer hover:border-orange-500' 
-                    : 'border-black'
+                    : isCurrentlyPlaying
+                      ? 'border-orange-500'
+                      : 'border-black'
                 } ${isEditing ? 'ring-2 ring-orange-500' : ''}`}
                 onClick={isEditable ? () => handleEditPanel(panel) : undefined}
               >
@@ -636,7 +659,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                       className="w-full h-full object-cover bg-white"
                       onError={() => handleImageError(`${comic.id}-${panel.id}`)}
                     />
-                    {panel.narration && (
+                    {panel.narration && showNarration && (
                       <div className={`absolute bottom-0 left-0 right-0 backdrop-blur-sm px-3 py-2 transition-all duration-300 ${
                         isCurrentlyPlaying ? 'bg-accent ring-2 ring-accent' : 'bg-black/80'
                       }`}>

@@ -17,13 +17,46 @@ export default function TermsOfService() {
             </p>
 
             <section className="mb-8">
+              <h2 className="text-2xl font-semibold text-amber-400 mb-4">Table of Contents</h2>
+              <div className="text-stone-300 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li><a href="#acceptance" className="text-amber-300 hover:text-amber-200 hover:underline">Acceptance of Terms</a></li>
+                      <li><a href="#description" className="text-amber-300 hover:text-amber-200 hover:underline">Description of Service</a></li>
+                      <li><a href="#accounts" className="text-amber-300 hover:text-amber-200 hover:underline">User Accounts and Registration</a></li>
+                      <li><a href="#acceptable-use" className="text-amber-300 hover:text-amber-200 hover:underline">Acceptable Use Policy</a></li>
+                      <li><a href="#intellectual-property" className="text-amber-300 hover:text-amber-200 hover:underline">Intellectual Property Rights</a></li>
+                      <li><a href="#payment" className="text-amber-300 hover:text-amber-200 hover:underline">Payment Terms and Billing</a></li>
+                      <li><a href="#refunds" className="text-amber-300 hover:text-amber-200 hover:underline">Refund and Dispute Policy</a></li>
+                      <li><a href="#cancellation" className="text-amber-300 hover:text-amber-200 hover:underline">Cancellation Policy</a></li>
+                    </ol>
+                  </div>
+                  <div>
+                    <ol className="list-decimal list-inside space-y-1" start={9}>
+                      <li><a href="#availability" className="text-amber-300 hover:text-amber-200 hover:underline">Service Availability</a></li>
+                      <li><a href="#privacy" className="text-amber-300 hover:text-amber-200 hover:underline">Privacy and Data Protection</a></li>
+                      <li><a href="#liability" className="text-amber-300 hover:text-amber-200 hover:underline">Limitation of Liability</a></li>
+                      <li><a href="#termination" className="text-amber-300 hover:text-amber-200 hover:underline">Termination</a></li>
+                      <li><a href="#legal" className="text-amber-300 hover:text-amber-200 hover:underline">Legal and Export Restrictions</a></li>
+                      <li><a href="#promotions" className="text-amber-300 hover:text-amber-200 hover:underline">Promotions and Offers</a></li>
+                      <li><a href="#governing-law" className="text-amber-300 hover:text-amber-200 hover:underline">Governing Law</a></li>
+                      <li><a href="#contact" className="text-amber-300 hover:text-amber-200 hover:underline">Contact Information</a></li>
+                      <li><a href="#changes" className="text-amber-300 hover:text-amber-200 hover:underline">Changes to Terms</a></li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section id="acceptance" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">1. Acceptance of Terms</h2>
               <div className="text-stone-300 space-y-4">
                 <p>By accessing and using PixelPanel AI Comics (&ldquo;the Service&rdquo;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="description" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">2. Description of Service</h2>
               <div className="text-stone-300 space-y-4">
                 <p>PixelPanel is an AI-powered comic generation platform that allows users to:</p>
@@ -37,7 +70,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="accounts" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">3. User Accounts and Registration</h2>
               <div className="text-stone-300 space-y-4">
                 <p>To access certain features, you must create an account. You agree to:</p>
@@ -51,7 +84,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="acceptable-use" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">4. Acceptable Use Policy</h2>
               <div className="text-stone-300 space-y-4">
                 <h3 className="text-xl font-medium text-amber-300">Prohibited Activities</h3>
@@ -68,7 +101,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="intellectual-property" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">5. Intellectual Property Rights</h2>
               <div className="text-stone-300 space-y-4">
                 <h3 className="text-xl font-medium text-amber-300">Your Content</h3>
@@ -88,7 +121,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="payment" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">6. Payment Terms and Billing</h2>
               <div className="text-stone-300 space-y-4">
                 <p>For premium subscriptions:</p>
@@ -100,7 +133,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="refunds" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">7. Refund and Dispute Policy</h2>
               <div className="text-stone-300 space-y-4">
                 <p>PixelPanel AI Comics provides digital services only. Refunds are offered under the following circumstances:</p>
@@ -131,7 +164,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="cancellation" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">8. Cancellation Policy</h2>
               <div className="text-stone-300 space-y-4">
                 <p>You may cancel your PixelPanel subscription at any time through the following methods:</p>
@@ -164,7 +197,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="availability" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">9. Service Availability</h2>
               <div className="text-stone-300 space-y-4">
                 <p>We strive to maintain high service availability but cannot guarantee uninterrupted access. We reserve the right to:</p>
@@ -177,14 +210,14 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="privacy" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">10. Privacy and Data Protection</h2>
               <div className="text-stone-300 space-y-4">
                 <p>Your privacy is important to us. Our collection and use of personal information is governed by our Privacy Policy, which is incorporated into these terms by reference.</p>
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="liability" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">11. Limitation of Liability</h2>
               <div className="text-stone-300 space-y-4">
                 <p>To the maximum extent permitted by law:</p>
@@ -197,7 +230,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="termination" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">12. Termination</h2>
               <div className="text-stone-300 space-y-4">
                 <p>Either party may terminate this agreement at any time:</p>
@@ -210,7 +243,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="legal" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">13. Legal and Export Restrictions</h2>
               <div className="text-stone-300 space-y-4">
                 <p>Use of our service is subject to applicable laws and regulations:</p>
@@ -223,7 +256,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="promotions" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">14. Promotions and Offers</h2>
               <div className="text-stone-300 space-y-4">
                 <p>Any promotions, discounts, or special offers are subject to the following terms:</p>
@@ -237,14 +270,14 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="governing-law" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">15. Governing Law</h2>
               <div className="text-stone-300 space-y-4">
                 <p>These terms are governed by the laws of the United States. Any disputes will be resolved through binding arbitration in accordance with the rules of the American Arbitration Association.</p>
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="contact" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">16. Contact Information</h2>
               <div className="text-stone-300 space-y-4">
                 <p>For questions about these terms, contact us at:</p>
@@ -254,7 +287,7 @@ export default function TermsOfService() {
               </div>
             </section>
 
-            <section className="mb-8">
+            <section id="changes" className="mb-8">
               <h2 className="text-2xl font-semibold text-amber-400 mb-4">17. Changes to Terms</h2>
               <div className="text-stone-300">
                 <p>We may update these terms from time to time. Material changes will be communicated via email or service notification. Continued use after changes constitutes acceptance of the updated terms.</p>
