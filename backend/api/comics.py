@@ -33,8 +33,8 @@ async def generate_comic_art(request: Request, comic_request: ComicArtRequest, c
     Generate comic art from text prompt and optional reference image
     """
     try:
-        # Check if user has sufficient credits (1 credit per panel)
-        if not await credits_service.has_sufficient_credits(current_user["id"], 1):
+        # Check if user has sufficient credits (10 credits per panel)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 10):
             raise HTTPException(
                 status_code=402, 
                 detail="Insufficient credits. Please purchase more credits to generate comic panels."
@@ -69,10 +69,10 @@ async def generate_comic_art(request: Request, comic_request: ComicArtRequest, c
         # Convert image to base64 for response
         img_base64 = comic_generator.image_to_base64(image)
         
-        # Deduct 1 credit after successful generation
+        # Deduct 10 credits after successful generation (multiplied by 10)
         try:
-            new_balance = await credits_service.deduct_credits(current_user["id"], 1)
-            logger.info(f"Deducted 1 credit from user {current_user['id']}. New balance: {new_balance}")
+            new_balance = await credits_service.deduct_credits(current_user["id"], 10)
+            logger.info(f"Deducted 10 credits from user {current_user['id']}. New balance: {new_balance}")
         except Exception as credit_error:
             logger.error(f"Failed to deduct credits for user {current_user['id']}: {credit_error}")
             # Note: We still return the generated image even if credit deduction fails
@@ -102,8 +102,8 @@ async def generate_thumbnail(request: Request, thumbnail_request: ThumbnailReque
     Returns a 3:4 aspect ratio image suitable for comic book covers
     """
     try:
-        # Check if user has sufficient credits (1 credit per thumbnail)
-        if not await credits_service.has_sufficient_credits(current_user["id"], 1):
+        # Check if user has sufficient credits (10 credits per thumbnail)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 10):
             raise HTTPException(
                 status_code=402, 
                 detail="Insufficient credits. Please purchase more credits to generate thumbnails."
@@ -131,10 +131,10 @@ async def generate_thumbnail(request: Request, thumbnail_request: ThumbnailReque
         # Convert image to base64 for response
         img_base64 = comic_generator.image_to_base64(image)
 
-        # Deduct 1 credit after successful generation
+        # Deduct 10 credits after successful generation (multiplied by 10)
         try:
-            new_balance = await credits_service.deduct_credits(current_user["id"], 1)
-            logger.info(f"Deducted 1 credit from user {current_user['id']} for thumbnail. New balance: {new_balance}")
+            new_balance = await credits_service.deduct_credits(current_user["id"], 10)
+            logger.info(f"Deducted 10 credits from user {current_user['id']} for thumbnail. New balance: {new_balance}")
         except Exception as credit_error:
             logger.error(f"Failed to deduct credits for user {current_user['id']}: {credit_error}")
             # Note: We still return the generated thumbnail even if credit deduction fails
@@ -226,8 +226,8 @@ async def save_comic(request: Request, current_user: dict = Depends(get_current_
                 try:
                     logger.info(f"Auto-generating audio for panel {panel['id']} with narration: '{narration[:50]}...'")
                     
-                    # Check if user has sufficient credits (1 credit per narration)
-                    if not await credits_service.has_sufficient_credits(user_id, 1):
+                    # Check if user has sufficient credits (minimum 6 credits required for auto audio)
+                    if not await credits_service.has_sufficient_credits(user_id, 6):
                         logger.warning(f"Insufficient credits for auto audio generation for panel {panel['id']}")
                         # Continue without audio generation
                         panels_with_audio.append(panel)
@@ -279,8 +279,8 @@ async def regenerate_panel_image(request: Request, panel_id: str, current_user: 
         if not text_prompt:
             raise HTTPException(status_code=422, detail="Missing required field: text_prompt")
         
-        # Check if user has sufficient credits (1 credit per panel)
-        if not await credits_service.has_sufficient_credits(current_user["id"], 1):
+        # Check if user has sufficient credits (10 credits per panel)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 10):
             raise HTTPException(
                 status_code=402, 
                 detail="Insufficient credits. Please purchase more credits to generate comic panels."
@@ -446,6 +446,12 @@ async def update_panel(request: Request, panel_id: str, current_user: dict = Dep
         # If narration provided, (re)generate audio and upload; then update audio_url
         audio_url = None
         if narration is not None and isinstance(narration, str) and narration.strip():
+            # Check if user has sufficient credits (1 credit per narration)
+            if not await credits_service.has_sufficient_credits(user_id, 1):
+                raise HTTPException(
+                    status_code=402, 
+                    detail="Insufficient credits. Please purchase more credits to generate voice narrations."
+                )
             try:
                 logger.info(f"Generating updated audio for panel {panel_id}")
                 # Generate audio base64

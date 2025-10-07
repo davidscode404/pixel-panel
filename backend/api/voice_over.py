@@ -87,8 +87,8 @@ async def generate_narration(request: Request, narration: str, current_user: dic
     Generate voice narration
     """
     try:
-        # Check if user has sufficient credits (0.1 credits per narration)
-        if not await credits_service.has_sufficient_credits(current_user["id"], 1):  # Using 1 credit for simplicity
+        # Check if user has sufficient credits (1 credit per narration)
+        if not await credits_service.has_sufficient_credits(current_user["id"], 1):
             raise HTTPException(
                 status_code=402, 
                 detail="Insufficient credits. Please purchase more credits to generate voice narrations."
@@ -98,7 +98,7 @@ async def generate_narration(request: Request, narration: str, current_user: dic
         audio_data = await audio_generator.generate_audio_base64(narration)
         logger.info(f"Audio generated, base64 length: {len(audio_data)} chars")
         
-        # Deduct 0.1 credits after successful generation (using 1 credit for simplicity)
+        # Deduct 1 credit after successful generation
         try:
             new_balance = await credits_service.deduct_credits(current_user["id"], 1)
             logger.info(f"Deducted 1 credit from user {current_user['id']} for voice generation. New balance: {new_balance}")

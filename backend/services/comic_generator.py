@@ -144,8 +144,15 @@ class ComicArtGenerator:
                 # Add context image if available
                 if has_context:
                     try:
-                        context_img_bytes = base64.b64decode(context_image_data)
-                        context_img = Image.open(io.BytesIO(context_img_bytes))
+                        # Check if context_image_data is already a BytesIO object or needs base64 decoding
+                        if hasattr(context_image_data, 'read'):
+                            # It's already a BytesIO object
+                            context_img = Image.open(context_image_data)
+                            context_img_bytes = context_image_data.getvalue()
+                        else:
+                            # It's base64 encoded string data
+                            context_img_bytes = base64.b64decode(context_image_data)
+                            context_img = Image.open(io.BytesIO(context_img_bytes))
                         prompt_parts.insert(0, context_img)
                         logger.debug(f"Added context image to generation (size: {len(context_img_bytes)} bytes)")
                     except Exception as e:
@@ -160,8 +167,15 @@ class ComicArtGenerator:
             if has_context:
                 # Context-only generation (no reference sketch)
                 try:
-                    context_img_bytes = base64.b64decode(context_image_data)
-                    context_img = Image.open(io.BytesIO(context_img_bytes))
+                    # Check if context_image_data is already a BytesIO object or needs base64 decoding
+                    if hasattr(context_image_data, 'read'):
+                        # It's already a BytesIO object
+                        context_img = Image.open(context_image_data)
+                        context_img_bytes = context_image_data.getvalue()
+                    else:
+                        # It's base64 encoded string data
+                        context_img_bytes = base64.b64decode(context_image_data)
+                        context_img = Image.open(io.BytesIO(context_img_bytes))
                     prompt_parts = [
                         context_img,
                         f"{system_prompt}\n\nText prompt: {text_prompt}"
