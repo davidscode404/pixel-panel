@@ -428,7 +428,7 @@ export default function BillingPage() {
           <div>
             <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Can I change my plan anytime?</h4>
             <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any differences.
+              Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately.
             </p>
           </div>
           
