@@ -30,9 +30,9 @@ const subscriptionPlans: SubscriptionPlan[] = [
     id: 'free',
     name: 'Free',
     price: 0,
-    credits: 10,
+    credits: 100,
     features: [
-      '10 credits per month',
+      '100 credits per month',
       'Basic comic generation',
       'Voice generation',
       'Standard image quality',
@@ -43,9 +43,9 @@ const subscriptionPlans: SubscriptionPlan[] = [
     id: 'starter',
     name: 'Starter',
     price: 4.99,
-    credits: 50,
+    credits: 500,
     features: [
-      '50 credits per month',
+      '500 credits per month',
       'High-quality comic generation',
       'High-quality voice generation',
       'Priority support'
@@ -55,10 +55,10 @@ const subscriptionPlans: SubscriptionPlan[] = [
     id: 'pro',
     name: 'Pro',
     price: 19.99,
-    credits: 280,
+    credits: 2800,
     popular: true,
     features: [
-      '280 credits per month',
+      '2800 credits per month',
       'Premium comic generation',
       'Advanced voice features',
       'Custom character training',
@@ -69,9 +69,9 @@ const subscriptionPlans: SubscriptionPlan[] = [
     id: 'creator',
     name: 'Creator',
     price: 49.99,
-    credits: 800,
+    credits: 8000,
     features: [
-      '800 credits per month',
+      '8000 credits per month',
       'Premium comic generation',
       'Advanced voice features',
       'Custom character training',
@@ -87,7 +87,7 @@ export default function BillingPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPackage, setSelectedPackage] = useState<string>('credits_120'); // Default to pro plan
+  const [selectedPackage, setSelectedPackage] = useState<string>('credits_1200'); // Default to pro plan
   const supabase = createClient();
 
   useEffect(() => {
@@ -197,10 +197,10 @@ export default function BillingPage() {
     // For paid plans, we'll use the Stripe integration
     // Map plan IDs to credit package IDs for the payment system
     const planToPackageMap = {
-      starter: 'credits_50',
-      pro: 'credits_120',
-      creator: 'credits_280',
-      contentMachine: 'credits_800'
+      starter: 'credits_500',
+      pro: 'credits_1200',
+      creator: 'credits_2800',
+      contentMachine: 'credits_8000'
     };
 
     const packageId = planToPackageMap[planId as keyof typeof planToPackageMap];
@@ -372,8 +372,8 @@ export default function BillingPage() {
               AI Panel Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 1 credit per panel</li>
-              <li>• 6 panels = 6 credits</li>
+              <li>• 10 credits per panel</li>
+              <li>• 6 panels = 60 credits</li>
               <li>• Includes context awareness</li>
             </ul>
           </div>
@@ -382,7 +382,7 @@ export default function BillingPage() {
               Thumbnail Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 1 credit per thumbnail</li>
+              <li>• 10 credits per thumbnail</li>
               <li>• 3:4 portrait format</li>
               <li>• Comic book cover style</li>
             </ul>
@@ -392,9 +392,9 @@ export default function BillingPage() {
               Voice Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 0.1 credits per narration</li>
+              <li>• 1 credit per narration</li>
               <li>• High-quality AI voices</li>
-              <li>• 10 narrations = 1 credit</li>
+              <li>• 10 narrations = 10 credits</li>
             </ul>
           </div>
         </div>
@@ -404,11 +404,11 @@ export default function BillingPage() {
             Example: Full Comic Creation
           </h4>
           <div className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-            <p>• 6 AI panels: 6 credits</p>
-            <p>• 1 thumbnail: 1 credit</p>
-            <p>• 6 voice narrations: 0.6 credits</p>
+            <p>• 6 AI panels: 60 credits</p>
+            <p>• 1 thumbnail: 10 credits</p>
+            <p>• 6 voice narrations: 6 credits</p>
             <p className="font-semibold mt-2" style={{ color: 'var(--accent)' }}>
-              Total: 7.6 credits (~$0.76)
+              Total: 76 credits (~$0.76)
             </p>
           </div>
         </div>
@@ -459,7 +459,7 @@ export default function BillingPage() {
           <div>
             <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Is there a free trial?</h4>
             <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              Yes! Start with our free plan that includes 10 credits to try out our features. No credit card required.
+              Yes! Start with our free plan that includes 100 credits to try out our features. No credit card required.
             </p>
           </div>
         </div>

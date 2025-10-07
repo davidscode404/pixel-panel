@@ -11,10 +11,10 @@ interface CreditsPurchaseProps {
 }
 
 const CREDIT_PACKAGES = [
-  { id: 'credits_50', name: 'Starter', price: 4.99, credits: 50, popular: false, description: 'Perfect for trying out' },
-  { id: 'credits_120', name: 'Pro', price: 9.99, credits: 120, popular: true, description: 'Most popular choice' },
-  { id: 'credits_280', name: 'Creator', price: 19.99, credits: 280, popular: false, description: 'For regular creators' },
-  { id: 'credits_800', name: 'Content Machine', price: 49.99, credits: 800, popular: false, description: 'For large-scale content creation' },
+  { id: 'credits_500', name: 'Starter', price: 4.99, credits: 500, popular: false, description: 'Perfect for trying out' },
+  { id: 'credits_1200', name: 'Pro', price: 9.99, credits: 1200, popular: true, description: 'Most popular choice' },
+  { id: 'credits_2800', name: 'Creator', price: 19.99, credits: 2800, popular: false, description: 'For regular creators' },
+  { id: 'credits_8000', name: 'Content Machine', price: 49.99, credits: 8000, popular: false, description: 'For large-scale content creation' },
 ];
 
 export default function CreditsPurchase({ onSuccess, selectedPackage: initialSelectedPackage }: CreditsPurchaseProps) {
@@ -47,10 +47,10 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
 
     // Handle plans with direct Stripe checkout links
     const stripeCheckoutLinks = {
-      'credits_50': 'https://buy.stripe.com/8x2aER4m93o2cWX8Om0Jq00',   // Starter plan
-      'credits_120': 'https://buy.stripe.com/bJe14h6uh5wa0ab2pY0Jq01',  // Pro plan
-      'credits_280': 'https://buy.stripe.com/eVqdR3cSFbUycWX6Ge0Jq04',  // Creator plan
-      'credits_800': 'https://buy.stripe.com/8x26oBaKx1fU4qrd4C0Jq03',  // Content Machine plan
+      'credits_500': 'https://buy.stripe.com/8x2aER4m93o2cWX8Om0Jq00',   // Starter plan
+      'credits_1200': 'https://buy.stripe.com/bJe14h6uh5wa0ab2pY0Jq01',  // Pro plan
+      'credits_2800': 'https://buy.stripe.com/eVqdR3cSFbUycWX6Ge0Jq04',  // Creator plan
+      'credits_8000': 'https://buy.stripe.com/8x26oBaKx1fU4qrd4C0Jq03',  // Content Machine plan
     };
 
     if (stripeCheckoutLinks[selectedPackage.id as keyof typeof stripeCheckoutLinks]) {

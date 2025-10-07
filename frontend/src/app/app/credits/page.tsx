@@ -126,8 +126,8 @@ export default function CreditsPage() {
               AI Panel Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 1 credit per panel</li>
-              <li>• 6 panels = 6 credits</li>
+              <li>• 10 credits per panel</li>
+              <li>• 6 panels = 60 credits</li>
               <li>• Includes context awareness</li>
             </ul>
           </div>
@@ -136,7 +136,7 @@ export default function CreditsPage() {
               Thumbnail Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 1 credit per thumbnail</li>
+              <li>• 10 credits per thumbnail</li>
               <li>• 3:4 portrait format</li>
               <li>• Comic book cover style</li>
             </ul>
@@ -146,9 +146,9 @@ export default function CreditsPage() {
               Voice Generation
             </h4>
             <ul className="space-y-1" style={{ color: 'var(--foreground-secondary)' }}>
-              <li>• 0.1 credits per narration</li>
+              <li>• 1 credit per narration</li>
               <li>• High-quality AI voices</li>
-              <li>• 10 narrations = 1 credit</li>
+              <li>• 10 narrations = 10 credits</li>
             </ul>
           </div>
         </div>
@@ -158,11 +158,11 @@ export default function CreditsPage() {
             Example: Full Comic Creation
           </h4>
           <div className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-            <p>• 6 AI panels: 6 credits</p>
-            <p>• 1 thumbnail: 1 credit</p>
-            <p>• 6 voice narrations: 0.6 credits</p>
+            <p>• 6 AI panels: 60 credits</p>
+            <p>• 1 thumbnail: 10 credits</p>
+            <p>• 6 voice narrations: 6 credits</p>
             <p className="font-semibold mt-2" style={{ color: 'var(--accent)' }}>
-              Total: 7.6 credits (~$0.76)
+              Total: 76 credits (~$0.76)
             </p>
           </div>
         </div>
