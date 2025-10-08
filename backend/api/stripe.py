@@ -262,51 +262,39 @@ async def handle_subscription_created(subscription_data):
         logger.error("No customer_id in subscription data")
         return
     
-    # Find user by customer_id
-    result = supabase.table("user_profiles").select("*").eq("stripe_customer_id", customer_id).execute()
+    # Try to get user_id from subscription metadata first
+    user_id = subscription_data.get("metadata", {}).get("user_id")
     
-    if not result.data:
-        # For new customers, we need to get the customer details from Stripe
-        # and create a user profile if possible
-        try:
-            customer = stripe.Customer.retrieve(customer_id)
-            user_email = customer.get("email")
-            
-            if not user_email:
-                logger.warning(f"No email found for customer {customer_id}, cannot create user profile")
-                return
-            
-            # Try to find user by email in auth system
-            auth_result = supabase.auth.admin.list_users()
-            user_id = None
-            
-            for user in auth_result:
-                if user.email == user_email:
-                    user_id = user.id
-                    break
-            
-            if not user_id:
-                logger.warning(f"No user found with email {user_email} for customer {customer_id}")
-                return
-            
-            # Create user profile for new customer
-            await get_or_create_user_profile(user_id, customer_id)
-            logger.info(f"Created user profile for new customer {customer_id} with user_id {user_id}")
-            
-        except Exception as e:
-            logger.error(f"Error handling new customer {customer_id}: {e}")
-            return
-    
-    # Get user_id from existing profile or newly created one
-    if not result.data:
-        # Re-query after potentially creating the profile
+    if not user_id:
+        # Fallback: Find user by customer_id
         result = supabase.table("user_profiles").select("*").eq("stripe_customer_id", customer_id).execute()
+        
+        if not result.data:
+            # Try to get customer from Stripe to find email
+            try:
+                customer = stripe.Customer.retrieve(customer_id)
+                customer_metadata_user_id = customer.get("metadata", {}).get("user_id")
+                
+                if customer_metadata_user_id:
+                    user_id = customer_metadata_user_id
+                else:
+                    logger.warning(f"No user_id found in customer metadata for {customer_id}")
+                    return
+                    
+            except Exception as e:
+                logger.error(f"Error retrieving customer {customer_id}: {e}")
+                return
+        else:
+            user_id = result.data[0]["user_id"]
     
-    if not result.data:
-        logger.error(f"Still no user profile found for customer {customer_id}")
+    if not user_id:
+        logger.error(f"Could not determine user_id for subscription {subscription_id}")
         return
     
-    user_id = result.data[0]["user_id"]
+    # Ensure user profile exists
+    await get_or_create_user_profile(user_id, customer_id)
+    
+    # Get subscription price_id
     price_id = subscription_data["items"]["data"][0]["price"]["id"]
     
     # Find plan by price_id
@@ -489,6 +477,88 @@ async def get_subscription_status(
             status_code=500,
             detail="Internal server error while retrieving subscription status"
         )
+
+
+@router.post("/create-checkout-session")
+@limiter.limit("10/minute")
+async def create_checkout_session(
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a Stripe checkout session for subscription"""
+    
+    user_id = current_user["id"]
+    
+    try:
+        # Get request body
+        body = await request.json()
+        plan_id = body.get("plan_id")
+        
+        if not plan_id or plan_id not in SUBSCRIPTION_PLANS:
+            raise HTTPException(status_code=400, detail="Invalid plan ID")
+        
+        plan = SUBSCRIPTION_PLANS[plan_id]
+        price_id = plan.get("price_id")
+        
+        if not price_id:
+            raise HTTPException(status_code=400, detail="Plan does not have a price ID configured")
+        
+        # Get or create user profile
+        profile = await get_or_create_user_profile(user_id)
+        
+        # Get or create Stripe customer
+        customer_id = profile.get("stripe_customer_id")
+        if not customer_id:
+            # Create new Stripe customer
+            customer_email = current_user.get("email")
+            customer = stripe.Customer.create(
+                email=customer_email,
+                metadata={"user_id": user_id}
+            )
+            customer_id = customer.id
+            
+            # Update user profile with customer_id
+            await get_or_create_user_profile(user_id, customer_id)
+        
+        # Create checkout session
+        success_url = os.getenv("FRONTEND_URL", "http://localhost:3000") + "/app/billing?session_id={CHECKOUT_SESSION_ID}"
+        cancel_url = os.getenv("FRONTEND_URL", "http://localhost:3000") + "/app/billing"
+        
+        checkout_session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_id,
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={
+                "user_id": user_id,
+                "plan_id": plan_id
+            },
+            subscription_data={
+                "metadata": {
+                    "user_id": user_id,
+                    "plan_id": plan_id
+                }
+            }
+        )
+        
+        logger.info(f"Created checkout session {checkout_session.id} for user {user_id}, plan {plan_id}")
+        
+        return {
+            "sessionId": checkout_session.id,
+            "url": checkout_session.url
+        }
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error creating checkout session: {e}")
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error creating checkout session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/sync-customer-subscription")

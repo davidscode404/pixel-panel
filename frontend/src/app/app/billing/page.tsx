@@ -108,6 +108,20 @@ export default function BillingPage() {
   useEffect(() => {
     if (user) {
       fetchCurrentPlan();
+      
+      // Check if we're returning from a successful checkout
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session_id');
+      
+      if (sessionId) {
+        // Clear the session_id from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Show success message and refresh data after a short delay
+        setTimeout(() => {
+          handlePurchaseSuccess();
+        }, 1000);
+      }
     }
   }, [user]);
 
