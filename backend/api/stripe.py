@@ -66,21 +66,6 @@ SUBSCRIPTION_PLANS = {
 
 
 # Request/Response Models
-class CheckoutSessionRequest(BaseModel):
-    price_id: str
-    success_url: str
-    cancel_url: str
-
-class CheckoutSessionResponse(BaseModel):
-    session_id: str
-    url: str
-
-
-class CustomerPortalRequest(BaseModel):
-    return_url: str
-
-class CustomerPortalResponse(BaseModel):
-    url: str
 
 class UserCreditsResponse(BaseModel):
     credits: int
@@ -183,68 +168,6 @@ async def update_subscription_status(user_id: str, plan_type: str, status: str,
 
 # API Endpoints
 
-@router.post("/create-checkout-session", response_model=CheckoutSessionResponse)
-@limiter.limit("10/minute")
-async def create_checkout_session(
-    request: Request,
-    checkout_request: CheckoutSessionRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a Stripe Checkout Session for subscription"""
-    
-    user_id = current_user["id"]
-    
-    try:
-        # Get or create user profile
-        profile = await get_or_create_user_profile(user_id)
-        
-        # Create or get Stripe customer
-        if profile.get("stripe_customer_id"):
-            customer_id = profile["stripe_customer_id"]
-        else:
-            customer = stripe.Customer.create(
-                email=current_user.get("email"),
-                metadata={"user_id": user_id}
-            )
-            customer_id = customer.id
-            
-            # Update profile with customer ID
-            supabase.table("user_profiles").update({
-                "stripe_customer_id": customer_id,
-                "updated_at": "now()"
-            }).eq("user_id", user_id).execute()
-        
-        # Create checkout session
-        session = stripe.checkout.Session.create(
-            customer=customer_id,
-            success_url=checkout_request.success_url,
-            cancel_url=checkout_request.cancel_url,
-            mode='subscription',
-            line_items=[{
-                'price': checkout_request.price_id,
-                'quantity': 1
-            }],
-            subscription_data={
-                'billing_mode': {
-                    'type': 'flexible'
-                }
-            },
-            metadata={
-                "user_id": user_id
-            }
-        )
-        
-        return CheckoutSessionResponse(
-            session_id=session.id,
-            url=session.url
-        )
-        
-    except stripe.error.StripeError as e:
-        logger.error(f"Stripe error creating checkout session: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error creating checkout session: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/webhook")
@@ -510,39 +433,6 @@ async def handle_invoice_payment_failed(invoice_data):
     logger.warning(f"Payment failed: User {user_id} subscription is past due")
 
 
-@router.post("/create-customer-portal-session", response_model=CustomerPortalResponse)
-@limiter.limit("10/minute")
-async def create_customer_portal_session(
-    request: Request,
-    portal_request: CustomerPortalRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a customer portal session for subscription management"""
-    
-    user_id = current_user["id"]
-    
-    try:
-        # Get user profile
-        profile = await get_or_create_user_profile(user_id)
-        customer_id = profile.get("stripe_customer_id")
-        
-        if not customer_id:
-            raise HTTPException(status_code=400, detail="No Stripe customer found")
-        
-        # Create portal session
-        session = stripe.billing_portal.Session.create(
-            customer=customer_id,
-            return_url=portal_request.return_url
-        )
-        
-        return CustomerPortalResponse(url=session.url)
-        
-    except stripe.error.StripeError as e:
-        logger.error(f"Stripe error creating portal session: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error creating portal session: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/user-credits", response_model=UserCreditsResponse)
 @limiter.limit("50/minute")
@@ -600,14 +490,6 @@ async def get_subscription_status(
             detail="Internal server error while retrieving subscription status"
         )
 
-@router.get("/plans")
-@limiter.limit("50/minute")
-async def get_subscription_plans(request: Request):
-    """Get available subscription plans"""
-    
-    return {
-        "plans": SUBSCRIPTION_PLANS
-    }
 
 @router.post("/sync-customer-subscription")
 @limiter.limit("10/minute")

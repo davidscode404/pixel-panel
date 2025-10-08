@@ -2,7 +2,7 @@
 // Change this port to easily switch between different backend servers
 export const API_CONFIG = {
   BASE_URL: process.env.NEXT_PUBLIC_API_URL,
-  // BASE_URL: 'http://localhost:8000', 
+  //BASE_URL: 'http://localhost:8000', 
   ENDPOINTS: {
     // New modular API endpoints
     GENERATE: '/api/comics/generate',
@@ -13,14 +13,9 @@ export const API_CONFIG = {
     LIST_COMICS: '/api/comics/list-comics',  // New endpoint for saved-comics directory
     GENERATE_VOICE: '/api/voice-over/generate-voiceover',
     
-    // Stripe endpoints
-    CREATE_PAYMENT_INTENT: '/api/stripe/create-payment-intent',
+    // Stripe endpoints (only used ones)
     USER_CREDITS: '/api/stripe/user-credits',
-    USER_PROFILE: '/api/stripe/user-profile',
-    STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status',
-    CANCEL_SUBSCRIPTION: '/api/stripe/cancel-subscription',
-    UPDATE_SUBSCRIPTION: '/api/stripe/update-subscription',
-    SUBSCRIPTION_PORTAL: '/api/stripe/subscription-portal'
+    STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status'
   }
 };
 
@@ -87,7 +82,7 @@ const getAuthToken = (): string | null => {
         }
       }
     }
-  } catch (error) {
+  } catch {
     // Error getting auth token
   }
   
