@@ -499,58 +499,6 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
-
-      {/* FAQ Section */}
-      <div className="p-6 rounded-lg border" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
-        <h3 className="text-2xl font-bold mb-6 text-center" style={{ color: 'var(--foreground)' }}>
-          Frequently Asked Questions
-        </h3>
-        
-        <div className="space-y-6">
-          <div>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>What happens to unused credits?</h4>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              Unused credits are always preserved and added to your account. When your subscription renews each month, you get a new allotment of credits that are added to your existing balance. You never lose credits you've paid for.
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>What happens when I upgrade my plan?</h4>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              When you upgrade your plan, you keep all your existing credits. Your new monthly credit allotment will be added to your current balance starting from your next billing cycle.
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Can I change my plan anytime?</h4>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately.
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>What happens if I downgrade or cancel?</h4>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              If you downgrade or cancel your subscription, you keep all your existing credits and can continue using them. However, you won't receive new monthly credit allotments until you resubscribe.
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Do you offer refunds?</h4>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              We offer a 30-day money-back guarantee for all paid plans. If you're not satisfied, contact our support team.
-            </p>
-          </div>
-          
-          <div>
-            <h4 className="font-semibold mb-2" style={{ color: 'var(--foreground)' }}>Is there a free trial?</h4>
-            <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-              Yes! Start with our free plan that includes 100 credits to try out our features. No credit card required.
-            </p>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }
