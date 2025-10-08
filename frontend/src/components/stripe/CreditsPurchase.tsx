@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
+import { useStripe } from '@stripe/react-stripe-js';
 import { createClient } from '@/lib/supabase/client';
-import { buildApiUrl, API_CONFIG } from '@/config/api';
+import { buildApiUrl } from '@/config/api';
 
 interface CreditsPurchaseProps {
   onSuccess?: () => void;
@@ -17,7 +17,7 @@ const CREDIT_PACKAGES = [
   { id: 'credits_8000', name: 'Content Machine', price: 49.99, credits: 8000, popular: false, description: 'For large-scale content creation' },
 ];
 
-export default function CreditsPurchase({ onSuccess, selectedPackage: initialSelectedPackage }: CreditsPurchaseProps) {
+export default function CreditsPurchase({ selectedPackage: initialSelectedPackage }: CreditsPurchaseProps) {
   const [selectedPackage, setSelectedPackage] = useState(() => {
     if (initialSelectedPackage) {
       return CREDIT_PACKAGES.find(pkg => pkg.id === initialSelectedPackage) || CREDIT_PACKAGES[1];
@@ -26,10 +26,8 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   
   const stripe = useStripe();
-  const elements = useElements();
   const supabase = createClient();
 
   // Update selected package when prop changes
@@ -45,21 +43,58 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    // Handle plans with direct Stripe checkout links
-    const stripeCheckoutLinks = {
-      'credits_500': 'https://buy.stripe.com/8x2aER4m93o2cWX8Om0Jq00',   // Starter plan
-      'credits_1200': 'https://buy.stripe.com/bJe14h6uh5wa0ab2pY0Jq01',  // Pro plan
-      'credits_2800': 'https://buy.stripe.com/eVqdR3cSFbUycWX6Ge0Jq04',  // Creator plan
-      'credits_8000': 'https://buy.stripe.com/8x26oBaKx1fU4qrd4C0Jq03',  // Content Machine plan
-    };
+    setLoading(true);
+    setError(null);
 
-    if (stripeCheckoutLinks[selectedPackage.id as keyof typeof stripeCheckoutLinks]) {
-      window.open(stripeCheckoutLinks[selectedPackage.id as keyof typeof stripeCheckoutLinks], '_blank');
-      return;
+    try {
+      // Get access token for API calls
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setError('Please log in to subscribe');
+        setLoading(false);
+        return;
+      }
+
+      // Map credit package IDs to plan IDs
+      const packageToPlanMap: { [key: string]: string } = {
+        'credits_500': 'starter',
+        'credits_1200': 'pro',
+        'credits_2800': 'creator',
+        'credits_8000': 'content_machine'
+      };
+
+      const planId = packageToPlanMap[selectedPackage.id];
+      if (!planId) {
+        setError('Invalid plan selected');
+        setLoading(false);
+        return;
+      }
+
+      // Create checkout session via backend API
+      const response = await fetch(buildApiUrl('/api/stripe/create-checkout-session'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ plan_id: planId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
+
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      setError(error instanceof Error ? error.message : 'Failed to start checkout process');
+      setLoading(false);
     }
-
-    // Fallback - should not reach here with current plan setup
-    setError('Payment method not configured for this plan. Please contact support.');
   };
 
   return (
@@ -124,15 +159,7 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
         {/* Payment Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {success && (
-            <div className="p-3 rounded-lg border animate-pulse" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'var(--success)', color: 'var(--success)' }}>
-              <div className="text-sm font-semibold">
-                Subscription successful! Your credits will be added shortly.
-              </div>
-            </div>
-          )}
-
-          {error && !success && (
+          {error && (
             <div className="p-3 rounded-lg border" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'var(--error)', color: 'var(--error)' }}>
               <div className="text-sm">{error}</div>
             </div>
@@ -140,7 +167,7 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
 
           <button
             type="submit"
-            disabled={!stripe || loading || success}
+            disabled={!stripe || loading}
             className="w-full py-4 px-6 rounded-lg font-bold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             style={{
               backgroundColor: 'var(--accent)',
@@ -148,9 +175,7 @@ export default function CreditsPurchase({ onSuccess, selectedPackage: initialSel
             }}
           >
             {loading ? (
-              'Processing...'
-            ) : success ? (
-              'Subscription Successful!'
+              'Redirecting to Checkout...'
             ) : (
               `Subscribe $${selectedPackage.price}/month - ${selectedPackage.credits} Credits`
             )}
