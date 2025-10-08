@@ -139,38 +139,10 @@ export default function SideBar({
   };
 
   const fetchUserDisplayName = async () => {
-    try {
-      // Check cache first
-      const cachedName = localStorage.getItem('userDisplayName');
-      if (cachedName) {
-        setUserDisplayName(cachedName);
-        return;
-      }
-
-      // Only fetch if we don't have a cached name
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_PROFILE), {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        const name = userData.name || null;
-        setUserDisplayName(name);
-        
-        // Cache the name
-        if (name) {
-          localStorage.setItem('userDisplayName', name);
-        } else {
-          localStorage.removeItem('userDisplayName');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user display name:', error);
+    // Since we don't have a user profile endpoint, just use email
+    if (user?.email) {
+      const displayName = user.email.split('@')[0]; // Use part before @ as display name
+      setUserDisplayName(displayName);
     }
   };
 
@@ -338,15 +310,6 @@ export default function SideBar({
       icon: (
         <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      )
-    },
-    {
-      name: 'Profile',
-      href: '/app/profile',
-      icon: (
-        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       )
     },
