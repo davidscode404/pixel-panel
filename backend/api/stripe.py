@@ -190,7 +190,7 @@ async def stripe_webhook(request: Request):
     except ValueError:
         logger.error("Invalid payload in webhook")
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.SignatureVerificationError as e:
         logger.error(f"Invalid signature in webhook: {e}")
         raise HTTPException(status_code=400, detail="Invalid signature")
     
@@ -553,7 +553,7 @@ async def create_checkout_session(
             "url": checkout_session.url
         }
         
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error(f"Stripe error creating checkout session: {e}")
         raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
     except Exception as e:
@@ -623,7 +623,7 @@ async def sync_customer_subscription(
             "stripe_subscription_id": subscription_id
         }
         
-    except stripe.error.StripeError as e:
+    except stripe.StripeError as e:
         logger.error(f"Stripe error syncing subscription: {e}")
         raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
     except Exception as e:
