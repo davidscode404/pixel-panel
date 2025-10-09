@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
@@ -96,36 +95,13 @@ const subscriptionPlans: SubscriptionPlan[] = [
 
 export default function BillingPage() {
   const { user } = useAuth();
-  const router = useRouter();
   const [currentPlan, setCurrentPlan] = useState<string>('free');
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPackage, setSelectedPackage] = useState<string>('credits_1200'); // Default to pro plan
-  const [syncing, setSyncing] = useState(false);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (user) {
-      fetchCurrentPlan();
-      
-      // Check if we're returning from a successful checkout
-      const urlParams = new URLSearchParams(window.location.search);
-      const sessionId = urlParams.get('session_id');
-      
-      if (sessionId) {
-        // Clear the session_id from URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Show success message and refresh data after a short delay
-        setTimeout(() => {
-          handlePurchaseSuccess();
-        }, 1000);
-      }
-    }
-  }, [user]);
-
-  const fetchCurrentPlan = async () => {
+  const fetchCurrentPlan = useCallback(async () => {
     console.log('🔍 fetchCurrentPlan called');
     try {
       if (!user) {
@@ -218,34 +194,9 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, supabase]);
 
-  const handlePlanSelect = async (planId: string) => {
-    if (planId === 'free') {
-      // Handle free plan
-      console.log('Selected free plan');
-      return;
-    }
-
-    // For paid plans, we'll use the Stripe integration
-    // Map plan IDs to credit package IDs for the payment system
-    const planToPackageMap = {
-      starter: 'credits_500',
-      pro: 'credits_1200',
-      creator: 'credits_2800',
-      content_machine: 'credits_8000'
-    };
-
-    const packageId = planToPackageMap[planId as keyof typeof planToPackageMap];
-    if (packageId) {
-      // Set the selected package for the payment form
-      setSelectedPackage(packageId);
-      // Scroll to the payment section
-      document.getElementById('payment-section')?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handlePurchaseSuccess = () => {
+  const handlePurchaseSuccess = useCallback(() => {
     // Clear subscription status cache since subscription may have changed
     localStorage.removeItem('subscriptionStatus');
     localStorage.removeItem('subscriptionStatusTimestamp');
@@ -255,54 +206,27 @@ export default function BillingPage() {
     
     // Show success message
     alert('Payment successful! Your credits have been added to your account.');
-  };
+  }, [fetchCurrentPlan]);
 
-  const handleSyncSubscription = async () => {
-    setSyncing(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        alert('Please log in to sync your subscription');
-        return;
+  useEffect(() => {
+    if (user) {
+      fetchCurrentPlan();
+      
+      // Check if we're returning from a successful checkout
+      const urlParams = new URLSearchParams(window.location.search);
+      const sessionId = urlParams.get('session_id');
+      
+      if (sessionId) {
+        // Clear the session_id from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Show success message and refresh data after a short delay
+        setTimeout(() => {
+          handlePurchaseSuccess();
+        }, 1000);
       }
-
-      const response = await fetch(buildApiUrl('/api/stripe/sync-customer-subscription'), {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Sync result:', result);
-        
-        // Clear caches and refresh data
-        localStorage.removeItem('subscriptionStatus');
-        localStorage.removeItem('subscriptionStatusTimestamp');
-        localStorage.removeItem('userCredits');
-        localStorage.removeItem('userCreditsTimestamp');
-        
-        // Refresh the page data
-        await fetchCurrentPlan();
-        
-        // Dispatch custom event to notify sidebar to refresh
-        window.dispatchEvent(new CustomEvent('subscriptionSynced'));
-        
-        alert(`Subscription synced successfully! Plan: ${result.plan_type}, Status: ${result.status}`);
-      } else {
-        const error = await response.json();
-        console.error('Sync error:', error);
-        alert(`Failed to sync subscription: ${error.detail || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Error syncing subscription:', error);
-      alert('Failed to sync subscription. Please try again.');
-    } finally {
-      setSyncing(false);
     }
-  };
+  }, [user, fetchCurrentPlan, handlePurchaseSuccess]);
 
 
   if (loading) {
@@ -359,7 +283,7 @@ export default function BillingPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Current Plan</h2>
-            <p style={{ color: 'var(--foreground-secondary)' }}>You're currently on the {subscriptionPlans.find(p => p.id === currentPlan)?.name} plan</p>
+            <p style={{ color: 'var(--foreground-secondary)' }}>You&apos;re currently on the {subscriptionPlans.find(p => p.id === currentPlan)?.name} plan</p>
             {/* {subscriptionStatus?.status && (
               <p className="text-xs mt-1" style={{ color: 'var(--foreground-muted)' }}>Status: {subscriptionStatus.status}</p>
             )} */}
@@ -383,35 +307,12 @@ export default function BillingPage() {
             )}
           </div>
         </div>
-        
-        {/* Restore Purchase Button */}
-        <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border)' }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Restore Purchase</h3>
-              <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
-                If you've made a payment but your status hasn't updated, click here to restore your purchase
-              </p>
-            </div>
-            <button
-              onClick={handleSyncSubscription}
-              disabled={syncing}
-              className="px-4 py-2 rounded-lg font-medium text-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: syncing ? 'var(--foreground-muted)' : 'var(--accent)',
-                color: 'var(--foreground-on-accent)'
-              }}
-            >
-              {syncing ? 'Restoring...' : 'Restore Purchase'}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Upgrade Your Plan Section */}
       <div id="subscription-management" className="mb-8">
         <StripeProvider>
-          <CreditsPurchase onSuccess={handlePurchaseSuccess} selectedPackage={selectedPackage} />
+          <CreditsPurchase onSuccess={handlePurchaseSuccess} />
         </StripeProvider>
       </div>
 
