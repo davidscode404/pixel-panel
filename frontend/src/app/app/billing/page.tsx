@@ -5,6 +5,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { createClient } from '@/lib/supabase/client';
 import { buildApiUrl, API_CONFIG } from '@/config/api';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import AlertBanner from '@/components/ui/AlertBanner';
 import StripeProvider from '@/components/stripe/StripeProvider';
 import CreditsPurchase from '@/components/stripe/CreditsPurchase';
 
@@ -99,6 +100,7 @@ export default function BillingPage() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [credits, setCredits] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const supabase = createClient();
 
   const fetchCurrentPlan = useCallback(async () => {
@@ -196,22 +198,44 @@ export default function BillingPage() {
     }
   }, [user, supabase]);
 
-  const handlePurchaseSuccess = useCallback(() => {
-    // Clear subscription status cache since subscription may have changed
-    localStorage.removeItem('subscriptionStatus');
-    localStorage.removeItem('subscriptionStatusTimestamp');
-    
-    // Refresh credits after successful purchase
-    fetchCurrentPlan();
-    
-    // Show success message
-    alert('Payment successful! Your credits have been added to your account.');
-  }, [fetchCurrentPlan]);
+  const handleSyncSubscription = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No session token available for sync');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SYNC_SUBSCRIPTION), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Subscription synced:', data);
+        
+        // Clear cache and refresh data
+        localStorage.removeItem('subscriptionStatus');
+        localStorage.removeItem('subscriptionStatusTimestamp');
+        localStorage.removeItem('userCredits');
+        localStorage.removeItem('userCreditsTimestamp');
+        
+        await fetchCurrentPlan();
+      } else {
+        const error = await response.json();
+        console.error('Failed to sync subscription:', error.detail);
+      }
+    } catch (error) {
+      console.error('Error syncing subscription:', error);
+    }
+  };
 
   useEffect(() => {
     if (user) {
-      fetchCurrentPlan();
-      
       // Check if we're returning from a successful checkout
       const urlParams = new URLSearchParams(window.location.search);
       const sessionId = urlParams.get('session_id');
@@ -220,13 +244,24 @@ export default function BillingPage() {
         // Clear the session_id from URL
         window.history.replaceState({}, document.title, window.location.pathname);
         
-        // Show success message and refresh data after a short delay
+        // Show success banner
+        setShowSuccessBanner(true);
+        
+        // Automatically sync subscription after successful checkout
+        setTimeout(async () => {
+          await handleSyncSubscription();
+        }, 1500);
+        
+        // Hide banner after 5 seconds
         setTimeout(() => {
-          handlePurchaseSuccess();
-        }, 1000);
+          setShowSuccessBanner(false);
+        }, 5000);
+      } else {
+        // Normal page load - just fetch current plan
+        fetchCurrentPlan();
       }
     }
-  }, [user, fetchCurrentPlan, handlePurchaseSuccess]);
+  }, [user, fetchCurrentPlan]);
 
 
   if (loading) {
@@ -244,6 +279,17 @@ export default function BillingPage() {
         </p>
       </div>
 
+      {/* Success Banner */}
+      {showSuccessBanner && (
+        <div className="mb-6">
+          <AlertBanner
+            type="success"
+            message="Payment successful! Your subscription has been activated and credits have been added to your account."
+            onClose={() => setShowSuccessBanner(false)}
+          />
+        </div>
+      )}
+
       {/* Credits Section */}
       <div className="p-6 rounded-lg border mb-8" style={{ backgroundColor: 'var(--background-card)', borderColor: 'var(--border)' }}>
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -260,21 +306,19 @@ export default function BillingPage() {
               </div>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                // Redirect to Stripe billing portal
-                window.open('https://billing.stripe.com/p/login/8x2aER4m93o2cWX8Om0Jq00', '_blank');
-              }}
-              className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
-              style={{
-                backgroundColor: 'var(--accent)',
-                color: 'var(--foreground-on-accent)'
-              }}
-            >
-              Manage Subscription
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              // Redirect to Stripe billing portal
+              window.open('https://billing.stripe.com/p/login/8x2aER4m93o2cWX8Om0Jq00', '_blank');
+            }}
+            className="px-6 py-3 rounded-lg font-semibold transition-all hover:opacity-90"
+            style={{
+              backgroundColor: 'var(--accent)',
+              color: 'var(--foreground-on-accent)'
+            }}
+          >
+            Manage Subscription
+          </button>
         </div>
       </div>
 
@@ -312,7 +356,7 @@ export default function BillingPage() {
       {/* Upgrade Your Plan Section */}
       <div id="subscription-management" className="mb-8">
         <StripeProvider>
-          <CreditsPurchase onSuccess={handlePurchaseSuccess} />
+          <CreditsPurchase onSuccess={handleSyncSubscription} />
         </StripeProvider>
       </div>
 

@@ -16,7 +16,8 @@ export const API_CONFIG = {
     // Stripe endpoints (only used ones)
     USER_PROFILE: '/api/stripe/user-profile',
     USER_CREDITS: '/api/stripe/user-credits',
-    STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status'
+    STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status',
+    SYNC_SUBSCRIPTION: '/api/stripe/sync-customer-subscription'
   }
 };
 
