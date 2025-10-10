@@ -14,6 +14,7 @@ export const API_CONFIG = {
     GENERATE_VOICE: '/api/voice-over/generate-voiceover',
     
     // Stripe endpoints (only used ones)
+    USER_PROFILE: '/api/stripe/user-profile',
     USER_CREDITS: '/api/stripe/user-credits',
     STRIPE_SUBSCRIPTION_STATUS: '/api/stripe/subscription-status'
   }
