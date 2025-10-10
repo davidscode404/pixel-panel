@@ -81,6 +81,18 @@ class SubscriptionStatusResponse(BaseModel):
     current_period_end: Optional[str] = None
     next_billing_date: Optional[str] = None
 
+class UserProfileResponse(BaseModel):
+    user_id: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    credits: int
+    plan_type: str
+    status: str
+    stripe_customer_id: Optional[str] = None
+
+class UpdateUserProfileRequest(BaseModel):
+    name: Optional[str] = None
+
 # Helper Functions
 async def get_or_create_user_profile(user_id: str, stripe_customer_id: str = None) -> Dict[str, Any]:
     """Get or create user profile in database"""
@@ -476,6 +488,84 @@ async def get_subscription_status(
         raise HTTPException(
             status_code=500,
             detail="Internal server error while retrieving subscription status"
+        )
+
+
+@router.get("/user-profile", response_model=UserProfileResponse)
+@limiter.limit("50/minute")
+async def get_user_profile(
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get user's profile information"""
+    
+    user_id = current_user["id"]
+    email = current_user.get("email")
+    
+    try:
+        profile = await get_or_create_user_profile(user_id)
+        
+        return UserProfileResponse(
+            user_id=user_id,
+            name=profile.get("name"),
+            email=email,
+            credits=profile.get("credits", 0),
+            plan_type=profile.get("plan_type", "free"),
+            status=profile.get("status", "active"),
+            stripe_customer_id=profile.get("stripe_customer_id")
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting user profile: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while retrieving user profile"
+        )
+
+
+@router.patch("/user-profile", response_model=UserProfileResponse)
+@limiter.limit("20/minute")
+async def update_user_profile(
+    request: Request,
+    update_data: UpdateUserProfileRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user's profile information"""
+    
+    user_id = current_user["id"]
+    email = current_user.get("email")
+    
+    try:
+        # Get existing profile
+        profile = await get_or_create_user_profile(user_id)
+        
+        # Update only provided fields
+        update_fields = {}
+        if update_data.name is not None:
+            update_fields["name"] = update_data.name
+        
+        if update_fields:
+            update_fields["updated_at"] = "now()"
+            supabase.table("user_profiles").update(update_fields).eq("user_id", user_id).execute()
+            
+            # Refresh profile data
+            profile = await get_or_create_user_profile(user_id)
+        
+        return UserProfileResponse(
+            user_id=user_id,
+            name=profile.get("name"),
+            email=email,
+            credits=profile.get("credits", 0),
+            plan_type=profile.get("plan_type", "free"),
+            status=profile.get("status", "active"),
+            stripe_customer_id=profile.get("stripe_customer_id")
+        )
+        
+    except Exception as e:
+        logger.error(f"Error updating user profile: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while updating user profile"
         )
 
 
