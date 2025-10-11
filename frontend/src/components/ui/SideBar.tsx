@@ -139,10 +139,38 @@ export default function SideBar({
   };
 
   const fetchUserDisplayName = async () => {
-    // Since we don't have a user profile endpoint, just use email
-    if (user?.email) {
-      const displayName = user.email.split('@')[0]; // Use part before @ as display name
-      setUserDisplayName(displayName);
+    try {
+      // Check cache first
+      const cachedName = localStorage.getItem('userDisplayName');
+      if (cachedName) {
+        setUserDisplayName(cachedName);
+        return;
+      }
+
+      // Only fetch if we don't have a cached name
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_PROFILE), {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        const name = userData.name || null;
+        setUserDisplayName(name);
+        
+        // Cache the name
+        if (name) {
+          localStorage.setItem('userDisplayName', name);
+        } else {
+          localStorage.removeItem('userDisplayName');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user display name:', error);
     }
   };
 
