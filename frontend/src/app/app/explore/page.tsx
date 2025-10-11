@@ -243,13 +243,13 @@ export default function ExplorePage() {
               )}
 
               {/* Title, author, and date at bottom with overlay */}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
+              <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-gray-900/90 via-gray-900/70 to-transparent dark:from-black/90 dark:via-black/70">
                 <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">{comic.title}</h3>
                 <div className="flex items-center justify-between text-xs">
-                  <p className="text-white/80 font-medium">
+                  <p className="text-gray-200 dark:text-gray-300 font-medium">
                     {comic.user_profiles?.name || 'Anonymous'}
                   </p>
-                  <p className="text-foreground-secondary">
+                  <p className="text-gray-200 dark:text-gray-300">
                     {new Date(comic.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                   </p>
                 </div>

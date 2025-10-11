@@ -33,7 +33,16 @@ export default function SideBar({
   const pathname = usePathname()
   const router = useRouter()
   const { user, signOut } = useAuth()
-  const [theme, setTheme] = useState<Theme>('system')
+  // Initialize theme from localStorage immediately
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme') as Theme
+      if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
+        return savedTheme
+      }
+    }
+    return 'system'
+  })
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [credits, setCredits] = useState<number | null>(null)
   const [creditsLoading, setCreditsLoading] = useState(false)
@@ -51,14 +60,6 @@ export default function SideBar({
     creator: 'Creator',
     content_machine: 'Content Machine'
   };
-
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme
-    if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
-      setTheme(savedTheme)
-    }
-  }, [])
 
   const fetchUserCredits = async (forceRefresh = false) => {
     try {
@@ -200,9 +201,15 @@ export default function SideBar({
     
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-      root.classList.toggle('dark', systemTheme === 'dark')
+      if (systemTheme === 'dark') {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    } else if (theme === 'dark') {
+      root.classList.add('dark')
     } else {
-      root.classList.toggle('dark', theme === 'dark')
+      root.classList.remove('dark')
     }
     
     localStorage.setItem('theme', theme)
