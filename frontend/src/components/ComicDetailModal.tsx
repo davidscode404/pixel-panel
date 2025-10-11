@@ -825,7 +825,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
         )}
 
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="columns-1 sm:columns-2 gap-4">
           {comic.panels
             .filter(panel => panel.panel_number > 0)
             .sort((a, b) => a.panel_number - b.panel_number)
@@ -836,7 +836,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
               return (
               <div
                 key={panel.id}
-                className={`bg-background-tertiary overflow-hidden transition-all duration-300 relative border-4 ${
+                className={`bg-background-tertiary overflow-hidden transition-all duration-300 border-4 mb-4 break-inside-avoid ${
                   isEditable
                     ? 'border-orange-400 cursor-pointer hover:border-orange-500' 
                     : isCurrentlyPlaying
@@ -845,15 +845,16 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                 } ${isEditing ? 'ring-2 ring-orange-500' : ''}`}
                 onClick={isEditable ? () => handleEditPanel(panel) : undefined}
               >
-                {imageErrors[`${comic.id}-${panel.id}`] ? (
-                  <div className="w-full h-48 bg-background-secondary flex items-center justify-center">
-                    <div className="text-foreground-muted text-center">
-                      <div className="text-2xl mb-2">🖼️</div>
-                      <div className="text-sm">Image not available</div>
+                {/* Image Container */}
+                <div className="relative w-full aspect-[4/3]">
+                  {imageErrors[`${comic.id}-${panel.id}`] ? (
+                    <div className="w-full h-full bg-background-secondary flex items-center justify-center">
+                      <div className="text-foreground-muted text-center">
+                        <div className="text-2xl mb-2">🖼️</div>
+                        <div className="text-sm">Image not available</div>
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="relative w-full h-full">
+                  ) : (
                     <Image
                       src={panel.public_url}
                       alt={`Panel ${panel.panel_number}`}
@@ -862,65 +863,71 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                       className="w-full h-full object-cover bg-white"
                       onError={() => handleImageError(`${comic.id}-${panel.id}`)}
                     />
-                    {((panel.narration && showNarration) || isEditing) && (
-                      <div className={`absolute bottom-0 left-0 right-0 backdrop-blur-sm px-3 py-2 transition-all duration-300 ${
-                        isCurrentlyPlaying ? 'bg-accent ring-2 ring-accent' : 'bg-black/80'
-                      }`}>
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <textarea
-                              value={editingNarration}
-                              onChange={(e) => setEditingNarration(e.target.value)}
-                              className="w-full p-2 text-sm bg-white/90 text-black rounded border-0 focus:ring-2 focus:ring-orange-500 resize-none"
-                              rows={2}
-                              placeholder="Enter narration..."
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <div className="flex gap-1 flex-wrap">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSaveNarration();
-                                }}
-                                disabled={isUpdatingNarration || !editingNarration.trim()}
-                                className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
-                              >
-                                {isUpdatingNarration ? 'Saving...' : 'Save'}
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingPanel(null);
-                                  setEditingNarration('');
-                                  setEditingPrompt('');
-                                }}
-                                className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-white text-sm italic leading-tight">{panel.narration}</p>
-                        )}
+                  )}
+                  
+                  {/* Edit Status Badges */}
+                  {isEditable && !isEditing && (
+                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                      <div className="bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
+                        Click to Edit
                       </div>
-                    )}
-                    {isEditable && !isEditing && (
-                      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                        <div className="bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
-                          Click to Edit
+                      {!panel.narration && (
+                        <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
+                          No Narration
                         </div>
-                        {!panel.narration && (
-                          <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
-                            No Narration
-                          </div>
-                        )}
-                        {!panel.audio_url && panel.narration && (
-                          <div className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
-                            No Audio
-                          </div>
-                        )}
+                      )}
+                      {!panel.audio_url && panel.narration && (
+                        <div className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
+                          No Audio
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Narration Below - All screen sizes */}
+                {((panel.narration && showNarration) || isEditing) && (
+                  <div className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
+                    isCurrentlyPlaying ? 'bg-accent' : 'bg-white dark:bg-black'
+                  }`}>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editingNarration}
+                          onChange={(e) => setEditingNarration(e.target.value)}
+                          className="w-full p-2 text-sm bg-white/90 text-black rounded border-0 focus:ring-2 focus:ring-orange-500 resize-none"
+                          rows={2}
+                          placeholder="Enter narration..."
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex gap-1 flex-wrap">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSaveNarration();
+                            }}
+                            disabled={isUpdatingNarration || !editingNarration.trim()}
+                            className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                          >
+                            {isUpdatingNarration ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingPanel(null);
+                              setEditingNarration('');
+                              setEditingPrompt('');
+                            }}
+                            className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <p className={`text-sm italic leading-tight ${
+                        isCurrentlyPlaying ? 'text-white' : 'text-black dark:text-white'
+                      }`}>{panel.narration}</p>
                     )}
                   </div>
                 )}
