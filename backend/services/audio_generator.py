@@ -40,7 +40,7 @@ class AudioGenerator:
         }
         
         # Default voice ID - you can change this to your preferred voice
-        self.default_voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel voice
+        self.default_voice_id = "L1aJrPa7pLJEyYlh3Ilq"  # Custom voice
         
     async def get_available_voices(self) -> Dict[str, Any]:
         """
@@ -102,19 +102,31 @@ class AudioGenerator:
             "Content-Type": "application/json"
         }
         
+        # According to ElevenLabs API docs, output_format should not be in the payload
+        # It should be in the query string or Accept header
         payload = {
             "text": text,
             "model_id": model_id,
-            "voice_settings": voice_settings,
-            "output_format": output_format
+            "voice_settings": voice_settings
         }
         
         logger.info(f"Generating audio for text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
-        logger.debug(f"Using voice ID: {voice_id}")
+        logger.info(f"Using voice ID: {voice_id}, model: {model_id}")
+        logger.debug(f"Voice settings: {voice_settings}")
+        logger.debug(f"Full URL: {url}")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.post(url, headers=headers, json=payload)
+                
+                # Log response details before raising error
+                if not response.is_success:
+                    error_text = response.text
+                    logger.error(f"ElevenLabs API Error - Status: {response.status_code}")
+                    logger.error(f"Error details: {error_text}")
+                    logger.error(f"Voice ID used: {voice_id}")
+                    logger.error(f"Payload sent: {payload}")
+                
                 response.raise_for_status()
                 
                 audio_data = response.content
@@ -122,11 +134,13 @@ class AudioGenerator:
                 return audio_data
                 
             except httpx.HTTPStatusError as e:
-                logger.error(f"HTTP Error {e.response.status_code}: {e.response.text}", exc_info=True)
-                raise
+                error_detail = e.response.text
+                logger.error(f"HTTP Error {e.response.status_code}: {error_detail}", exc_info=True)
+                # Include more context in the error message
+                raise ValueError(f"ElevenLabs API error ({e.response.status_code}): {error_detail}")
             except httpx.TimeoutException:
                 logger.error("Request timed out", exc_info=True)
-                raise
+                raise ValueError("Voice generation request timed out after 30 seconds")
             except Exception as e:
                 logger.error(f"Unexpected error: {e}", exc_info=True)
                 raise

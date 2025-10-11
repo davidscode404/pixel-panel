@@ -26,6 +26,7 @@ export interface ComicPanel {
   // Content fields
   narration?: string;
   audio_url?: string;
+  audio_data?: string;  // Base64 encoded audio data
   prompt?: string;
   image_data?: string;
   

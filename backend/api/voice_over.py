@@ -80,13 +80,59 @@ async def generate_story_endpoint(request: Request, story: str = Body(..., embed
         logger.debug(f"JSON decode error, returning as story: {result}")
         return {"story": result}
 
-@router.post("/generate-voiceover")
-@limiter.limit("10/minute")
-async def generate_narration(request: Request, narration: str, current_user: dict = Depends(get_current_user)):
+@router.get("/test-voice")
+async def test_voice_endpoint(current_user: dict = Depends(get_current_user)):
     """
-    Generate voice narration
+    Test voice generation with default settings
     """
     try:
+        test_text = "Hello! This is a test of the voice generation system."
+        logger.info(f"Testing voice generation for user {current_user['id']}...")
+        
+        audio_data = await audio_generator.generate_audio_base64(test_text)
+        
+        return {
+            "success": True,
+            "message": "Voice generation test successful",
+            "voice_id": audio_generator.default_voice_id,
+            "audio_length": len(audio_data),
+            "test_text": test_text
+        }
+    except Exception as e:
+        logger.error(f"Voice test failed: {e}", exc_info=True)
+        return {
+            "success": False,
+            "error": str(e),
+            "voice_id": audio_generator.default_voice_id
+        }
+
+@router.post("/generate-voiceover")
+@limiter.limit("10/minute")
+async def generate_narration(
+    request: Request, 
+    narration: str = Body(...), 
+    voice_id: str = Body(None),
+    speed: float = Body(1.0),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Generate voice narration with optional voice selection and speed control
+    """
+    try:
+        # Validate input
+        if not narration or not narration.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Narration text cannot be empty"
+            )
+        
+        # Validate speed range (ElevenLabs supports 0.7 to 1.2)
+        if speed < 0.7 or speed > 1.2:
+            raise HTTPException(
+                status_code=400,
+                detail="Speed must be between 0.7 and 1.2"
+            )
+        
         # Check if user has sufficient credits (1 credit per narration)
         if not await credits_service.has_sufficient_credits(current_user["id"], 1):
             raise HTTPException(
@@ -94,19 +140,38 @@ async def generate_narration(request: Request, narration: str, current_user: dic
                 detail="Insufficient credits. Please purchase more credits to generate voice narrations."
             )
         
-        logger.info(f"Generating audio for narration ({len(narration)} chars)...")
-        audio_data = await audio_generator.generate_audio_base64(narration)
-        logger.info(f"Audio generated, base64 length: {len(audio_data)} chars")
+        # Adjust voice settings based on speed
+        adjusted_settings = {
+            "stability": max(0.1, min(0.95, 0.75 - (speed - 1.0) * 0.2)),
+            "similarity_boost": 0.9,
+            "style": 0.5
+        }
+        
+        audio_data = await audio_generator.generate_audio_base64(
+            narration, 
+            voice_id=voice_id,
+            voice_settings=adjusted_settings
+        )
         
         # Deduct 1 credit after successful generation
         try:
-            new_balance = await credits_service.deduct_credits(current_user["id"], 1)
-            logger.info(f"Deducted 1 credit from user {current_user['id']} for voice generation. New balance: {new_balance}")
+            await credits_service.deduct_credits(current_user["id"], 1)
         except Exception as credit_error:
-            logger.error(f"Failed to deduct credits for user {current_user['id']}: {credit_error}")
-            # Note: We still return the generated audio even if credit deduction fails
+            logger.error(f"Failed to deduct credits: {credit_error}")
         
         return {"audio": audio_data}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # Handle validation errors from audio generator
+        logger.error(f"Validation error generating voiceover: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Error generating voiceover: {e}", exc_info=True)
-        return {"error": str(e), "audio": None}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate voiceover: {str(e)}"
+        )
