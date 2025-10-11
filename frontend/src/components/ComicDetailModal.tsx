@@ -36,6 +36,9 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showNarration, setShowNarration] = useState(true)
+  const [selectedVoice, setSelectedVoice] = useState<string>('L1aJrPa7pLJEyYlh3Ilq')
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0)
+  const [regeneratingAllAudio, setRegeneratingAllAudio] = useState(false)
 
   // Check if comic can be published (has title, narrations, and thumbnail)
   const canPublish = () => {
@@ -120,7 +123,11 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
       const panel = panelsWithAudio[currentIndex]
       setCurrentPlayingPanel(panel.panel_number)
 
-      const audio = new Audio(panel.audio_url!)
+      // Add cache-busting parameter to force fresh audio load
+      const audioUrl = panel.audio_url!.includes('?') 
+        ? `${panel.audio_url}&_cb=${Date.now()}`
+        : `${panel.audio_url}?_cb=${Date.now()}`
+      const audio = new Audio(audioUrl)
       
       // Set up event handlers before setting state
       audio.onended = () => {
@@ -186,14 +193,17 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
         throw new Error('Not authenticated')
       }
 
-      // Update the panel narration in the database
+      // Update the panel narration in the database (without regenerating audio)
       const response = await fetch(buildApiUrl(`/api/comics/panels/${editingPanel.id}`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ narration: editingNarration.trim() })
+        body: JSON.stringify({ 
+          narration: editingNarration.trim(),
+          regenerate_audio: false
+        })
       })
 
       if (!response.ok) {
@@ -204,12 +214,15 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
       const respJson = await response.json().catch(() => ({}))
       const newAudioUrl = respJson?.audio_url as string | undefined
 
-      // Update local comic data (also refresh audio if returned)
+      // Update local comic data
       const updatedComic = {
         ...comic,
         panels: comic.panels.map(p => 
           p.id === editingPanel.id 
-            ? { ...p, narration: editingNarration.trim(), ...(newAudioUrl ? { audio_url: newAudioUrl } : {}) }
+            ? { 
+                ...p, 
+                narration: editingNarration.trim()
+              }
             : p
         )
       }
@@ -220,11 +233,110 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
 
       setEditingPanel(null)
       setEditingNarration('')
+      setEditingPrompt('')
     } catch (error) {
       console.error('Error updating narration:', error)
       alert('Failed to update narration. Please try again.')
     } finally {
       setIsUpdatingNarration(false)
+    }
+  }
+
+  const handleRegenerateAllAudio = async () => {
+    setRegeneratingAllAudio(true)
+    
+    // Stop any currently playing audio
+    stopAudio()
+    
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated')
+      }
+
+      const storyPanels = comic.panels
+        .filter(p => p.panel_number > 0 && p.narration && p.narration.trim())
+        .sort((a, b) => a.panel_number - b.panel_number)
+
+      if (storyPanels.length === 0) {
+        alert('No panels with narrations found')
+        return
+      }
+
+      let successCount = 0
+      const errors: string[] = []
+      const updatedPanels: { [key: string]: string } = {}
+
+      for (const panel of storyPanels) {
+        try {
+          const response = await fetch(buildApiUrl(`/api/comics/panels/${panel.id}`), {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              narration: panel.narration,
+              voice_id: selectedVoice,
+              speed: voiceSpeed,
+              regenerate_audio: true
+            })
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            errors.push(`Panel ${panel.panel_number}: ${errorData.detail || response.status}`)
+            continue
+          }
+
+          const result = await response.json()
+          if (result.audio_url) {
+            console.log(`Panel ${panel.panel_number} new audio URL:`, result.audio_url)
+            updatedPanels[panel.id] = result.audio_url
+          } else {
+            console.warn(`Panel ${panel.panel_number} - no audio URL returned`)
+          }
+          
+          successCount++
+        } catch (error) {
+          errors.push(`Panel ${panel.panel_number}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        }
+      }
+
+      if (successCount > 0) {
+        // Update the comic state with new audio URLs (without cache-busting in state)
+        const updatedComic = {
+          ...comic,
+          panels: comic.panels.map(p => {
+            if (updatedPanels[p.id]) {
+              console.log(`Updating panel ${p.panel_number} audio URL:`, updatedPanels[p.id])
+              return { ...p, audio_url: updatedPanels[p.id] }
+            }
+            return p
+          })
+        }
+
+        console.log('Updated comic with new audio URLs:', updatedComic.panels.map(p => ({ 
+          panel: p.panel_number, 
+          hasAudio: !!p.audio_url,
+          url: p.audio_url?.substring(0, 50)
+        })))
+
+        if (onComicUpdated) {
+          onComicUpdated(updatedComic)
+        }
+
+        alert(`Successfully regenerated audio for ${successCount} panel(s)!${errors.length > 0 ? `\n\nSome errors:\n${errors.join('\n')}` : ''}`)
+      } else {
+        alert(`Failed to regenerate audio:\n${errors.join('\n')}`)
+      }
+    } catch (error) {
+      console.error('Error regenerating all audio:', error)
+      alert('Failed to regenerate audio. Please try again.')
+    } finally {
+      setRegeneratingAllAudio(false)
     }
   }
 
@@ -391,6 +503,20 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
   useEffect(() => {
     setIsPublic(comic.is_public ?? false)
   }, [comic.id, comic.is_public])
+
+  // Reset playback state when comic panels change (e.g., after audio regeneration)
+  useEffect(() => {
+    // Stop any playing audio when audio URLs change to avoid playing old cached audio
+    const hasAudioUrls = comic.panels.some(p => p.audio_url)
+    if (hasAudioUrls && audioElement) {
+      audioElement.pause()
+      audioElement.currentTime = 0
+      setAudioElement(null)
+      setPlayingAudio(null)
+      setCurrentPlayingPanel(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comic.panels.map(p => p.audio_url).join(',')])
 
   // Auto-play when modal opens with autoPlay enabled
   useEffect(() => {
@@ -590,36 +716,114 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
           </div>
         )}
 
-
-        {/* Image Regeneration Interface - only show when editing and not editing narration */}
-        {editingPanel && (
-          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-            <h3 className="text-lg font-semibold text-orange-800 mb-4">
-              Regenerate Image for Panel {editingPanel.panel_number}
+        {/* Edit Mode - Voice Settings & Actions */}
+        {isEditMode && (
+          <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-400 rounded-lg">
+            <h3 className="text-lg font-semibold text-orange-800 dark:text-orange-300 mb-4">
+              Edit Mode - Voice & Panel Settings
             </h3>
             
-            {/* Context Information banner removed per request */}
-            
-            <textarea
-              value={editingPrompt}
-              onChange={(e) => setEditingPrompt(e.target.value)}
-              className="w-full p-3 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              rows={3}
-              placeholder="Enter a new prompt to regenerate this panel's image..."
-            />
-            
-            
-            <div className="mt-3">
-              <button
-                onClick={handleRegenerateImage}
-                disabled={isGeneratingImage || !editingPrompt.trim()}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isGeneratingImage ? 'Generating...' : 'Regenerate Image'}
-              </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              {/* Voice Selection */}
+              <div>
+                <label htmlFor="voice-select-modal" className="block text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">
+                  Select Voice
+                </label>
+                <select
+                  id="voice-select-modal"
+                  value={selectedVoice}
+                  onChange={(e) => setSelectedVoice(e.target.value)}
+                  className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-orange-900/50 text-foreground focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="L1aJrPa7pLJEyYlh3Ilq">Oliver (default)</option>
+                  <option value="NNl6r8mD7vthiJatiJt1">Bradford</option>
+                  <option value="goT3UYdM9bhm0n2lmKQx">Edward</option>
+                  <option value="O4fnkotIypvedJqBp4yb">Alexis</option>
+                </select>
+              </div>
+
+              {/* Speed Slider */}
+              <div>
+                <label htmlFor="speed-slider-modal" className="block text-sm font-medium text-orange-700 dark:text-orange-300 mb-2">
+                  Voice Speed: {voiceSpeed.toFixed(2)}x
+                </label>
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs text-orange-600 dark:text-orange-400">0.7x</span>
+                  <input
+                    id="speed-slider-modal"
+                    type="range"
+                    min="0.7"
+                    max="1.2"
+                    step="0.05"
+                    value={voiceSpeed}
+                    onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
+                    className="flex-1 h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, #f97316 0%, #f97316 ${((voiceSpeed - 0.7) / (1.2 - 0.7)) * 100}%, #d1d5db ${((voiceSpeed - 0.7) / (1.2 - 0.7)) * 100}%, #d1d5db 100%)`
+                    }}
+                  />
+                  <span className="text-xs text-orange-600 dark:text-orange-400">1.2x</span>
+                </div>
+                <style jsx>{`
+                  input[type="range"]::-webkit-slider-thumb {
+                    appearance: none;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: #f97316;
+                    cursor: pointer;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                  }
+                  input[type="range"]::-moz-range-thumb {
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: #f97316;
+                    cursor: pointer;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+                  }
+                  input[type="range"]:focus {
+                    outline: none;
+                  }
+                  input[type="range"]:focus::-webkit-slider-thumb {
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3);
+                  }
+                  input[type="range"]:focus::-moz-range-thumb {
+                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.3);
+                  }
+                `}</style>
+              </div>
             </div>
+
+            {/* Regenerate All Audio Button */}
+            <button
+              onClick={handleRegenerateAllAudio}
+              disabled={regeneratingAllAudio}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+            >
+              {regeneratingAllAudio ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Regenerating All Audio...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  </svg>
+                  <span>Regenerate All Audio</span>
+                </>
+              )}
+            </button>
+            
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-3">
+              Click any panel below to edit its narration. Use "Regenerate All Audio" button above to generate voices with your chosen settings.
+            </p>
           </div>
         )}
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {comic.panels
@@ -628,8 +832,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
             .map((panel) => {
               const isCurrentlyPlaying = currentPlayingPanel === panel.panel_number;
               const isEditing = editingPanel?.id === panel.id;
-              const isFirstPanel = panel.panel_number === 1;
-              const isEditable = isEditMode && !isFirstPanel;
+              const isEditable = isEditMode;
               return (
               <div
                 key={panel.id}
@@ -659,7 +862,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                       className="w-full h-full object-cover bg-white"
                       onError={() => handleImageError(`${comic.id}-${panel.id}`)}
                     />
-                    {panel.narration && showNarration && (
+                    {((panel.narration && showNarration) || isEditing) && (
                       <div className={`absolute bottom-0 left-0 right-0 backdrop-blur-sm px-3 py-2 transition-all duration-300 ${
                         isCurrentlyPlaying ? 'bg-accent ring-2 ring-accent' : 'bg-black/80'
                       }`}>
@@ -673,7 +876,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                               placeholder="Enter narration..."
                               onClick={(e) => e.stopPropagation()}
                             />
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -688,8 +891,10 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingPanel(null);
+                                  setEditingNarration('');
+                                  setEditingPrompt('');
                                 }}
-                                className="px-2 py-1 text-xs bg-orange-400 text-white rounded hover:bg-orange-500"
+                                className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
                               >
                                 Cancel
                               </button>
@@ -700,9 +905,21 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                         )}
                       </div>
                     )}
-                    {isEditable && (
-                      <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium">
-                        Click to Edit
+                    {isEditable && !isEditing && (
+                      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                        <div className="bg-orange-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
+                          Click to Edit
+                        </div>
+                        {!panel.narration && (
+                          <div className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
+                            No Narration
+                          </div>
+                        )}
+                        {!panel.audio_url && panel.narration && (
+                          <div className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-medium shadow-lg">
+                            No Audio
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

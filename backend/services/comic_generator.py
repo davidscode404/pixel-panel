@@ -147,12 +147,14 @@ class ComicArtGenerator:
                         # Check if context_image_data is already a BytesIO object or needs base64 decoding
                         if hasattr(context_image_data, 'read'):
                             # It's already a BytesIO object
+                            context_image_data.seek(0)  # Ensure we're at the beginning
                             context_img = Image.open(context_image_data)
                             context_img_bytes = context_image_data.getvalue()
                         else:
                             # It's base64 encoded string data
                             context_img_bytes = base64.b64decode(context_image_data)
-                            context_img = Image.open(io.BytesIO(context_img_bytes))
+                            context_bytes_io = io.BytesIO(context_img_bytes)
+                            context_img = Image.open(context_bytes_io)
                         prompt_parts.insert(0, context_img)
                         logger.debug(f"Added context image to generation (size: {len(context_img_bytes)} bytes)")
                     except Exception as e:
@@ -170,12 +172,14 @@ class ComicArtGenerator:
                     # Check if context_image_data is already a BytesIO object or needs base64 decoding
                     if hasattr(context_image_data, 'read'):
                         # It's already a BytesIO object
+                        context_image_data.seek(0)  # Ensure we're at the beginning
                         context_img = Image.open(context_image_data)
                         context_img_bytes = context_image_data.getvalue()
                     else:
                         # It's base64 encoded string data
                         context_img_bytes = base64.b64decode(context_image_data)
-                        context_img = Image.open(io.BytesIO(context_img_bytes))
+                        context_bytes_io = io.BytesIO(context_img_bytes)
+                        context_img = Image.open(context_bytes_io)
                     prompt_parts = [
                         context_img,
                         f"{system_prompt}\n\nText prompt: {text_prompt}"
@@ -201,8 +205,18 @@ class ComicArtGenerator:
             # Process response
             for part in response.candidates[0].content.parts:
                 if part.inline_data is not None:
-                    image = Image.open(BytesIO(part.inline_data.data))
-                    return image
+                    # Create BytesIO object and ensure we're at the beginning
+                    image_bytes = BytesIO(part.inline_data.data)
+                    image_bytes.seek(0)
+                    
+                    try:
+                        image = Image.open(image_bytes)
+                        # Load the image immediately to catch any format errors
+                        image.load()
+                        return image
+                    except Exception as img_error:
+                        logger.error(f"Failed to open image: {img_error}. Data size: {len(part.inline_data.data)}")
+                        raise Exception(f"Invalid image data received: {img_error}")
             
             raise Exception("No image data found in response")
             

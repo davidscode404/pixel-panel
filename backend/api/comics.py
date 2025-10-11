@@ -213,51 +213,52 @@ async def save_comic(request: Request, current_user: dict = Depends(get_current_
         
         logger.info(f"Saving comic with is_public={is_public}")
 
-        # Auto-generate audio for panels that have narration but no audio_data
-        panels_with_audio = []
-        audio_generation_count = 0
-        
-        for panel in panels_payload:
-            narration = panel.get('narration')
-            audio_data = panel.get('audio_data')
-            
-            # If panel has narration but no audio, generate it
-            if narration and narration.strip() and not audio_data:
-                try:
-                    logger.info(f"Auto-generating audio for panel {panel['id']} with narration: '{narration[:50]}...'")
-                    
-                    # Check if user has sufficient credits (minimum 6 credits required for auto audio)
-                    if not await credits_service.has_sufficient_credits(user_id, 6):
-                        logger.warning(f"Insufficient credits for auto audio generation for panel {panel['id']}")
-                        # Continue without audio generation
-                        panels_with_audio.append(panel)
-                        continue
-                    
-                    # Generate audio using the audio generator
-                    generated_audio = await audio_generator.generate_audio_base64(narration)
-                    
-                    # Update panel with generated audio
-                    panel['audio_data'] = generated_audio
-                    audio_generation_count += 1
-                    
-                    # Deduct 1 credit for audio generation
-                    try:
-                        new_balance = await credits_service.deduct_credits(user_id, 1)
-                        logger.info(f"Auto-generated audio for panel {panel['id']}. Deducted 1 credit. New balance: {new_balance}")
-                    except Exception as credit_error:
-                        logger.error(f"Failed to deduct credits for auto audio generation: {credit_error}")
-                        # Continue even if credit deduction fails
-                    
-                except Exception as audio_error:
-                    logger.error(f"Failed to auto-generate audio for panel {panel['id']}: {audio_error}", exc_info=True)
-                    # Continue without audio generation
-                
-            panels_with_audio.append(panel)
-        
-        if audio_generation_count > 0:
-            logger.info(f"Auto-generated audio for {audio_generation_count} panels during comic publishing")
+        # DISABLED: Auto-generate audio for panels that have narration but no audio_data
+        # This feature has been disabled - users must manually generate voices before publishing
+        # panels_with_audio = []
+        # audio_generation_count = 0
+        # 
+        # for panel in panels_payload:
+        #     narration = panel.get('narration')
+        #     audio_data = panel.get('audio_data')
+        #     
+        #     # If panel has narration but no audio, generate it
+        #     if narration and narration.strip() and not audio_data:
+        #         try:
+        #             logger.info(f"Auto-generating audio for panel {panel['id']} with narration: '{narration[:50]}...'")
+        #             
+        #             # Check if user has sufficient credits (minimum 6 credits required for auto audio)
+        #             if not await credits_service.has_sufficient_credits(user_id, 6):
+        #                 logger.warning(f"Insufficient credits for auto audio generation for panel {panel['id']}")
+        #                 # Continue without audio generation
+        #                 panels_with_audio.append(panel)
+        #                 continue
+        #             
+        #             # Generate audio using the audio generator
+        #             generated_audio = await audio_generator.generate_audio_base64(narration)
+        #             
+        #             # Update panel with generated audio
+        #             panel['audio_data'] = generated_audio
+        #             audio_generation_count += 1
+        #             
+        #             # Deduct 1 credit for audio generation
+        #             try:
+        #                 new_balance = await credits_service.deduct_credits(user_id, 1)
+        #                 logger.info(f"Auto-generated audio for panel {panel['id']}. Deducted 1 credit. New balance: {new_balance}")
+        #             except Exception as credit_error:
+        #                 logger.error(f"Failed to deduct credits for auto audio generation: {credit_error}")
+        #                 # Continue even if credit deduction fails
+        #             
+        #         except Exception as audio_error:
+        #             logger.error(f"Failed to auto-generate audio for panel {panel['id']}: {audio_error}", exc_info=True)
+        #             # Continue without audio generation
+        #         
+        #     panels_with_audio.append(panel)
+        # 
+        # if audio_generation_count > 0:
+        #     logger.info(f"Auto-generated audio for {audio_generation_count} panels during comic publishing")
 
-        return await comic_storage_service.save_comic(user_id, comic_title, panels_with_audio, thumbnail_data, is_public)
+        return await comic_storage_service.save_comic(user_id, comic_title, panels_payload, thumbnail_data, is_public)
     except HTTPException:
         raise
     except Exception as e:
@@ -409,7 +410,7 @@ async def regenerate_panel_image(request: Request, panel_id: str, current_user: 
 @limiter.limit("30/minute")
 async def update_panel(request: Request, panel_id: str, current_user: dict = Depends(get_current_user)):
     """
-    Update a specific panel's narration and/or prompt
+    Update a specific panel's narration and/or prompt with optional voice customization
     """
     try:
         logger.info(f"Updating panel {panel_id} for user {current_user.get('id')}")
@@ -417,6 +418,9 @@ async def update_panel(request: Request, panel_id: str, current_user: dict = Dep
         logger.info(f"Request data: {raw_data}")
         narration = raw_data.get('narration')
         prompt = raw_data.get('prompt')
+        voice_id = raw_data.get('voice_id')
+        speed = raw_data.get('speed', 1.0)
+        regenerate_audio = raw_data.get('regenerate_audio', False)
         
         if narration is None and prompt is None:
             raise HTTPException(status_code=422, detail="Missing required field: narration or prompt")
@@ -443,9 +447,9 @@ async def update_panel(request: Request, panel_id: str, current_user: dict = Dep
         if not comic_check.data:
             raise HTTPException(status_code=403, detail="You don't have permission to edit this panel")
         
-        # If narration provided, (re)generate audio and upload; then update audio_url
+        # If narration provided AND regenerate_audio is True, (re)generate audio and upload; then update audio_url
         audio_url = None
-        if narration is not None and isinstance(narration, str) and narration.strip():
+        if regenerate_audio and narration is not None and isinstance(narration, str) and narration.strip():
             # Check if user has sufficient credits (1 credit per narration)
             if not await credits_service.has_sufficient_credits(user_id, 1):
                 raise HTTPException(
@@ -454,8 +458,21 @@ async def update_panel(request: Request, panel_id: str, current_user: dict = Dep
                 )
             try:
                 logger.info(f"Generating updated audio for panel {panel_id}")
-                # Generate audio base64
-                audio_b64 = await audio_generator.generate_audio_base64(narration)
+                
+                # Adjust voice settings based on speed
+                adjusted_settings = {
+                    "stability": max(0.1, min(0.95, 0.75 - (speed - 1.0) * 0.2)),
+                    "similarity_boost": 0.9,
+                    "style": 0.5
+                }
+                
+                # Generate audio base64 with optional voice_id and speed
+                audio_b64 = await audio_generator.generate_audio_base64(
+                    narration,
+                    voice_id=voice_id,
+                    voice_settings=adjusted_settings
+                )
+                
                 # Upload to storage with upsert
                 audio_storage_path = f"users/{user_id}/comics/{panel_check.data[0]['comic_id']}/audio/panel_{panel_check.data[0]['panel_number']}.mp3"
                 audio_bytes = base64.b64decode(audio_b64)
@@ -468,8 +485,7 @@ async def update_panel(request: Request, panel_id: str, current_user: dict = Dep
                 update_data['audio_url'] = audio_url
                 # Deduct 1 credit upon successful generation
                 try:
-                    new_balance = await credits_service.deduct_credits(user_id, 1)
-                    logger.info(f"Deducted 1 credit for updated narration audio. New balance: {new_balance}")
+                    await credits_service.deduct_credits(user_id, 1)
                 except Exception as credit_error:
                     logger.error(f"Failed to deduct credits for updated narration audio: {credit_error}")
             except Exception as audio_err:
