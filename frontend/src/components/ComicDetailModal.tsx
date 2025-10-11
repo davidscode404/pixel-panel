@@ -879,9 +879,11 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                     
                     {/* Narration Below - All screen sizes */}
                     {((panel.narration && showNarration) || isEditing) && (
-                      <div className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
-                        isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-gray-900'
-                      }`}>
+                      <div 
+                        className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
+                          isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-black'
+                        }`}
+                      >
                         {isEditing ? (
                           <div className="space-y-2">
                             <textarea
@@ -918,7 +920,7 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                           </div>
                         ) : (
                           <p className={`text-sm italic leading-tight ${
-                            isCurrentlyPlaying ? 'text-white' : 'text-gray-800 dark:text-gray-200'
+                            isCurrentlyPlaying ? 'text-white' : 'text-gray-800 dark:text-gray-100'
                           }`}>{panel.narration}</p>
                         )}
                       </div>

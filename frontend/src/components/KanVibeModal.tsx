@@ -212,7 +212,7 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
                 key={sceneNumber}
                 className={`bg-background-tertiary overflow-hidden transition-all duration-300 border-4 mb-4 break-inside-avoid ${
                   isCurrentlyPlaying ? 'border-accent ring-2 ring-accent' : 'border-black'
-                } cursor-pointer hover:border-accent`}
+                }`}
                 onClick={handleSceneClick}
               >
                 <div className="relative w-full aspect-[4/3]">
@@ -228,10 +228,10 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
                 {/* Narration Below - All screen sizes */}
                 {showNarration && SCENE_NARRATIONS[sceneNumber] && (
                   <div className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
-                    isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-gray-900'
+                    isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-black'
                   }`}>
                     <p className={`text-sm italic leading-tight ${
-                      isCurrentlyPlaying ? 'text-white' : 'text-gray-800 dark:text-gray-200'
+                      isCurrentlyPlaying ? 'text-white' : 'text-gray-800 dark:text-gray-100'
                     }`}>{SCENE_NARRATIONS[sceneNumber]}</p>
                   </div>
                 )}
