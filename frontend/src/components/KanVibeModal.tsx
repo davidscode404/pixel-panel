@@ -228,10 +228,10 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
                 {/* Narration Below - All screen sizes */}
                 {showNarration && SCENE_NARRATIONS[sceneNumber] && (
                   <div className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
-                    isCurrentlyPlaying ? 'bg-accent' : 'bg-white dark:bg-black'
+                    isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-gray-900'
                   }`}>
                     <p className={`text-sm italic leading-tight ${
-                      isCurrentlyPlaying ? 'text-white' : 'text-black dark:text-white'
+                      isCurrentlyPlaying ? 'text-white' : 'text-gray-800 dark:text-gray-200'
                     }`}>{SCENE_NARRATIONS[sceneNumber]}</p>
                   </div>
                 )}
