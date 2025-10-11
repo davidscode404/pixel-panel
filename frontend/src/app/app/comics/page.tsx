@@ -79,15 +79,20 @@ export default function MyComicsPage() {
           throw new Error(`Failed to fetch comics: ${response.status}`);
         }
 
-        const data = await response.json();
-        
-        // Transform the data to match our interface
-        const transformedComics = (data.comics || []).map((comic: any) => ({
-          ...comic,
-          panels: (comic.comic_panels || []).sort((a: ComicPanel, b: ComicPanel) => a.panel_number - b.panel_number)
-        }));
-        
-        setComics(transformedComics);
+      const data = await response.json();
+      
+      // Transform the data to match our interface and add cache-busting to audio URLs
+      const transformedComics = (data.comics || []).map((comic: any) => ({
+        ...comic,
+        panels: (comic.comic_panels || [])
+          .sort((a: ComicPanel, b: ComicPanel) => a.panel_number - b.panel_number)
+          .map((panel: ComicPanel) => ({
+            ...panel,
+            // Keep audio_url as-is, cache-busting is added during playback
+          }))
+      }));
+      
+      setComics(transformedComics);
       }
     } catch (error) {
       // Error loading comics
@@ -146,9 +151,17 @@ export default function MyComicsPage() {
   };
 
   const handleComicUpdated = (updatedComic: Comic) => {
+    console.log('Comics page received updated comic:', updatedComic.id)
+    console.log('Updated panels audio URLs:', updatedComic.panels.map(p => ({ 
+      panel: p.panel_number, 
+      hasAudio: !!p.audio_url 
+    })))
+    
+    // Update the comics list
     setComics(prev => prev.map(comic => 
       comic.id === updatedComic.id ? updatedComic : comic
     ));
+    // Update the selected comic (important for modal state)
     setSelectedComic(updatedComic);
   };
 
@@ -224,7 +237,7 @@ export default function MyComicsPage() {
             </div>
           </div>
         ) : (
-          <div className="columns-2 md:columns-5 lg:columns-5 xl:columns-5 gap-6 space-y-6 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full">
             {comics.map((comic, index) => {
 
               return (

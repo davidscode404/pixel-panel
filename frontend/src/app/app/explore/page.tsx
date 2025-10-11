@@ -163,7 +163,7 @@ export default function ExplorePage() {
             </div>
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-6 space-y-6 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 w-full">
           {/* Kan Vibe Featured Card */}
           <KanVibeShowcase 
             onOpenModal={openKanVibeModal}
