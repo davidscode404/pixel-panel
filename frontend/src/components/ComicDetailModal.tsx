@@ -817,18 +817,27 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
         )}
 
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {comic.panels
-            .filter(panel => panel.panel_number > 0)
-            .sort((a, b) => a.panel_number - b.panel_number)
-            .map((panel) => {
+        <div className="columns-1 sm:columns-2 gap-6">
+          {(() => {
+            const sortedPanels = comic.panels
+              .filter(panel => panel.panel_number > 0)
+              .sort((a, b) => a.panel_number - b.panel_number);
+            
+            // Reorder for columns layout to appear left-to-right
+            // Split into two groups: [0,2,4...] and [1,3,5...]
+            const reordered = [];
+            const leftColumn = sortedPanels.filter((_, i) => i % 2 === 0);
+            const rightColumn = sortedPanels.filter((_, i) => i % 2 === 1);
+            reordered.push(...leftColumn, ...rightColumn);
+            
+            return reordered.map((panel) => {
               const isCurrentlyPlaying = currentPlayingPanel === panel.panel_number;
               const isEditing = editingPanel?.id === panel.id;
               const isEditable = isEditMode;
               return (
               <div
                 key={panel.id}
-                className={`bg-background-tertiary overflow-hidden transition-all duration-300 relative border-4 ${
+                className={`bg-background-tertiary overflow-hidden transition-all duration-300 border-4 mb-6 break-inside-avoid ${
                   isEditable
                     ? 'border-orange-400 cursor-pointer hover:border-orange-500' 
                     : isCurrentlyPlaying
@@ -929,7 +938,8 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                 )}
               </div>
               );
-            })}
+            });
+          })()}
         </div>
       </div>
 

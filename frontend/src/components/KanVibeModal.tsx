@@ -204,17 +204,23 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
         </div>
 
         {/* Scene Grid */}
-        <div className="columns-1 sm:columns-2 gap-4">
-          {SCENES.map((sceneNumber) => {
-            const isCurrentlyPlaying = currentPlayingScene === sceneNumber;
-            return (
-              <div
-                key={sceneNumber}
-                className={`bg-background-tertiary overflow-hidden transition-all duration-300 border-4 mb-4 break-inside-avoid ${
-                  isCurrentlyPlaying ? 'border-accent ring-2 ring-accent' : 'border-black'
-                }`}
-                onClick={handleSceneClick}
-              >
+        <div className="columns-1 sm:columns-2 gap-6">
+          {(() => {
+            // Reorder for columns layout to appear left-to-right
+            const leftColumn = SCENES.filter((_, i) => i % 2 === 0);
+            const rightColumn = SCENES.filter((_, i) => i % 2 === 1);
+            const reordered = [...leftColumn, ...rightColumn];
+            
+            return reordered.map((sceneNumber) => {
+              const isCurrentlyPlaying = currentPlayingScene === sceneNumber;
+              return (
+                <div
+                  key={sceneNumber}
+                  className={`bg-background-tertiary overflow-hidden transition-all duration-300 border-4 mb-6 break-inside-avoid ${
+                    isCurrentlyPlaying ? 'border-accent ring-2 ring-accent' : 'border-black'
+                  }`}
+                  onClick={handleSceneClick}
+                >
                 <div className="relative w-full aspect-[4/3]">
                   <video
                     ref={(el) => { videoRefs.current[sceneNumber] = el; }}
@@ -236,8 +242,9 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
                   </div>
                 )}
               </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
     </Modal>
