@@ -205,13 +205,7 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
 
         {/* Scene Grid */}
         <div className="columns-1 sm:columns-2 gap-6">
-          {(() => {
-            // Reorder for columns layout to appear left-to-right
-            const leftColumn = SCENES.filter((_, i) => i % 2 === 0);
-            const rightColumn = SCENES.filter((_, i) => i % 2 === 1);
-            const reordered = [...leftColumn, ...rightColumn];
-            
-            return reordered.map((sceneNumber) => {
+          {SCENES.map((sceneNumber) => {
               const isCurrentlyPlaying = currentPlayingScene === sceneNumber;
               return (
                 <div
@@ -243,8 +237,7 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
                 )}
               </div>
               );
-            });
-          })()}
+            })}
         </div>
       </div>
     </Modal>
