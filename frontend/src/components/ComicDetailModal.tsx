@@ -818,10 +818,18 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
 
 
         <div className="columns-1 sm:columns-2 gap-6">
-          {comic.panels
-            .filter(panel => panel.panel_number > 0)
-            .sort((a, b) => a.panel_number - b.panel_number)
-            .map((panel) => {
+          {(() => {
+            const sortedPanels = comic.panels
+              .filter(panel => panel.panel_number > 0)
+              .sort((a, b) => a.panel_number - b.panel_number);
+            
+            // Reorder for 2-column layout: [1,3,5...] then [2,4,6...]
+            // This makes columns display as: 1,2 | 3,4 | 5,6
+            const leftColumn = sortedPanels.filter((_, i) => i % 2 === 0);
+            const rightColumn = sortedPanels.filter((_, i) => i % 2 === 1);
+            const reordered = [...leftColumn, ...rightColumn];
+            
+            return reordered.map((panel) => {
               const isCurrentlyPlaying = currentPlayingPanel === panel.panel_number;
               const isEditing = editingPanel?.id === panel.id;
               const isEditable = isEditMode;
@@ -929,7 +937,8 @@ export default function ComicDetailModal({ comic, isOpen, onClose, showVisibilit
                 )}
               </div>
               );
-            })}
+            });
+          })()}
         </div>
       </div>
 
