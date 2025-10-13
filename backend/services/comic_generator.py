@@ -10,10 +10,11 @@ import tempfile
 import io
 import logging
 import google.generativeai as genai
-from PIL import Image
+from PIL import Image, ImageChops
 from io import BytesIO
 from dotenv import load_dotenv
 import json
+import numpy as np
 
 # Load environment variables
 load_dotenv()
@@ -29,6 +30,72 @@ class ComicArtGenerator:
         
         genai.configure(api_key=self.api_key)
         self.client = genai
+    
+    def remove_borders(self, image: Image.Image, threshold: int = 10) -> Image.Image:
+        """
+        Automatically detect and remove black/white borders from an image.
+        
+        Args:
+            image: PIL Image to process
+            threshold: Pixel variance threshold for border detection (lower = more aggressive)
+        
+        Returns:
+            PIL Image with borders removed
+        """
+        try:
+            # Convert to numpy array for easier processing
+            img_array = np.array(image)
+            
+            # Get image dimensions
+            height, width = img_array.shape[:2]
+            
+            # Function to check if a row/column is a border (low variance)
+            def is_border_line(line):
+                # Calculate variance across RGB channels
+                variance = np.var(line)
+                # Low variance indicates uniform color (border)
+                return variance < threshold
+            
+            # Find top border
+            top = 0
+            for i in range(height):
+                if not is_border_line(img_array[i, :]):
+                    top = i
+                    break
+            
+            # Find bottom border
+            bottom = height
+            for i in range(height - 1, -1, -1):
+                if not is_border_line(img_array[i, :]):
+                    bottom = i + 1
+                    break
+            
+            # Find left border
+            left = 0
+            for i in range(width):
+                if not is_border_line(img_array[:, i]):
+                    left = i
+                    break
+            
+            # Find right border
+            right = width
+            for i in range(width - 1, -1, -1):
+                if not is_border_line(img_array[:, i]):
+                    right = i + 1
+                    break
+            
+            # Crop the image if borders were detected
+            if top > 0 or bottom < height or left > 0 or right < width:
+                cropped = image.crop((left, top, right, bottom))
+                logger.info(f"Removed borders: top={top}, bottom={height-bottom}, left={left}, right={width-right}")
+                return cropped
+            else:
+                logger.debug("No borders detected")
+                return image
+                
+        except Exception as e:
+            logger.warning(f"Error removing borders: {e}. Returning original image.")
+            return image
     
     def generate_comic_art(self, text_prompt, reference_image_data=None, context_image_data=None, is_thumbnail=False):
         """
@@ -64,6 +131,10 @@ class ComicArtGenerator:
         try:
             # Generate the comic art
             image = self._generate_art(text_prompt, reference_image_path, context_image_data, is_thumbnail)
+            
+            # Remove any black/white borders that may have been generated
+            image = self.remove_borders(image)
+            
             return image
         finally:
             # Clean up temporary reference image file
@@ -90,8 +161,9 @@ class ComicArtGenerator:
                 "You are a comic book cover art generator. Create a stunning, eye-catching comic book cover that captures the essence of the story. "
                 "Use bold, dynamic composition with professional comic book style artwork. "
                 "Create clean lines, vibrant colors, and dramatic composition typical of comic book covers. "
-                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
-                "Do NOT include white borders, text, titles, or empty white space around the artwork unless specifically requested. "
+                "CRITICAL: The artwork MUST fill the ENTIRE image frame from edge to edge. NO borders, NO frames, NO white space, NO black bars. "
+                "The image should bleed to all four edges. Do NOT add any white, black, or colored borders around the artwork. "
+                "Do NOT include text, titles, or empty space around the artwork unless specifically requested in the prompt. "
                 "Generate the image with a 3:4 aspect ratio (portrait orientation) - height should be taller than width. "
                 "Ideal dimensions are 600x800 pixels or similar 3:4 proportions suitable for a comic book cover."
             )
@@ -102,8 +174,8 @@ class ComicArtGenerator:
                 "maintaining visual consistency in style, characters, and setting. Use the reference sketch as a guide for composition. "
                 "Create clean, professional comic book style artwork with bold lines, clear forms, and comic book aesthetics. "
                 "The new scene should feel like a natural continuation of the story. "
-                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
-                "Do NOT include white borders or empty white space around the artwork unless specifically requested in the prompt. "
+                "CRITICAL: The artwork MUST fill the ENTIRE image frame from edge to edge. NO borders, NO frames, NO white space, NO black bars. "
+                "The image should bleed to all four edges. Do NOT add any white, black, or colored borders around the artwork. "
                 "Generate the image with a 4:3 aspect ratio (landscape orientation) - width should be wider than height. "
                 "Ideal dimensions are 800x600 pixels or similar 4:3 proportions."
             )
@@ -113,8 +185,8 @@ class ComicArtGenerator:
                 "Create clean, professional comic book style artwork that matches the reference sketch's composition and elements. "
                 "Use bold lines, clear forms, and comic book aesthetics. Maintain the same perspective, character positions, "
                 "and scene composition as shown in the reference sketch. "
-                "Fill the entire image frame with artwork - the composition should extend edge-to-edge without empty borders. "
-                "Do NOT include white borders or empty white space around the artwork unless specifically requested in the prompt. "
+                "CRITICAL: The artwork MUST fill the ENTIRE image frame from edge to edge. NO borders, NO frames, NO white space, NO black bars. "
+                "The image should bleed to all four edges. Do NOT add any white, black, or colored borders around the artwork. "
                 "Generate the image with a 4:3 aspect ratio (landscape orientation) - width should be wider than height. "
                 "Ideal dimensions are 800x600 pixels or similar 4:3 proportions."
             )

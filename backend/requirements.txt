@@ -12,3 +12,4 @@ supabase
 PyJWT
 stripe
 slowapi
+numpy

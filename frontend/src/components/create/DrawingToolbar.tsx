@@ -8,6 +8,8 @@ interface DrawingToolbarProps {
   currentColor: string;
   onColorChange: (color: string) => void;
   onClear: () => void;
+  onUndo: () => void;
+  canUndo: boolean;
   textPrompt: string;
   setTextPrompt: SetText;
   onGenerate: () => void;
@@ -21,6 +23,8 @@ export default function DrawingToolbar({
   currentColor,
   onColorChange,
   onClear,
+  onUndo,
+  canUndo,
   textPrompt,
   setTextPrompt,
   onGenerate,
@@ -82,6 +86,21 @@ export default function DrawingToolbar({
         />
 
         <div className="w-px h-4 lg:h-6 bg-border mx-1"></div>
+
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          className={`p-2 lg:p-2.5 rounded-lg transition-all ${
+            canUndo 
+              ? 'text-foreground hover:bg-background-tertiary' 
+              : 'text-foreground-muted cursor-not-allowed opacity-50'
+          }`}
+          title={`Undo${canUndo ? '' : ' (no history)'}`}
+        >
+          <svg className="w-4 h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+        </button>
 
         <button
           onClick={onClear}
@@ -172,9 +191,10 @@ export default function DrawingToolbar({
           </div>
         </div>
 
-        {/* Tip at bottom */}
-        <div className="text-xs text-foreground-muted leading-relaxed hidden lg:block">
-          💡 Tip: Be specific about characters, actions, lighting, and emotions for best results
+        {/* Tips at bottom */}
+        <div className="text-xs text-foreground-muted leading-relaxed space-y-1.5">
+          <div>💡 Tip #1: Be specific about characters, actions, lighting, and emotions for best results</div>
+          <div>🔄 Tip #2: To generate a completely new scene, click the delete button (trash icon) first instead of generating on top of the current panel</div>
         </div>
       </div>
     </div>

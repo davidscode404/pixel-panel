@@ -89,6 +89,8 @@ export default function CreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   
+  // Undo history state - store up to 5 previous states per panel
+  const [undoHistory, setUndoHistory] = useState<Map<number, string[]>>(new Map());
   
   // Audio state
   const [currentAudio] = useState<HTMLAudioElement | null>(null);
@@ -117,6 +119,76 @@ export default function CreatePage() {
       }
     };
   }, [currentAudio]);
+
+  // Save current canvas state to undo history (before making changes)
+  const saveToUndoHistory = (panelId: number) => {
+    const panel = panels.find(p => p.id === panelId);
+    if (!panel || !panel.canvasRef.current) return;
+
+    const canvas = panel.canvasRef.current;
+    const currentState = canvas.toDataURL();
+
+    setUndoHistory(prev => {
+      const newHistory = new Map(prev);
+      const panelHistory = newHistory.get(panelId) || [];
+      
+      // Add current state to history, keep only last 5 states
+      const updatedHistory = [...panelHistory, currentState].slice(-5);
+      newHistory.set(panelId, updatedHistory);
+      
+      return newHistory;
+    });
+  };
+
+  // Undo last drawing action
+  const handleUndo = (panelId: number) => {
+    const panel = panels.find(p => p.id === panelId);
+    if (!panel || !panel.canvasRef.current) return;
+
+    const panelHistory = undoHistory.get(panelId);
+    if (!panelHistory || panelHistory.length === 0) return;
+
+    const canvas = panel.canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Get the last state from history
+    const previousState = panelHistory[panelHistory.length - 1];
+
+    // Restore previous state
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      // Save the restored state
+      const zoomedPanel = panels.find(p => p.isZoomed);
+      if (zoomedPanel && zoomedPanel.id === panelId) {
+        saveCanvasState(panelId, true);
+        updateSmallCanvasPreview(panelId);
+      } else {
+        saveCanvasState(panelId, false);
+      }
+    };
+    img.src = previousState;
+
+    // Remove the last state from history
+    setUndoHistory(prev => {
+      const newHistory = new Map(prev);
+      const updatedPanelHistory = panelHistory.slice(0, -1);
+      newHistory.set(panelId, updatedPanelHistory);
+      return newHistory;
+    });
+  };
+
+  // Clear undo history for a panel
+  const clearUndoHistory = (panelId: number) => {
+    setUndoHistory(prev => {
+      const newHistory = new Map(prev);
+      newHistory.delete(panelId);
+      return newHistory;
+    });
+  };
 
 
 
@@ -245,6 +317,9 @@ export default function CreatePage() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Save current state to undo history before drawing
+    saveToUndoHistory(panelId);
+
     setIsDrawing(true);
     const rect = canvas.getBoundingClientRect();
     
@@ -352,6 +427,9 @@ export default function CreatePage() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Clear undo history for this panel
+    clearUndoHistory(panelId);
 
     // Update panel data to reflect cleared state and disable subsequent panels
     updatePanels(p => {
@@ -475,11 +553,38 @@ export default function CreatePage() {
     setIsGenerating(true);
     
     try {
+      const accessToken = await getAccessToken();
+      
+      // First, check if user has sufficient credits BEFORE making the expensive generation call
+      const creditsResponse = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.USER_CREDITS), {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (!creditsResponse.ok) {
+        setError('Failed to check credits. Please try again.');
+        setIsGenerating(false);
+        return;
+      }
+
+      const creditsData = await creditsResponse.json();
+      const currentCredits = creditsData.credits || 0;
+
+      // Panel generation costs 10 credits
+      const requiredCredits = 10;
+      
+      if (currentCredits < requiredCredits) {
+        setError(`Insufficient credits. You have ${currentCredits} credits but need ${requiredCredits} to generate a panel. Please visit the Credits page to purchase more.`);
+        setIsGenerating(false);
+        return;
+      }
+
+      // User has enough credits, proceed with generation
       const canvas = panel.canvasRef.current;
       const canvasData = canvas.toDataURL('image/png');
       const base64Data = canvasData.split(',')[1];
-
-      const accessToken = await getAccessToken();
       
       const previousPanel = panelId > 1 ? panels.find(p => p.id === panelId - 1) : null;
 
@@ -504,6 +609,12 @@ export default function CreatePage() {
 
       const result = await response.json();
 
+      // Check for insufficient credits (402 status code) - backup check
+      if (response.status === 402) {
+        setError('Insufficient credits. You need 10 credits to generate a panel. Please visit the Credits page to purchase more.');
+        return;
+      }
+
       if (result.success) {
         const img = new Image();
         img.onload = () => {
@@ -511,24 +622,9 @@ export default function CreatePage() {
           if (ctx) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            const canvasAspect = canvas.width / canvas.height;
-            const imgAspect = img.width / img.height;
-            
-            let drawWidth, drawHeight, offsetX, offsetY;
-            
-            if (imgAspect > canvasAspect) {
-              drawWidth = canvas.width;
-              drawHeight = canvas.width / imgAspect;
-              offsetX = 0;
-              offsetY = (canvas.height - drawHeight) / 2;
-            } else {
-              drawHeight = canvas.height;
-              drawWidth = canvas.height * imgAspect;
-              offsetX = (canvas.width - drawWidth) / 2;
-              offsetY = 0;
-            }
-            
-            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+            // Fill entire canvas - stretch image to fit perfectly with no gaps
+            // Since we're generating images at 4:3 and canvas is 4:3, this should be seamless
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
             saveCanvasState(panelId, true);
             updateSmallCanvasPreview(panelId);
@@ -538,10 +634,12 @@ export default function CreatePage() {
         };
         img.src = `data:image/png;base64,${result.image_data}`;
       } else {
-        setError(result.error || 'Error generating comic art');
+        // Display the specific error from the backend
+        setError(result.detail || result.error || 'Error generating comic art');
       }
-    } catch {
-      setError('Failed to generate comic art. Make sure the backend server is running.');
+    } catch (error) {
+      console.error('Generation error:', error);
+      setError('Failed to generate comic art. Please make sure the backend server is running.');
     } finally {
       setIsGenerating(false);
     }
@@ -576,10 +674,15 @@ export default function CreatePage() {
             <div className="flex-shrink-0 p-4 lg:p-6 flex justify-between items-center">
               <button
                 onClick={() => handlePanelClick(zoomedPanel.id)}
-                className="group rounded-lg border border-solid border-amber-100/30 transition-all duration-300 flex items-center justify-center gap-2 bg-stone-800/40 backdrop-blur-sm text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 font-medium text-sm h-10 px-4 lg:px-6 shadow-xl hover:shadow-2xl hover:scale-105"
+                disabled={isGenerating}
+                className={`group rounded-lg border border-solid transition-all duration-300 flex items-center justify-center gap-2 backdrop-blur-sm font-medium text-sm h-10 px-4 lg:px-6 shadow-xl ${
+                  isGenerating
+                    ? 'border-gray-500/30 bg-stone-800/20 text-gray-500 cursor-not-allowed opacity-50'
+                    : 'border-amber-100/30 bg-stone-800/40 text-amber-50 hover:bg-stone-700/50 hover:border-amber-100/50 hover:shadow-2xl hover:scale-105'
+                }`}
               >
                 <svg 
-                  className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" 
+                  className={`w-4 h-4 transition-transform duration-300 ${!isGenerating && 'group-hover:-translate-x-1'}`}
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -622,13 +725,15 @@ export default function CreatePage() {
           </div>
 
           {/* Drawing Tools Panel - Right Side on desktop, Bottom on mobile */}
-          <div className="w-full lg:w-80 flex flex-col h-auto lg:h-full p-2 lg:p-4 border-t lg:border-t-0 lg:border-l border-border">
+          <div className="w-full lg:w-80 flex flex-col h-auto lg:h-full p-2 lg:p-4">
             <DrawingToolbar
               currentTool={currentTool}
               onToolChange={handleToolChange}
               currentColor={currentColor}
               onColorChange={setCurrentColor}
               onClear={() => clearPanel(zoomedPanel.id)}
+              onUndo={() => handleUndo(zoomedPanel.id)}
+              canUndo={(undoHistory.get(zoomedPanel.id)?.length || 0) > 0}
               textPrompt={textPrompt}
               setTextPrompt={setTextPrompt}
               onGenerate={() => generateComicArt(zoomedPanel.id)}
