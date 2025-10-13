@@ -34,8 +34,8 @@
     },
     {
       "id": 5,
-      "title": "Comic Adventure Book 5",
-      "author": "PixelPanel Creator",
+      "title": "Commit, Push, Panic!",
+      "author": "Merge Conflict",
       "color": "#7C3AED",
       "gradient": "from-violet-500 to-purple-600",
       "image": "/book5.png"
@@ -50,8 +50,8 @@
     },
     {
       "id": 7,
-      "title": "Green Rampage",
-      "author": "PixelPanel Creator",
+      "title": "The Infinite Loop",
+      "author": "Null Pointer",
       "color": "#65A30D",
       "gradient": "from-lime-500 to-green-600",
       "image": "/book7.png"
