@@ -173,7 +173,7 @@ export default function ExplorePage() {
             return (
             <div
               key={comic.id}
-              className="group relative bg-background-card overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02] border-4 border-black"
+              className="group relative bg-background-card overflow-hidden cursor-pointer hover:ring-2 hover:ring-accent transition-all duration-200 hover:scale-[1.02]"
               onClick={() => openModal(comic)}
             >
               {/* Image */}
