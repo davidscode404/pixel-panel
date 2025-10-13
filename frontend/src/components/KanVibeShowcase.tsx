@@ -5,12 +5,11 @@ import Image from 'next/image';
 
 interface KanVibeShowcaseProps {
   onOpenModal?: () => void;
-  onOpenModalAndPlay?: () => void;
 }
 
 const SCENES = [1, 2, 3, 4, 5, 6];
 
-export default function KanVibeShowcase({ onOpenModal, onOpenModalAndPlay }: KanVibeShowcaseProps) {
+export default function KanVibeShowcase({ onOpenModal }: KanVibeShowcaseProps) {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -27,13 +26,6 @@ export default function KanVibeShowcase({ onOpenModal, onOpenModalAndPlay }: Kan
   const handleCardClick = () => {
     if (onOpenModal) {
       onOpenModal();
-    }
-  };
-
-  const handlePlayClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onOpenModalAndPlay) {
-      onOpenModalAndPlay();
     }
   };
 
@@ -67,26 +59,12 @@ export default function KanVibeShowcase({ onOpenModal, onOpenModalAndPlay }: Kan
         )}
       </div>
 
-      {/* Play button overlay */}
-      <div className="absolute top-3 right-3">
-        <button
-          onClick={handlePlayClick}
-          className="bg-accent hover:bg-accent-hover text-white rounded-full p-2 transition-all duration-200 hover:scale-110 shadow-lg"
-          aria-label="Play Kan Vibe"
-          title="Play Kan Vibe with audio"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </button>
-      </div>
-
       {/* Title and info at bottom with overlay */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-3">
         <h3 className="text-white font-semibold text-sm mb-1 line-clamp-2 leading-tight">Kan Vibe</h3>
         <div className="flex items-center justify-between text-xs">
-          <p className="text-white/80 font-medium">
-            Featured Comic
+          <p className="text-foreground-secondary font-medium">
+            AI Tinkerers
           </p>
           <p className="text-foreground-secondary">
             {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}

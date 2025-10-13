@@ -293,22 +293,6 @@ export default function MyComicsPage() {
                       }
                     })()
                   )}
-
-                  {/* Play button overlay - only show if comic has audio */}
-                  {comic.panels.some(p => p.audio_url && p.panel_number > 0) && (
-                    <div className="absolute top-3 right-3">
-                      <button
-                        onClick={(e) => openModalAndPlay(comic, e)}
-                        className="bg-accent hover:bg-accent-hover text-white rounded-full p-2 transition-all duration-200 hover:scale-110 shadow-lg"
-                        aria-label="Play comic"
-                        title="Play comic with audio"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 {/* Title and date at bottom with overlay */}
