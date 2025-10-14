@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "PixelPanel - AI Comic Generator",
-  description: "Generate your comic story via voice with our AI-powered comic generator agent.",
+  description: "Generate your comic story with our AI-powered comic generator agent.",
   icons: {
     icon: [
       { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },

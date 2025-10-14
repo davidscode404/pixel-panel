@@ -69,8 +69,7 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-base sm:text-lg text-stone-300 drop-shadow-lg">
-              Generate your comic story via voice with our AI-powered comic generator agent.
-              Simply speak your ideas and watch them come to life!
+            Sketch it. Prompt it. Generate stunning comic art with AI voices.
             </p>
           </div>
 
