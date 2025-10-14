@@ -203,10 +203,48 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
           </button>
         </div>
 
-        {/* Scene Grid */}
-        <div className="columns-1 sm:columns-2 gap-6">
+        {/* Single column view (mobile) - Normal order 1,2,3,4,5,6 */}
+        <div className="sm:hidden flex flex-col gap-6">
+          {SCENES.map((sceneNumber) => {
+            const isCurrentlyPlaying = currentPlayingScene === sceneNumber;
+            return (
+              <div
+                key={sceneNumber}
+                className={`bg-background-tertiary overflow-hidden transition-all duration-300 border-4 break-inside-avoid ${
+                  isCurrentlyPlaying ? 'border-accent ring-2 ring-accent' : 'border-black'
+                }`}
+                onClick={handleSceneClick}
+              >
+                <div className="relative w-full aspect-[4/3]">
+                  <video
+                    ref={(el) => { videoRefs.current[sceneNumber] = el; }}
+                    className="w-full h-full object-cover"
+                    preload="metadata"
+                    src={`/saved-comics/kan_vibe/scene${sceneNumber}.mp4#t=0.1`}
+                    muted
+                    loop
+                  />
+                </div>
+                {/* Narration Below */}
+                {showNarration && SCENE_NARRATIONS[sceneNumber] && (
+                  <div className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
+                    isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-black'
+                  }`}>
+                    <p className={`text-sm italic leading-tight ${
+                      isCurrentlyPlaying ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+                    }`}>{SCENE_NARRATIONS[sceneNumber]}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Two column view (tablet and up) - Reordered for proper reading */}
+        <div className="hidden sm:block columns-2 gap-6">
           {(() => {
             // Reorder for 2-column layout: [1,3,5] then [2,4,6]
+            // This makes columns display as: 1,2 | 3,4 | 5,6
             const leftColumn = SCENES.filter((_, i) => i % 2 === 0);
             const rightColumn = SCENES.filter((_, i) => i % 2 === 1);
             const reordered = [...leftColumn, ...rightColumn];
@@ -231,7 +269,7 @@ export default function KanVibeModal({ isOpen, onClose, autoPlay = false }: KanV
                     loop
                   />
                 </div>
-                {/* Narration Below - All screen sizes */}
+                {/* Narration Below */}
                 {showNarration && SCENE_NARRATIONS[sceneNumber] && (
                   <div className={`px-3 py-2 border-t-4 border-black transition-all duration-300 ${
                     isCurrentlyPlaying ? 'bg-accent' : 'bg-gray-50 dark:bg-black'
